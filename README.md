@@ -147,11 +147,14 @@ terminus/
 │   ├── server/              # FastAPI Application, Routers & Dashboard Static HTML
 │   ├── siem/                # Wazuh SIEM Client Adapters
 │   └── ticketing/           # Ticket Store Persistence Layer
+├── docs/                    # Specifications & Technical Design Docs
+├── scripts/                 # Utility & Threat Simulation Scripts
 ├── opposer/                 # Standalone Red Team Opposer Appliance (Port 8080)
 ├── honeypot/                # Native Python Honeypot Target Service (Port 5000)
 ├── tests/                   # Pytest Test Suite
+├── ARCHITECTURE.md          # Architectural Reference & Data Flow Diagrams
 ├── pyproject.toml           # Package Dependencies & Tooling Configuration
-└── README.md                # Platform Documentation
+└── README.md                # Platform Overview & Setup Documentation
 ```
 
 ---
