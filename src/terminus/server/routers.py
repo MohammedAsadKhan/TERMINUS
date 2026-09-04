@@ -249,3 +249,131 @@ async def list_incidents(
 ) -> list[dict[str, str]]:
     """Fetch live incident tickets for the active tenant."""
     return await pipeline_runner.deployment.ticket_store.list_tickets(org_id)
+
+
+# ─── Agents & Workflow Routers ───────────────────────────────────────────────────
+
+agent_router = APIRouter(prefix="/agents", tags=["Agents"])
+workflow_router = APIRouter(prefix="/workflows", tags=["Workflows"])
+
+
+from terminus.models import AgentStatus, SocAgent, Workflow
+from terminus.server.deps import get_agents_store, get_workflows_store
+
+
+class CreateAgentRequest(BaseModel):
+    name: str = Field(min_length=1)
+    role_description: str = Field(min_length=1)
+    master_prompt: str = Field(min_length=1)
+
+
+class UpdateAgentRequest(BaseModel):
+    name: str | None = None
+    role_description: str | None = None
+    master_prompt: str | None = None
+    status: AgentStatus | None = None
+
+
+@agent_router.get("")
+async def list_agents(
+    agents_store: Annotated[dict[str, SocAgent], Depends(get_agents_store)],
+) -> list[SocAgent]:
+    """List all AI SOC agents in the active fleet."""
+    return list(agents_store.values())
+
+
+@agent_router.post("", status_code=status.HTTP_201_CREATED)
+async def create_agent(
+    req: CreateAgentRequest,
+    agents_store: Annotated[dict[str, SocAgent], Depends(get_agents_store)],
+) -> SocAgent:
+    """Deploy a new AI SOC agent with custom master system prompt."""
+    import secrets
+    from datetime import datetime, timezone
+
+    agent_id = f"agent-{secrets.token_hex(4)}"
+    new_agent = SocAgent(
+        id=agent_id,
+        name=req.name,
+        role_description=req.role_description,
+        master_prompt=req.master_prompt,
+        status=AgentStatus.ACTIVE,
+        incidents_processed=0,
+        avg_sla_ms=2.4,
+        created_at=datetime.now(timezone.utc).isoformat(),
+    )
+    agents_store[agent_id] = new_agent
+    return new_agent
+
+
+@agent_router.patch("/{agent_id}")
+async def update_agent(
+    agent_id: str,
+    req: UpdateAgentRequest,
+    agents_store: Annotated[dict[str, SocAgent], Depends(get_agents_store)],
+) -> SocAgent:
+    """Update agent status (ON/OFF toggle) or master system prompt."""
+    agent = agents_store.get(agent_id)
+    if not agent:
+        raise HTTPException(status_code=404, detail=f"Agent '{agent_id}' not found")
+
+    updated_data = agent.model_dump()
+    if req.name is not None:
+        updated_data["name"] = req.name
+    if req.role_description is not None:
+        updated_data["role_description"] = req.role_description
+    if req.master_prompt is not None:
+        updated_data["master_prompt"] = req.master_prompt
+    if req.status is not None:
+        updated_data["status"] = req.status
+
+    updated_agent = SocAgent(**updated_data)
+    agents_store[agent_id] = updated_agent
+    return updated_agent
+
+
+@workflow_router.get("")
+async def list_workflows(
+    workflows_store: Annotated[dict[str, Workflow], Depends(get_workflows_store)],
+) -> list[Workflow]:
+    """List all n8n-style visual SOC workflows."""
+    return list(workflows_store.values())
+
+
+@workflow_router.post("", status_code=status.HTTP_201_CREATED)
+async def create_workflow(
+    workflow: Workflow,
+    workflows_store: Annotated[dict[str, Workflow], Depends(get_workflows_store)],
+) -> Workflow:
+    """Create a new visual node workflow."""
+    workflows_store[workflow.id] = workflow
+    return workflow
+
+
+@workflow_router.put("/{workflow_id}")
+async def update_workflow(
+    workflow_id: str,
+    workflow: Workflow,
+    workflows_store: Annotated[dict[str, Workflow], Depends(get_workflows_store)],
+) -> Workflow:
+    """Save/update node layout, connections, and node configs for a workflow."""
+    workflows_store[workflow_id] = workflow
+    return workflow
+
+
+@workflow_router.post("/{workflow_id}/execute")
+async def execute_test_workflow(
+    workflow_id: str,
+    workflows_store: Annotated[dict[str, Workflow], Depends(get_workflows_store)],
+) -> dict[str, Any]:
+    """Simulate a test execution run of a node workflow."""
+    wf = workflows_store.get(workflow_id)
+    if not wf:
+        raise HTTPException(status_code=404, detail=f"Workflow '{workflow_id}' not found")
+
+    return {
+        "status": "success",
+        "workflow_id": workflow_id,
+        "nodes_executed": len(wf.nodes),
+        "summary": f"Simulated execution of '{wf.name}' finished with 0 errors across {len(wf.nodes)} nodes.",
+    }

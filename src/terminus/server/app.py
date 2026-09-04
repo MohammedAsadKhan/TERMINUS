@@ -12,10 +12,12 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from terminus.config import get_settings
 from terminus.server.routers import (
+    agent_router,
     auth_router,
     health_router,
     org_router,
     webhook_router,
+    workflow_router,
 )
 
 
@@ -50,6 +52,8 @@ def create_app() -> FastAPI:
     app.include_router(auth_router)
     app.include_router(org_router)
     app.include_router(webhook_router)
+    app.include_router(agent_router)
+    app.include_router(workflow_router)
 
     return app
 

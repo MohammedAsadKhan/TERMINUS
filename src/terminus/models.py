@@ -149,3 +149,68 @@ class InvestigationReport:
     policy: PolicyResult
     verdict: Verdict
     evidence: Evidence
+
+
+# ─── SOC Agent & Workflow Automation Models ───────────────────────────────────────
+
+
+class AgentStatus(StrEnum):
+    """Execution status of an AI SOC agent."""
+
+    ACTIVE = "active"
+    PAUSED = "paused"
+    MAINTENANCE = "maintenance"
+
+
+class SocAgent(BaseModel):
+    """Configuration and status model for a specialized AI SOC agent."""
+
+    model_config = ConfigDict(extra="allow")
+
+    id: str
+    name: str
+    role_description: str
+    master_prompt: str
+    status: AgentStatus = AgentStatus.ACTIVE
+    incidents_processed: int = 0
+    avg_sla_ms: float = 2.4
+    created_at: str = ""
+
+
+from typing import Any
+
+
+class WorkflowNode(BaseModel):
+    """A node inside the visual SOC workflow canvas (n8n style)."""
+
+    model_config = ConfigDict(extra="allow")
+
+    id: str
+    type: str  # e.g., trigger_wazuh, trigger_cron, agent_llm, tool_firewall, condition_severity, loop_poll
+    label: str
+    config: dict[str, Any] = Field(default_factory=dict)
+    x: int = 0
+    y: int = 0
+
+
+class WorkflowEdge(BaseModel):
+    """A directional dataflow wire connecting two nodes in a workflow."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    id: str
+    source: str
+    target: str
+
+
+class Workflow(BaseModel):
+    """A complete node-based SOC automation workflow."""
+
+    model_config = ConfigDict(extra="allow")
+
+    id: str
+    name: str
+    agent_id: str | None = None
+    enabled: bool = True
+    nodes: list[WorkflowNode] = Field(default_factory=list)
+    edges: list[WorkflowEdge] = Field(default_factory=list)

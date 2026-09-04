@@ -90,6 +90,51 @@ def test_auth_and_org_lifecycle_e2e(client: TestClient) -> None:
     assert report["verdict"]["severity"] == "medium"
 
 
+def test_agents_and_workflows_api(client: TestClient) -> None:
+    """Test AI Agents and Workflows REST API endpoints."""
+    # 1. List pre-seeded agents
+    res = client.get("/agents")
+    assert res.status_code == 200
+    agents = res.json()
+    assert len(agents) >= 4
+    agent_ids = [a["id"] for a in agents]
+    assert "agent-triage" in agent_ids
+    assert "agent-forensic" in agent_ids
+
+    # 2. Create new agent
+    res = client.post(
+        "/agents",
+        json={
+            "name": "Malware Sandbox Agent",
+            "role_description": "Executes dynamic binary detonation in isolated VM sandbox.",
+            "master_prompt": "You are the Malware Sandbox Agent. Execute PE files in Cuckoo Sandbox.",
+        },
+    )
+    assert res.status_code == 201
+    new_agent = res.json()
+    assert new_agent["name"] == "Malware Sandbox Agent"
+    assert new_agent["status"] == "active"
+
+    # 3. Patch agent status (toggle to paused)
+    res = client.patch(
+        f"/agents/{new_agent['id']}",
+        json={"status": "paused"},
+    )
+    assert res.status_code == 200
+    assert res.json()["status"] == "paused"
+
+    # 4. List pre-seeded workflows
+    res = client.get("/workflows")
+    assert res.status_code == 200
+    workflows = res.json()
+    assert len(workflows) >= 2
+
+    # 5. Execute test workflow
+    res = client.post(f"/workflows/{workflows[0]['id']}/execute")
+    assert res.status_code == 200
+    assert res.json()["status"] == "success"
+
+
 def test_tenant_isolation_unauthorized_access(client: TestClient) -> None:
     """Test that users cannot submit alerts to orgs they are not members of."""
     # Register & Login User 1 -> Create Org A

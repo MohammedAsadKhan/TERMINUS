@@ -27,6 +27,7 @@ from terminus.policies.engine import PolicyEngine
 from terminus.siem.static import StaticSiemClient
 from terminus.siem.wazuh import WazuhClient
 from terminus.ticketing.jira import JiraTickets
+from terminus.models import AgentStatus, SocAgent, Workflow, WorkflowEdge, WorkflowNode
 from terminus.ticketing.memory import MemoryTickets
 
 # ─── Global State Container (In-Memory for MVP-1) ──────────────────────────────────
@@ -36,6 +37,101 @@ _org_store = OrganizationStore()
 _membership_store = MembershipStore()
 _ticket_store = MemoryTickets()
 _auth_service = AuthService(_user_store)
+
+_agents_store: dict[str, SocAgent] = {
+    "agent-triage": SocAgent(
+        id="agent-triage",
+        name="Triage Sentinel",
+        role_description="Sub-millisecond alert filtering, MITRE tag correlation, and noise suppression.",
+        master_prompt="You are the Triage Sentinel AI Agent. Your primary role is to inspect incoming raw SIEM telemetry from Wazuh, evaluate alert severity levels against organizational policy rules, and filter out low-level operational noise (levels 1-4) without consuming unnecessary LLM token quota.",
+        status=AgentStatus.ACTIVE,
+        incidents_processed=1248,
+        avg_sla_ms=1.2,
+        created_at="2026-09-01T00:00:00Z",
+    ),
+    "agent-forensic": SocAgent(
+        id="agent-forensic",
+        name="Forensic Investigator",
+        role_description="Deep LLM evidence collection, threat intel enrichment, payload breakdown, and root cause reasoning.",
+        master_prompt="You are the Forensic Investigator AI Agent. Your role is to perform deep-dive analysis on high-severity security incidents (levels 10-15). You gather process execution trees, inspect network payload strings, correlate IOCs against threat intelligence feeds, and render structured JSON verdicts with high-confidence root cause explanations.",
+        status=AgentStatus.ACTIVE,
+        incidents_processed=482,
+        avg_sla_ms=4.8,
+        created_at="2026-09-01T00:00:00Z",
+    ),
+    "agent-containment": SocAgent(
+        id="agent-containment",
+        name="Containment Operator",
+        role_description="Executes network boundary firewall blocks, host workstation isolations, and service credential revocations.",
+        master_prompt="You are the Containment Operator AI Agent. Your role is to execute automated remediation playbooks when critical threats (e.g. Ransomware, LSASS Dumping, Log4Shell RCE) are identified by the Forensic Investigator. You dispatch API calls to boundary firewalls, isolate compromised endpoints, and trigger account lockouts.",
+        status=AgentStatus.ACTIVE,
+        incidents_processed=194,
+        avg_sla_ms=3.1,
+        created_at="2026-09-01T00:00:00Z",
+    ),
+    "agent-threat-hunter": SocAgent(
+        id="agent-threat-hunter",
+        name="Proactive Threat Hunter",
+        role_description="Iteratively polls endpoints every 5 minutes for anomalous memory execution and persistence mechanisms.",
+        master_prompt="You are the Proactive Threat Hunter AI Agent. You operate on a recurring scheduled loop, polling active Windows and Linux workloads for stealthy persistence mechanisms, unauthorized LSASS memory handles, and anomalous Kerberos TGS ticket requests.",
+        status=AgentStatus.ACTIVE,
+        incidents_processed=315,
+        avg_sla_ms=6.5,
+        created_at="2026-09-01T00:00:00Z",
+    ),
+}
+
+_workflows_store: dict[str, Workflow] = {
+    "wf-log4j-response": Workflow(
+        id="wf-log4j-response",
+        name="Log4Shell Automated Containment Pipeline",
+        agent_id="agent-forensic",
+        enabled=True,
+        nodes=[
+            WorkflowNode(id="n1", type="trigger_wazuh", label="Wazuh Ingest Webhook (/wazuh)", x=50, y=100),
+            WorkflowNode(id="n2", type="condition_severity", label="Policy Filter (Level >= 10)", config={"threshold": 10}, x=300, y=100),
+            WorkflowNode(id="n3", type="agent_llm", label="Forensic Investigator LLM Agent", config={"agent_id": "agent-forensic"}, x=550, y=100),
+            WorkflowNode(id="n4", type="tool_firewall", label="Block Attacker IP (Perimeter Firewall)", x=800, y=50),
+            WorkflowNode(id="n5", type="tool_isolate", label="Isolate Target Endpoint Workload", x=800, y=180),
+            WorkflowNode(id="n6", type="tool_slack", label="Dispatch Alert (#soc-critical)", x=1050, y=110),
+        ],
+        edges=[
+            WorkflowEdge(id="e1", source="n1", target="n2"),
+            WorkflowEdge(id="e2", source="n2", target="n3"),
+            WorkflowEdge(id="e3", source="n3", target="n4"),
+            WorkflowEdge(id="e4", source="n3", target="n5"),
+            WorkflowEdge(id="e5", source="n4", target="n6"),
+            WorkflowEdge(id="e6", source="n5", target="n6"),
+        ],
+    ),
+    "wf-threat-hunt-loop": Workflow(
+        id="wf-threat-hunt-loop",
+        name="Proactive Endpoint Memory Polling Loop",
+        agent_id="agent-threat-hunter",
+        enabled=True,
+        nodes=[
+            WorkflowNode(id="n1", type="trigger_cron", label="Cron Schedule Poller (Every 5m)", config={"schedule": "*/5 * * * *"}, x=50, y=120),
+            WorkflowNode(id="n2", type="agent_hunter", label="Proactive Threat Hunter Agent", config={"agent_id": "agent-threat-hunter"}, x=320, y=120),
+            WorkflowNode(id="n3", type="loop_poll", label="Memory Scan Iterator (30s Loop)", config={"interval_sec": 30}, x=580, y=120),
+            WorkflowNode(id="n4", type="tool_jira", label="Create High-Priority Jira Ticket", x=840, y=120),
+        ],
+        edges=[
+            WorkflowEdge(id="e1", source="n1", target="n2"),
+            WorkflowEdge(id="e2", source="n2", target="n3"),
+            WorkflowEdge(id="e3", source="n3", target="n4"),
+        ],
+    ),
+}
+
+
+def get_agents_store() -> dict[str, SocAgent]:
+    """Return in-memory agents store singleton."""
+    return _agents_store
+
+
+def get_workflows_store() -> dict[str, Workflow]:
+    """Return in-memory workflows store singleton."""
+    return _workflows_store
 
 
 def get_user_store() -> UserStore:

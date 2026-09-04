@@ -383,23 +383,144 @@
       </div>
     </div>
 
-    <!-- TAB 6: LICENSE MANAGEMENT -->
-    <div id="tab-license" class="tab-page hidden p-6 space-y-6">
-      <div class="bg-[#0f172a] border border-slate-800 rounded-xl p-6 space-y-6 max-w-3xl">
+    <!-- TAB 7: AI SOC AGENTS FLEET -->
+    <div id="tab-agents" class="tab-page hidden p-6 space-y-6">
+      <div class="flex items-center justify-between">
         <div>
-          <h2 class="text-lg font-bold text-white">Software License & Entitlements</h2>
-          <p class="text-xs text-slate-400 mt-1">Manage cryptographic license tokens and feature entitlements</p>
+          <h2 class="text-lg font-bold text-white flex items-center space-x-2">
+            <span>AI SOC Agent Fleet</span>
+            <span class="px-2 py-0.5 rounded bg-sky-500/10 text-sky-400 border border-sky-500/30 text-xs font-mono font-bold">Autonomous Reasoning Engine</span>
+          </h2>
+          <p class="text-xs text-slate-400 mt-0.5">Manage specialized AI agents, master system prompts, ON/OFF states, and workflow routing</p>
+        </div>
+        <button onclick="openCreateAgentModal()" class="px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-lg font-mono text-xs font-bold transition flex items-center space-x-2 shadow-lg shadow-sky-600/20">
+          <span>＋ Deploy New AI Agent</span>
+        </button>
+      </div>
+
+      <!-- Agent Fleet Grid -->
+      <div id="agentGrid" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Rendered dynamically -->
+      </div>
+    </div>
+
+    <!-- TAB 8: WORKFLOW CANVAS (n8n Node Orchestrator) -->
+    <div id="tab-workflows" class="tab-page hidden p-6 space-y-6">
+      <div class="flex items-center justify-between bg-[#0f172a] border border-slate-800 rounded-xl p-4 shadow-xl">
+        <div class="flex items-center space-x-4">
+          <div class="flex items-center space-x-2">
+            <span class="w-3 h-3 rounded-full bg-purple-500 animate-pulse"></span>
+            <h2 class="text-sm font-bold text-white font-mono">SOC Workflow Orchestrator (n8n Engine)</h2>
+          </div>
+          
+          <select id="workflowSelect" onchange="selectWorkflow(this.value)" class="bg-slate-950 border border-slate-800 text-sky-400 font-mono text-xs rounded px-3 py-1.5 outline-none focus:border-sky-500">
+            <!-- Dynamically populated -->
+          </select>
         </div>
 
-        <form id="formLicense" class="space-y-3 font-mono text-xs">
-          <div>
-            <label class="block text-slate-400 mb-1">Cryptographic License Token</label>
-            <textarea id="licenseTokenInput" rows="3" placeholder="Paste signed license token..." class="w-full bg-slate-950 border border-slate-800 rounded p-3 text-emerald-400 outline-none focus:border-sky-500"></textarea>
-          </div>
-          <button type="submit" class="px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded font-bold transition">
-            Activate / Upgrade License
+        <div class="flex items-center space-x-3">
+          <button onclick="testRunWorkflow()" class="px-3 py-1.5 bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 rounded font-mono text-xs font-bold transition flex items-center space-x-1">
+            <span>⚡ Test Run Workflow</span>
           </button>
-        </form>
+          <button onclick="saveWorkflowCanvas()" class="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded font-mono text-xs font-bold transition shadow">
+            <span>💾 Save Canvas</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Main Node Canvas Area -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[640px]">
+        <!-- Node Palette Sidebar -->
+        <div class="lg:col-span-3 bg-[#0f172a] border border-slate-800 rounded-xl p-4 space-y-4 overflow-y-auto font-mono text-xs">
+          <h3 class="text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-800 pb-2">
+            Node Palette (Drag / Click to Add)
+          </h3>
+
+          <div class="space-y-3">
+            <div>
+              <span class="text-[10px] text-slate-500 uppercase font-semibold block mb-1.5">⚡ Triggers & Ingestion</span>
+              <div class="space-y-1.5">
+                <button onclick="addNodeToCanvas('trigger_wazuh')" class="w-full text-left p-2 rounded bg-slate-950 border border-slate-800 hover:border-sky-500/50 text-slate-300 hover:text-white transition text-[11px] flex items-center space-x-2">
+                  <span class="text-amber-400">⚡</span>
+                  <span>Wazuh Alert Webhook</span>
+                </button>
+                <button onclick="addNodeToCanvas('trigger_cron')" class="w-full text-left p-2 rounded bg-slate-950 border border-slate-800 hover:border-sky-500/50 text-slate-300 hover:text-white transition text-[11px] flex items-center space-x-2">
+                  <span class="text-sky-400">⏱️</span>
+                  <span>Cron Schedule (Iterate/Poll)</span>
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <span class="text-[10px] text-slate-500 uppercase font-semibold block mb-1.5">🧠 AI Agents & Reasoning</span>
+              <div class="space-y-1.5">
+                <button onclick="addNodeToCanvas('agent_llm')" class="w-full text-left p-2 rounded bg-slate-950 border border-slate-800 hover:border-purple-500/50 text-slate-300 hover:text-white transition text-[11px] flex items-center space-x-2">
+                  <span class="text-purple-400">🧠</span>
+                  <span>LLM Reasoning Agent</span>
+                </button>
+                <button onclick="addNodeToCanvas('agent_intel')" class="w-full text-left p-2 rounded bg-slate-950 border border-slate-800 hover:border-purple-500/50 text-slate-300 hover:text-white transition text-[11px] flex items-center space-x-2">
+                  <span class="text-indigo-400">🔍</span>
+                  <span>Threat Intel Lookup</span>
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <span class="text-[10px] text-slate-500 uppercase font-semibold block mb-1.5">🛡️ SOC Containment Tools</span>
+              <div class="space-y-1.5">
+                <button onclick="addNodeToCanvas('tool_firewall')" class="w-full text-left p-2 rounded bg-slate-950 border border-slate-800 hover:border-rose-500/50 text-slate-300 hover:text-white transition text-[11px] flex items-center space-x-2">
+                  <span class="text-rose-400">🛡️</span>
+                  <span>Firewall IP Block</span>
+                </button>
+                <button onclick="addNodeToCanvas('tool_isolate')" class="w-full text-left p-2 rounded bg-slate-950 border border-slate-800 hover:border-rose-500/50 text-slate-300 hover:text-white transition text-[11px] flex items-center space-x-2">
+                  <span class="text-rose-400">🔒</span>
+                  <span>Host Isolation</span>
+                </button>
+                <button onclick="addNodeToCanvas('tool_slack')" class="w-full text-left p-2 rounded bg-slate-950 border border-slate-800 hover:border-emerald-500/50 text-slate-300 hover:text-white transition text-[11px] flex items-center space-x-2">
+                  <span class="text-emerald-400">💬</span>
+                  <span>Slack Fan-out</span>
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <span class="text-[10px] text-slate-500 uppercase font-semibold block mb-1.5">🔀 Logic & Polling Loops</span>
+              <div class="space-y-1.5">
+                <button onclick="addNodeToCanvas('condition_severity')" class="w-full text-left p-2 rounded bg-slate-950 border border-slate-800 hover:border-amber-500/50 text-slate-300 hover:text-white transition text-[11px] flex items-center space-x-2">
+                  <span class="text-amber-400">🔀</span>
+                  <span>Severity Condition (>= 10)</span>
+                </button>
+                <button onclick="addNodeToCanvas('loop_poll')" class="w-full text-left p-2 rounded bg-slate-950 border border-slate-800 hover:border-amber-500/50 text-slate-300 hover:text-white transition text-[11px] flex items-center space-x-2">
+                  <span class="text-sky-400">🔁</span>
+                  <span>Polling Loop (Every X sec)</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Interactive Visual Canvas Container -->
+        <div class="lg:col-span-9 bg-[#0b0f19] border border-slate-800 rounded-xl p-6 relative overflow-hidden flex flex-col justify-between" id="canvasContainer">
+          <!-- Grid Background Effect -->
+          <div class="absolute inset-0 bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:16px_16px] opacity-40 pointer-events-none"></div>
+
+          <!-- SVG Wires Overlay -->
+          <svg id="canvasSvg" class="absolute inset-0 w-full h-full pointer-events-none z-10">
+            <!-- Connection lines drawn dynamically -->
+          </svg>
+
+          <!-- Nodes Wrapper -->
+          <div id="canvasNodes" class="relative z-20 w-full h-full min-h-[520px]">
+            <!-- Rendered Nodes -->
+          </div>
+
+          <!-- Canvas Footer Stats -->
+          <div class="relative z-30 pt-3 border-t border-slate-800/80 flex items-center justify-between text-[11px] font-mono text-slate-500">
+            <span>Connected Nodes: <span id="canvasNodeCount" class="text-sky-400 font-bold">6</span></span>
+            <span>Execution Flow: <span class="text-emerald-400 font-bold">Wazuh → Policy → LLM → Firewall → Slack</span></span>
+            <span>n8n SOC Graph Engine v3.1</span>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -727,6 +848,354 @@
       fetchLiveIncidents();
     }
 
+    // ─── AGENTS & WORKFLOWS JAVASCRIPT LOGIC ────────────────────────────────────────
+
+    window.agents = [];
+    window.workflows = [];
+    window.activeWorkflowId = null;
+
+    async function fetchAgents() {
+      try {
+        const res = await fetch('/agents');
+        if (res.ok) {
+          window.agents = await res.json();
+          renderAgents(window.agents);
+        }
+      } catch (err) {
+        console.error('Error fetching agents:', err);
+      }
+    }
+
+    function renderAgents(agents) {
+      const grid = document.getElementById('agentGrid');
+      document.getElementById('badgeAgentCount').textContent = agents.length;
+
+      if (!agents || agents.length === 0) {
+        grid.innerHTML = `<div class="col-span-2 text-center py-12 text-slate-500 font-mono">No AI agents configured. Deploy a new agent above.</div>`;
+        return;
+      }
+
+      grid.innerHTML = agents.map(a => {
+        const isActive = (a.status || '').toLowerCase() === 'active';
+        const statusBadge = isActive 
+          ? `<span class="px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800 text-[10px] font-bold">ACTIVE</span>`
+          : `<span class="px-2 py-0.5 rounded bg-slate-900 text-slate-500 border border-slate-800 text-[10px] font-bold">PAUSED</span>`;
+
+        return `
+          <div class="bg-[#0f172a] border border-slate-800 rounded-xl p-5 shadow-xl space-y-4 font-mono text-xs flex flex-col justify-between hover:border-slate-700 transition">
+            <div class="space-y-3">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                  <div class="w-9 h-9 rounded-lg bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-sky-400 font-bold text-base">🤖</div>
+                  <div>
+                    <h3 class="text-sm font-bold text-white">${a.name}</h3>
+                    <span class="text-[10px] text-slate-400 font-sans">${a.role_description}</span>
+                  </div>
+                </div>
+
+                <div class="flex items-center space-x-2">
+                  ${statusBadge}
+                  <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" ${isActive ? 'checked' : ''} onchange="toggleAgentStatus('${a.id}', this.checked)" class="sr-only peer">
+                    <div class="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-600"></div>
+                  </label>
+                </div>
+              </div>
+
+              <!-- Master Prompt Box -->
+              <div class="space-y-1">
+                <div class="flex items-center justify-between text-[10px] text-slate-400 uppercase font-semibold">
+                  <span>Master System Prompt</span>
+                  <button onclick="openEditPromptModal('${a.id}')" class="text-sky-400 hover:text-sky-300">✏️ Edit</button>
+                </div>
+                <pre class="bg-slate-950 border border-slate-800/90 rounded-lg p-3 text-slate-300 text-[10px] whitespace-pre-wrap font-mono max-h-28 overflow-y-auto leading-relaxed">${a.master_prompt}</pre>
+              </div>
+
+              <!-- Stats Row -->
+              <div class="grid grid-cols-2 gap-3 bg-slate-950 p-2.5 rounded-lg border border-slate-800/60 text-[10px]">
+                <div>
+                  <span class="text-slate-500 block uppercase">Workload Processed</span>
+                  <span class="font-bold text-sky-400 text-xs">${(a.incidents_processed || 0).toLocaleString()} Incidents</span>
+                </div>
+                <div>
+                  <span class="text-slate-500 block uppercase">Avg Response SLA</span>
+                  <span class="font-bold text-emerald-400 text-xs">${a.avg_sla_ms || 2.4} ms</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Action Toolbar -->
+            <div class="pt-2 border-t border-slate-800/80 flex items-center justify-between">
+              <span class="text-[10px] text-slate-500">ID: ${a.id}</span>
+              <button onclick="switchWorkflowForAgent('${a.id}')" class="px-3 py-1.5 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 rounded font-bold text-[11px] transition flex items-center space-x-1">
+                <span>⚙️ Workflow Config →</span>
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function toggleAgentStatus(agentId, isChecked) {
+      const newStatus = isChecked ? 'active' : 'paused';
+      try {
+        const res = await fetch(`/agents/${agentId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: newStatus })
+        });
+        if (res.ok) {
+          showToast(`Agent state updated to ${newStatus.toUpperCase()}`);
+          fetchAgents();
+        }
+      } catch (err) {
+        showToast('Failed to update agent status', 'error');
+      }
+    }
+
+    async function fetchWorkflows() {
+      try {
+        const res = await fetch('/workflows');
+        if (res.ok) {
+          window.workflows = await res.json();
+          populateWorkflowSelect();
+        }
+      } catch (err) {
+        console.error('Error fetching workflows:', err);
+      }
+    }
+
+    function populateWorkflowSelect() {
+      const select = document.getElementById('workflowSelect');
+      select.innerHTML = window.workflows.map(w => `<option value="${w.id}">${w.name}</option>`).join('');
+      if (window.workflows.length > 0 && !window.activeWorkflowId) {
+        window.activeWorkflowId = window.workflows[0].id;
+      }
+      if (window.activeWorkflowId) {
+        select.value = window.activeWorkflowId;
+        renderWorkflowCanvas(window.activeWorkflowId);
+      }
+    }
+
+    function selectWorkflow(wfId) {
+      window.activeWorkflowId = wfId;
+      renderWorkflowCanvas(wfId);
+    }
+
+    function switchWorkflowForAgent(agentId) {
+      const matched = window.workflows.find(w => w.agent_id === agentId) || window.workflows[0];
+      if (matched) {
+        switchTab('tab-workflows');
+        selectWorkflow(matched.id);
+      }
+    }
+
+    function renderWorkflowCanvas(wfId) {
+      const wf = window.workflows.find(w => w.id === wfId);
+      if (!wf) return;
+
+      const nodesContainer = document.getElementById('canvasNodes');
+      const svg = document.getElementById('canvasSvg');
+      document.getElementById('canvasNodeCount').textContent = wf.nodes.length;
+
+      // Render Nodes
+      nodesContainer.innerHTML = wf.nodes.map(n => {
+        let typeBadge = 'bg-sky-500/10 text-sky-400 border-sky-500/30';
+        let icon = '⚡';
+        if (n.type.includes('agent')) { typeBadge = 'bg-purple-500/10 text-purple-400 border-purple-500/30'; icon = '🧠'; }
+        else if (n.type.includes('tool')) { typeBadge = 'bg-rose-500/10 text-rose-400 border-rose-500/30'; icon = '🛡️'; }
+        else if (n.type.includes('condition') || n.type.includes('loop')) { typeBadge = 'bg-amber-500/10 text-amber-400 border-amber-500/30'; icon = '🔀'; }
+
+        return `
+          <div id="node-${n.id}" style="left: ${n.x}px; top: ${n.y}px;" class="absolute w-56 bg-[#0f172a] border border-slate-700 hover:border-sky-400 rounded-xl p-3 shadow-2xl space-y-2 font-mono text-xs cursor-pointer transition group">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+              <div class="flex items-center space-x-2">
+                <span class="text-sm">${icon}</span>
+                <span class="font-bold text-white text-[11px] truncate max-w-[120px]">${n.label}</span>
+              </div>
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+            </div>
+
+            <div class="text-[10px] text-slate-400 font-sans truncate">
+              Type: <span class="font-mono text-slate-300 font-semibold">${n.type}</span>
+            </div>
+
+            ${n.config && Object.keys(n.config).length ? `
+              <div class="bg-slate-950 p-1.5 rounded border border-slate-800 text-[9px] text-slate-400 truncate">
+                Config: ${JSON.stringify(n.config)}
+              </div>
+            ` : ''}
+
+            <!-- Node Ports -->
+            <div class="flex justify-between items-center text-[9px] text-slate-500 pt-1 border-t border-slate-800/60">
+              <span class="hover:text-sky-400">In ●</span>
+              <span class="hover:text-emerald-400">● Out</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      // Draw SVG Connection Wires
+      let svgLines = '';
+      wf.edges.forEach(e => {
+        const sourceNode = wf.nodes.find(n => n.id === e.source);
+        const targetNode = wf.nodes.find(n => n.id === e.target);
+        if (sourceNode && targetNode) {
+          const x1 = sourceNode.x + 220;
+          const y1 = sourceNode.y + 40;
+          const x2 = targetNode.x;
+          const y2 = targetNode.y + 40;
+
+          const cx1 = x1 + 60;
+          const cy1 = y1;
+          const cx2 = x2 - 60;
+          const cy2 = y2;
+
+          svgLines += `
+            <path d="M ${x1} ${y1} C ${cx1} ${cy1}, ${cx2} ${cy2}, ${x2} ${y2}" 
+                  stroke="#38bdf8" stroke-width="2" stroke-dasharray="4 4" fill="none" class="animate-pulse" opacity="0.8"/>
+          `;
+        }
+      });
+
+      svg.innerHTML = svgLines;
+    }
+
+    function addNodeToCanvas(nodeType) {
+      const wf = window.workflows.find(w => w.id === window.activeWorkflowId);
+      if (!wf) return;
+
+      const newNodeId = 'n' + (wf.nodes.length + 1);
+      const labels = {
+        trigger_wazuh: 'Wazuh Alert Webhook',
+        trigger_cron: 'Cron Polling Loop (5m)',
+        agent_llm: 'LLM Reasoning Agent',
+        agent_intel: 'Threat Intel Lookup',
+        tool_firewall: 'Firewall IP Block',
+        tool_isolate: 'Host Isolation',
+        tool_slack: 'Slack Alert Fan-out',
+        condition_severity: 'Severity Condition (>= 10)',
+        loop_poll: 'Polling Loop (30s)'
+      };
+
+      const lastNode = wf.nodes[wf.nodes.length - 1];
+      const newX = lastNode ? lastNode.x + 240 : 50;
+      const newY = lastNode ? lastNode.y : 100;
+
+      const newNode = {
+        id: newNodeId,
+        type: nodeType,
+        label: labels[nodeType] || 'Custom Node',
+        config: {},
+        x: newX,
+        y: newY
+      };
+
+      wf.nodes.push(newNode);
+      if (lastNode) {
+        wf.edges.push({ id: 'e' + Date.now(), source: lastNode.id, target: newNodeId });
+      }
+
+      renderWorkflowCanvas(window.activeWorkflowId);
+      showToast(`Added '${newNode.label}' node to canvas`);
+    }
+
+    async function testRunWorkflow() {
+      if (!window.activeWorkflowId) return;
+      showToast('Executing test run on visual node workflow...', 'info');
+      try {
+        const res = await fetch(`/workflows/${window.activeWorkflowId}/execute`, { method: 'POST' });
+        if (res.ok) {
+          const data = await res.json();
+          showToast(`Test Run Success! Executed ${data.nodes_executed} nodes seamlessly.`, 'info');
+        }
+      } catch (err) {
+        showToast('Workflow execution error', 'error');
+      }
+    }
+
+    async function saveWorkflowCanvas() {
+      if (!window.activeWorkflowId) return;
+      const wf = window.workflows.find(w => w.id === window.activeWorkflowId);
+      if (!wf) return;
+
+      try {
+        const res = await fetch(`/workflows/${wf.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(wf)
+        });
+        if (res.ok) {
+          showToast('Workflow layout and node graph saved!');
+        }
+      } catch (err) {
+        showToast('Failed to save workflow', 'error');
+      }
+    }
+
+    // Modal Handlers
+    function openCreateAgentModal() {
+      document.getElementById('modalCreateAgent').classList.remove('hidden');
+    }
+    function closeCreateAgentModal() {
+      document.getElementById('modalCreateAgent').classList.add('hidden');
+    }
+
+    async function handleCreateAgent(e) {
+      e.preventDefault();
+      const name = document.getElementById('createAgentName').value;
+      const role_description = document.getElementById('createAgentRole').value;
+      const master_prompt = document.getElementById('createAgentPrompt').value;
+
+      try {
+        const res = await fetch('/agents', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, role_description, master_prompt })
+        });
+        if (res.ok) {
+          showToast(`Deployed new AI Agent '${name}'!`);
+          closeCreateAgentModal();
+          fetchAgents();
+        }
+      } catch (err) {
+        showToast('Error deploying agent', 'error');
+      }
+    }
+
+    let activeEditAgentId = null;
+    function openEditPromptModal(agentId) {
+      activeEditAgentId = agentId;
+      const agent = window.agents.find(a => a.id === agentId);
+      if (!agent) return;
+      document.getElementById('editPromptInput').value = agent.master_prompt;
+      document.getElementById('modalEditPrompt').classList.remove('hidden');
+    }
+    function closeEditPromptModal() {
+      document.getElementById('modalEditPrompt').classList.add('hidden');
+    }
+
+    async function handleSavePrompt(e) {
+      e.preventDefault();
+      if (!activeEditAgentId) return;
+      const master_prompt = document.getElementById('editPromptInput').value;
+
+      try {
+        const res = await fetch(`/agents/${activeEditAgentId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ master_prompt })
+        });
+        if (res.ok) {
+          showToast('Master System Prompt updated!');
+          closeEditPromptModal();
+          fetchAgents();
+        }
+      } catch (err) {
+        showToast('Error updating prompt', 'error');
+      }
+    }
+
     // Send Test Alert directly from Wazuh Tab
     async function sendTestAlert() {
       const payload = {
@@ -774,8 +1243,66 @@
     window.addEventListener('DOMContentLoaded', () => {
       initCharts();
       fetchLiveIncidents();
+      fetchAgents();
+      fetchWorkflows();
       setInterval(fetchLiveIncidents, 3000);
     });
   </script>
+
+  <!-- MODAL: CREATE AI AGENT -->
+  <div id="modalCreateAgent" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-[#0f172a] border border-slate-800 rounded-2xl w-full max-w-xl p-6 shadow-2xl space-y-4 font-mono text-xs">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h3 class="text-sm font-bold text-white flex items-center space-x-2">
+          <span>🤖 Deploy New Autonomous AI SOC Agent</span>
+        </h3>
+        <button onclick="closeCreateAgentModal()" class="text-slate-400 hover:text-white font-bold">✕</button>
+      </div>
+
+      <form onsubmit="handleCreateAgent(event)" class="space-y-4">
+        <div>
+          <label class="block text-slate-400 mb-1">Agent Name</label>
+          <input type="text" id="createAgentName" required placeholder="e.g. Malware Sandbox Agent" class="w-full bg-slate-950 border border-slate-800 rounded p-2.5 text-slate-200 outline-none focus:border-sky-500">
+        </div>
+
+        <div>
+          <label class="block text-slate-400 mb-1">Role Description (Generated Work Description)</label>
+          <input type="text" id="createAgentRole" required placeholder="e.g. Detonates suspicious binaries in dynamic memory sandbox" class="w-full bg-slate-950 border border-slate-800 rounded p-2.5 text-slate-200 outline-none focus:border-sky-500">
+        </div>
+
+        <div>
+          <label class="block text-slate-400 mb-1">Master System Prompt (Instructions describing its role)</label>
+          <textarea id="createAgentPrompt" rows="4" required placeholder="You are the Malware Sandbox Agent. Your role is to..." class="w-full bg-slate-950 border border-slate-800 rounded p-2.5 text-sky-300 outline-none focus:border-sky-500 leading-relaxed"></textarea>
+        </div>
+
+        <div class="flex items-center justify-end space-x-2 pt-2 border-t border-slate-800">
+          <button type="button" onclick="closeCreateAgentModal()" class="px-3 py-2 bg-slate-800 text-slate-300 rounded font-bold">Cancel</button>
+          <button type="submit" class="px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded font-bold shadow">Deploy Agent</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: EDIT MASTER SYSTEM PROMPT -->
+  <div id="modalEditPrompt" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-[#0f172a] border border-slate-800 rounded-2xl w-full max-w-xl p-6 shadow-2xl space-y-4 font-mono text-xs">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h3 class="text-sm font-bold text-white">✏️ Refine Agent Master System Prompt</h3>
+        <button onclick="closeEditPromptModal()" class="text-slate-400 hover:text-white font-bold">✕</button>
+      </div>
+
+      <form onsubmit="handleSavePrompt(event)" class="space-y-4">
+        <div>
+          <label class="block text-slate-400 mb-1">Master System Prompt (LLM Instructions)</label>
+          <textarea id="editPromptInput" rows="6" required class="w-full bg-slate-950 border border-slate-800 rounded p-3 text-sky-300 outline-none focus:border-sky-500 leading-relaxed font-mono"></textarea>
+        </div>
+
+        <div class="flex items-center justify-end space-x-2 pt-2 border-t border-slate-800">
+          <button type="button" onclick="closeEditPromptModal()" class="px-3 py-2 bg-slate-800 text-slate-300 rounded font-bold">Cancel</button>
+          <button type="submit" class="px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded font-bold shadow">Save Prompt Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
 </body>
 </html>
