@@ -174,3 +174,5 @@ package = true
 [project.scripts]
 terminus-simulate = "terminus.simulate:main"
 terminus-serve = "terminus.server.app:main"
+terminus-setup = "terminus.setup:main"
+

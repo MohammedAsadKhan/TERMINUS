@@ -73,7 +73,26 @@ cd terminus
 uv sync
 ```
 
-### 2. Launch Core Terminus Defense Platform
+### 2. Interactive Setup & Configuration Wizard
+
+Run the Terminus setup wizard to configure your database engine, LLM inference backend, network ports, and enterprise licensing:
+
+```bash
+# Run the interactive setup wizard CLI
+uv run terminus-setup
+
+# Or launch directly via python script
+python scripts/setup.py
+```
+
+#### Database Storage Backend Options
+- **In-Memory (Zero-Dependency Dev Mode)**: Default out-of-the-box engine for rapid local development and testing.
+- **SQLite (Single-File Local Database)**: Stores tickets, organization memberships, and daily incident reports in `terminus.db`.
+- **PostgreSQL (Enterprise SaaS Deployment)**: Multi-tenant production database cluster supporting high-concurrency SOC operations.
+
+---
+
+### 3. Launch Core Terminus Defense Platform
 
 Start the main product API server and Analyst Dashboard on **Port 8000**:
 
