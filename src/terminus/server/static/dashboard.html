@@ -79,6 +79,24 @@
           </div>
         </button>
 
+        <div class="pt-3 px-3 py-1.5 text-[10px] uppercase font-mono font-semibold text-slate-500">Autonomous AI & Orchestration</div>
+
+        <button onclick="switchTab('tab-agents')" id="nav-agents" class="nav-btn w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-900 transition">
+          <svg class="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+          <div class="flex items-center justify-between flex-1">
+            <span>AI SOC Agents</span>
+            <span id="badgeAgentCount" class="px-1.5 py-0.2 rounded-full bg-sky-500/20 text-sky-400 font-mono text-[10px] font-bold">4</span>
+          </div>
+        </button>
+
+        <button onclick="switchTab('tab-workflows')" id="nav-workflows" class="nav-btn w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-900 transition">
+          <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM14 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zM14 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"/></svg>
+          <div class="flex items-center justify-between flex-1">
+            <span>Workflow Canvas</span>
+            <span class="px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300 font-mono text-[9px] font-bold">n8n</span>
+          </div>
+        </button>
+
         <div class="pt-3 px-3 py-1.5 text-[10px] uppercase font-mono font-semibold text-slate-500">Configuration & Ingestion</div>
 
         <button onclick="switchTab('tab-wazuh')" id="nav-wazuh" class="nav-btn w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-900 transition">
@@ -802,7 +820,7 @@
       const scenarios = [
         {
           alert_id: "alt-log4j-cve-2021-44228",
-          rule_id: "rule-100201",
+          rule_id: 100201,
           rule_description: "CVE-2021-44228 Log4Shell Remote Code Execution Payload via User-Agent",
           level: 12,
           agent_id: "agent-honeypot-01",
@@ -812,7 +830,7 @@
         },
         {
           alert_id: "alt-lsass-dump-t1003",
-          rule_id: "rule-100405",
+          rule_id: 100405,
           rule_description: "LSASS Process Memory Dump (MITRE ATT&CK T1003 Credential Access)",
           level: 14,
           agent_id: "agent-dc-01",
@@ -822,7 +840,7 @@
         },
         {
           alert_id: "alt-ransomware-t1486",
-          rule_id: "rule-100800",
+          rule_id: 100800,
           rule_description: "High-Velocity File Encryption Pattern (MITRE ATT&CK T1486 Data Encrypted for Impact)",
           level: 14,
           agent_id: "agent-fs-02",
@@ -845,6 +863,23 @@
       }
 
       showToast('3 High-Impact AI Threat Scenarios Ingested!', 'info');
+      fetchLiveIncidents();
+    }
+
+    // Send Test Alert directly from Wazuh Tab
+    async function sendTestAlert() {
+      const payload = {
+        alert_id: "alt-manual-test-" + Date.now(),
+        rule_id: 100999,
+        rule_description: "Dashboard Manual Test Ingestion Alert",
+        level: 12
+      };
+      
+      await fetch('/wazuh', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Org-ID': 'org-00000001', 'Authorization': 'Bearer tok-demo-sim-agent' },
+        body: JSON.stringify(payload)
+      });
       fetchLiveIncidents();
     }
 
