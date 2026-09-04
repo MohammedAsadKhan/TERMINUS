@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Terminus Enterprise Platform | Analyst Command & Management Console</title>
+  <title>Terminus Enterprise Platform | Management Console</title>
   
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   
   <!-- Chart.js & Tailwind CSS CDN -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -27,10 +27,10 @@
     }
   </script>
 </head>
-<body class="h-full font-sans antialiased bg-[#090d16] text-slate-100 flex selection:bg-sky-500 selection:text-white">
+<body class="h-full font-sans antialiased bg-[#090d16] text-slate-100 flex selection:bg-slate-700 selection:text-white">
 
   <!-- Toast Notification System -->
-  <div id="toast" class="fixed bottom-5 right-5 z-50 hidden bg-slate-900 border border-slate-700 text-slate-100 px-4 py-3 rounded-lg shadow-2xl text-sm font-medium transition-all flex items-center gap-3">
+  <div id="toast" class="fixed bottom-5 right-5 z-50 hidden bg-slate-900 border border-slate-800 text-slate-100 px-4 py-3 rounded-lg shadow-xl text-xs font-mono transition-all flex items-center gap-3">
     <span id="toastIcon" class="w-2 h-2 rounded-full bg-sky-400"></span>
     <span id="toastMsg">Notification message</span>
   </div>
@@ -41,19 +41,17 @@
       <!-- Brand & Tenant Indicator -->
       <div class="p-4 border-b border-slate-800/80">
         <div class="flex items-center space-x-3">
-          <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-sky-500 to-blue-700 flex items-center justify-center shadow-lg shadow-sky-950 ring-1 ring-sky-400/30">
-            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
-            </svg>
+          <div class="w-8 h-8 rounded-md bg-slate-800 border border-slate-700 flex items-center justify-center text-sky-400 font-bold text-sm">
+            T
           </div>
           <div>
-            <span class="font-extrabold text-base tracking-tight text-white block">TERMINUS</span>
-            <span class="text-[10px] font-mono text-sky-400 uppercase font-semibold">Enterprise SaaS</span>
+            <span class="font-bold text-sm tracking-tight text-white block font-mono">TERMINUS</span>
+            <span class="text-[10px] font-mono text-slate-400 uppercase">Enterprise SOC</span>
           </div>
         </div>
 
         <!-- Active Organization Picker -->
-        <div class="mt-4 bg-slate-900/90 border border-slate-800 rounded-lg p-2.5 flex items-center justify-between">
+        <div class="mt-4 bg-slate-900/90 border border-slate-800 rounded-md p-2 flex items-center justify-between">
           <div class="flex items-center space-x-2 overflow-hidden">
             <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
             <span class="text-xs font-mono text-slate-200 font-semibold truncate" id="sidebarOrgName">org-00000001</span>
@@ -66,57 +64,57 @@
       <nav class="p-3 space-y-1 text-xs font-medium">
         <div class="px-3 py-1.5 text-[10px] uppercase font-mono font-semibold text-slate-500">Security Operations</div>
 
-        <button onclick="switchTab('tab-analytics')" id="nav-analytics" class="nav-btn w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg bg-sky-600/10 text-sky-400 border border-sky-500/20 font-semibold transition">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
-          <span>Traffic & Insights</span>
+        <button onclick="switchTab('tab-analytics')" id="nav-analytics" class="nav-btn w-full flex items-center space-x-3 px-3 py-2 rounded-md bg-slate-800 text-white border border-slate-700 transition">
+          <svg class="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+          <span>Overview</span>
         </button>
 
-        <button onclick="switchTab('tab-incidents')" id="nav-incidents" class="nav-btn w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-900 transition">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+        <button onclick="switchTab('tab-incidents')" id="nav-incidents" class="nav-btn w-full flex items-center space-x-3 px-3 py-2 rounded-md text-slate-400 hover:text-white hover:bg-slate-900 transition">
+          <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
           <div class="flex items-center justify-between flex-1">
-            <span>Incident Queue</span>
-            <span id="badgeIncidentCount" class="px-1.5 py-0.2 rounded-full bg-rose-500/20 text-rose-400 font-mono text-[10px] font-bold">0</span>
+            <span>Incidents</span>
+            <span id="badgeIncidentCount" class="px-1.5 py-0.2 rounded bg-slate-800 text-slate-300 font-mono text-[10px]">0</span>
           </div>
         </button>
 
-        <div class="pt-3 px-3 py-1.5 text-[10px] uppercase font-mono font-semibold text-slate-500">Autonomous AI & Orchestration</div>
+        <div class="pt-3 px-3 py-1.5 text-[10px] uppercase font-mono font-semibold text-slate-500">Automation & Orchestration</div>
 
-        <button onclick="switchTab('tab-agents')" id="nav-agents" class="nav-btn w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-900 transition">
-          <svg class="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+        <button onclick="switchTab('tab-agents')" id="nav-agents" class="nav-btn w-full flex items-center space-x-3 px-3 py-2 rounded-md text-slate-400 hover:text-white hover:bg-slate-900 transition">
+          <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
           <div class="flex items-center justify-between flex-1">
-            <span>AI SOC Agents</span>
-            <span id="badgeAgentCount" class="px-1.5 py-0.2 rounded-full bg-sky-500/20 text-sky-400 font-mono text-[10px] font-bold">4</span>
+            <span>Agents Fleet</span>
+            <span id="badgeAgentCount" class="px-1.5 py-0.2 rounded bg-slate-800 text-slate-300 font-mono text-[10px]">4</span>
           </div>
         </button>
 
-        <button onclick="switchTab('tab-workflows')" id="nav-workflows" class="nav-btn w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-900 transition">
-          <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM14 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zM14 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"/></svg>
+        <button onclick="switchTab('tab-workflows')" id="nav-workflows" class="nav-btn w-full flex items-center space-x-3 px-3 py-2 rounded-md text-slate-400 hover:text-white hover:bg-slate-900 transition">
+          <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM14 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zM14 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"/></svg>
           <div class="flex items-center justify-between flex-1">
-            <span>Workflow Canvas</span>
-            <span class="px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300 font-mono text-[9px] font-bold">n8n</span>
+            <span>Workflows</span>
+            <span class="px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 font-mono text-[9px]">Canvas</span>
           </div>
         </button>
 
         <div class="pt-3 px-3 py-1.5 text-[10px] uppercase font-mono font-semibold text-slate-500">Configuration & Ingestion</div>
 
-        <button onclick="switchTab('tab-wazuh')" id="nav-wazuh" class="nav-btn w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-900 transition">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-          <span>Wazuh SIEM Setup</span>
+        <button onclick="switchTab('tab-wazuh')" id="nav-wazuh" class="nav-btn w-full flex items-center space-x-3 px-3 py-2 rounded-md text-slate-400 hover:text-white hover:bg-slate-900 transition">
+          <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+          <span>SIEM Ingestion</span>
         </button>
 
-        <button onclick="switchTab('tab-policies')" id="nav-policies" class="nav-btn w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-900 transition">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
-          <span>Policy Rules Engine</span>
+        <button onclick="switchTab('tab-policies')" id="nav-policies" class="nav-btn w-full flex items-center space-x-3 px-3 py-2 rounded-md text-slate-400 hover:text-white hover:bg-slate-900 transition">
+          <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+          <span>Policy Engine</span>
         </button>
 
-        <button onclick="switchTab('tab-orgs')" id="nav-orgs" class="nav-btn w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-900 transition">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
-          <span>Tenant Management</span>
+        <button onclick="switchTab('tab-orgs')" id="nav-orgs" class="nav-btn w-full flex items-center space-x-3 px-3 py-2 rounded-md text-slate-400 hover:text-white hover:bg-slate-900 transition">
+          <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+          <span>Tenants</span>
         </button>
 
-        <button onclick="switchTab('tab-license')" id="nav-license" class="nav-btn w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-900 transition">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 0121 9z"/></svg>
-          <span>License & Entitlements</span>
+        <button onclick="switchTab('tab-license')" id="nav-license" class="nav-btn w-full flex items-center space-x-3 px-3 py-2 rounded-md text-slate-400 hover:text-white hover:bg-slate-900 transition">
+          <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 0121 9z"/></svg>
+          <span>Licensing</span>
         </button>
       </nav>
     </div>
@@ -124,7 +122,7 @@
     <!-- User Profile Footer -->
     <div class="p-4 border-t border-slate-800/80 bg-slate-950/40">
       <div class="flex items-center space-x-3">
-        <div class="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-sky-400 text-xs">
+        <div class="w-7 h-7 rounded bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-slate-300 text-xs font-mono">
           A
         </div>
         <div class="flex-1 overflow-hidden">
@@ -141,27 +139,27 @@
     <!-- Top Bar -->
     <header class="h-14 border-b border-slate-800/80 bg-[#0c121e]/80 backdrop-blur px-6 flex items-center justify-between sticky top-0 z-40 shrink-0">
       <div class="flex items-center space-x-4">
-        <span class="text-xs font-mono text-slate-400">Environment: <strong class="text-emerald-400">PRODUCTION AGENT PIPELINE</strong></span>
-        <span class="text-slate-700">|</span>
-        <span class="text-xs font-mono text-slate-400">Engine: <strong class="text-sky-400">Wazuh SIEM Ingest Active</strong></span>
+        <span class="text-xs font-mono text-slate-400">Environment: <strong class="text-slate-200">Production</strong></span>
+        <span class="text-slate-800">|</span>
+        <span class="text-xs font-mono text-slate-400">Ingestion: <strong class="text-slate-200">Wazuh SIEM Active</strong></span>
       </div>
 
       <div class="flex items-center space-x-4">
-        <div class="flex items-center space-x-2 bg-slate-900 border border-slate-800 px-3 py-1 rounded text-xs font-mono">
-          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-          <span class="text-slate-300">Live API Polling</span>
+        <div class="flex items-center space-x-2 bg-slate-900 border border-slate-800 px-2.5 py-1 rounded text-xs font-mono">
+          <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+          <span class="text-slate-300">Telemetry Stream Active</span>
         </div>
       </div>
     </header>
 
-    <!-- TAB 1: TRAFFIC & INSIGHTS (Analytics Dashboard) -->
+    <!-- TAB 1: OVERVIEW & DECISION METRICS -->
     <div id="tab-analytics" class="tab-page p-6 space-y-6">
       
       <!-- Filter Toolbar -->
       <div class="bg-[#0f172a] border border-slate-800 rounded-lg p-3 flex items-center justify-between flex-wrap gap-4 text-xs font-mono">
         <div class="flex items-center space-x-3">
-          <span class="text-slate-400 font-semibold uppercase text-[10px]">Filter View:</span>
-          <select id="filterSeveritySelect" class="bg-slate-950 border border-slate-800 rounded px-2.5 py-1 text-white text-xs outline-none">
+          <span class="text-slate-400 uppercase text-[10px] font-semibold">Filter View:</span>
+          <select id="filterSeveritySelect" class="bg-slate-950 border border-slate-800 rounded px-2.5 py-1 text-slate-200 text-xs outline-none focus:border-slate-700">
             <option value="ALL">All Severities</option>
             <option value="CRITICAL">Critical Only (P1)</option>
             <option value="HIGH">High Only (P2)</option>
@@ -170,50 +168,50 @@
         </div>
 
         <div class="flex items-center space-x-2 text-[11px] text-slate-400">
-          <span>Active Endpoint:</span>
-          <span class="px-2 py-0.5 rounded bg-slate-950 border border-slate-800 text-sky-400">http://localhost:8000/wazuh</span>
+          <span>Webhook Target:</span>
+          <span class="px-2 py-0.5 rounded bg-slate-950 border border-slate-800 text-slate-300 font-mono">http://localhost:8000/wazuh</span>
         </div>
       </div>
 
       <!-- Decision-Focused SLA & Efficiency Banner -->
       <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
-        <div class="bg-[#0f172a] border border-slate-800 rounded-xl p-4 shadow-lg flex flex-col justify-between">
-          <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">⏱️ Mean Time to Detect (MTTD)</span>
-          <div class="text-2xl font-extrabold text-sky-400 font-mono mt-1" id="stat-mttd">18s</div>
-          <p class="text-[10px] text-slate-500 mt-1">SLA Target &lt; 45s (Auto Ingest)</p>
+        <div class="bg-[#0f172a] border border-slate-800 rounded-lg p-4 flex flex-col justify-between">
+          <span class="text-[11px] font-mono font-semibold text-slate-400 uppercase tracking-wider block">Mean Time to Detect</span>
+          <div class="text-2xl font-bold text-white font-mono mt-1" id="stat-mttd">18s</div>
+          <p class="text-[10px] text-slate-500 mt-1">SLA Target &lt; 45s</p>
         </div>
 
-        <div class="bg-[#0f172a] border border-slate-800 rounded-xl p-4 shadow-lg flex flex-col justify-between">
-          <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">⚡ Mean Time to Respond (MTTR)</span>
-          <div class="text-2xl font-extrabold text-emerald-400 font-mono mt-1" id="stat-mttr">42s</div>
-          <p class="text-[10px] text-slate-500 mt-1">SLA Target &lt; 120s (Automated)</p>
+        <div class="bg-[#0f172a] border border-slate-800 rounded-lg p-4 flex flex-col justify-between">
+          <span class="text-[11px] font-mono font-semibold text-slate-400 uppercase tracking-wider block">Mean Time to Respond</span>
+          <div class="text-2xl font-bold text-white font-mono mt-1" id="stat-mttr">42s</div>
+          <p class="text-[10px] text-slate-500 mt-1">SLA Target &lt; 120s</p>
         </div>
 
-        <div class="bg-[#0f172a] border border-slate-800 rounded-xl p-4 shadow-lg flex flex-col justify-between">
-          <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">🎯 Signal-to-Noise Ratio</span>
-          <div class="text-2xl font-extrabold text-purple-400 font-mono mt-1" id="stat-snr">94.2%</div>
-          <p class="text-[10px] text-slate-500 mt-1">Telemetry Alert Reduction</p>
+        <div class="bg-[#0f172a] border border-slate-800 rounded-lg p-4 flex flex-col justify-between">
+          <span class="text-[11px] font-mono font-semibold text-slate-400 uppercase tracking-wider block">Signal-to-Noise Ratio</span>
+          <div class="text-2xl font-bold text-white font-mono mt-1" id="stat-snr">94.2%</div>
+          <p class="text-[10px] text-slate-500 mt-1">Noise Reduction</p>
         </div>
 
-        <div class="bg-[#0f172a] border border-slate-800 rounded-xl p-4 shadow-lg flex flex-col justify-between">
-          <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">🤖 Auto Containment Rate</span>
-          <div class="text-2xl font-extrabold text-indigo-400 font-mono mt-1" id="stat-auto-contain">88.5%</div>
-          <p class="text-[10px] text-slate-500 mt-1">Mitigated by AI SOC Fleet</p>
+        <div class="bg-[#0f172a] border border-slate-800 rounded-lg p-4 flex flex-col justify-between">
+          <span class="text-[11px] font-mono font-semibold text-slate-400 uppercase tracking-wider block">Auto Containment</span>
+          <div class="text-2xl font-bold text-white font-mono mt-1" id="stat-auto-contain">88.5%</div>
+          <p class="text-[10px] text-slate-500 mt-1">Automated Mitigation</p>
         </div>
 
-        <div class="bg-[#0f172a] border border-slate-800 rounded-xl p-4 shadow-lg flex flex-col justify-between">
-          <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">💎 Crown Jewel Risk</span>
-          <div class="text-2xl font-extrabold text-rose-400 font-mono mt-1" id="stat-crown-risk">1 Active</div>
-          <p class="text-[10px] text-slate-500 mt-1">Tier 1 Asset Incidents</p>
+        <div class="bg-[#0f172a] border border-slate-800 rounded-lg p-4 flex flex-col justify-between">
+          <span class="text-[11px] font-mono font-semibold text-slate-400 uppercase tracking-wider block">Critical Asset Risk</span>
+          <div class="text-2xl font-bold text-red-400 font-mono mt-1" id="stat-crown-risk">1 Active</div>
+          <p class="text-[10px] text-slate-500 mt-1">Tier-1 Assets</p>
         </div>
       </div>
 
       <!-- Analytics Charts Row -->
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
         <!-- Threat Category Donut Chart -->
-        <div class="lg:col-span-5 bg-[#0f172a] border border-slate-800 rounded-xl p-5 shadow-xl flex flex-col">
-          <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider mb-4 border-b border-slate-800 pb-2">
-            Threat Severity Distribution
+        <div class="lg:col-span-5 bg-[#0f172a] border border-slate-800 rounded-lg p-5 flex flex-col">
+          <h3 class="text-xs font-mono font-semibold text-slate-300 uppercase tracking-wider mb-4 border-b border-slate-800 pb-2">
+            Severity Breakdown
           </h3>
           <div class="flex-1 flex items-center justify-center relative min-h-[220px]">
             <canvas id="liveCategoryChart"></canvas>
@@ -221,9 +219,9 @@
         </div>
 
         <!-- Ingestion Volume Timeline -->
-        <div class="lg:col-span-7 bg-[#0f172a] border border-slate-800 rounded-xl p-5 shadow-xl flex flex-col">
-          <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider mb-4 border-b border-slate-800 pb-2">
-            Real-Time Ingestion Timeline
+        <div class="lg:col-span-7 bg-[#0f172a] border border-slate-800 rounded-lg p-5 flex flex-col">
+          <h3 class="text-xs font-mono font-semibold text-slate-300 uppercase tracking-wider mb-4 border-b border-slate-800 pb-2">
+            Ingestion Telemetry Rate
           </h3>
           <div class="flex-1 min-h-[220px]">
             <canvas id="liveTimelineChart"></canvas>
@@ -232,20 +230,19 @@
       </div>
 
       <!-- Incident Preview Table -->
-      <div class="bg-[#0f172a] border border-slate-800 rounded-xl p-5 shadow-xl space-y-4">
+      <div class="bg-[#0f172a] border border-slate-800 rounded-lg p-5 space-y-4">
         <div class="flex items-center justify-between border-b border-slate-800 pb-3">
-          <h3 class="text-sm font-bold text-white uppercase tracking-wider">
-            Live Stream (Latest Ingested Telemetry)
+          <h3 class="text-xs font-mono font-semibold text-white uppercase tracking-wider">
+            Latest Security Telemetry
           </h3>
-          <button onclick="switchTab('tab-incidents')" class="text-xs text-sky-400 hover:text-sky-300 font-mono">
-            View All in Operations →
+          <button onclick="switchTab('tab-incidents')" class="text-xs text-slate-400 hover:text-white font-mono transition">
+            View All Incidents →
           </button>
         </div>
 
         <div id="analyticsEmptyState" class="text-center py-12 text-slate-500 font-mono text-xs space-y-2">
-          <svg class="w-8 h-8 text-slate-600 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/></svg>
-          <p>No active incidents ingested for tenant org-00000001 yet.</p>
-          <p class="text-slate-600">Run the Opposer tool or send a Wazuh POST payload to populate real data.</p>
+          <p>No security events ingested for tenant org-00000001.</p>
+          <p class="text-slate-600">Run Opposer or send Wazuh webhook events.</p>
         </div>
 
         <div class="overflow-x-auto">
@@ -254,7 +251,7 @@
               <tr class="border-b border-slate-800 text-slate-500 uppercase text-[10px]">
                 <th class="py-2 px-3">Ticket ID</th>
                 <th class="py-2 px-3">Severity</th>
-                <th class="py-2 px-3">Alert ID</th>
+                <th class="py-2 px-3">Alert Description</th>
                 <th class="py-2 px-3">Summary</th>
                 <th class="py-2 px-3">Status</th>
               </tr>
@@ -265,54 +262,49 @@
       </div>
     </div>
 
-    <!-- TAB 2: INCIDENT OPERATIONS (High-Fidelity Decision Command Center) -->
+    <!-- TAB 2: INCIDENT OPERATIONS -->
     <div id="tab-incidents" class="tab-page hidden p-6 space-y-6">
       <div class="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h2 class="text-lg font-bold text-white flex items-center space-x-2">
-            <span>🛡️ High-Fidelity Incident Operations</span>
-            <span class="text-[10px] font-mono font-normal px-2 py-0.5 rounded bg-sky-950 text-sky-400 border border-sky-800">Time-to-Decision Optimized</span>
-          </h2>
-          <p class="text-xs text-slate-400">Correlated kill-chain narratives, asset criticality context, and 1-click inline containment execution</p>
+          <h2 class="text-base font-bold text-white">Incident Queue</h2>
+          <p class="text-xs text-slate-400 mt-0.5">Correlated threat events with asset context and response actions</p>
         </div>
-        <div class="flex items-center space-x-2 font-mono text-xs">
-          <button onclick="fetchLiveIncidents()" class="px-3 py-1.5 font-semibold bg-slate-800 hover:bg-slate-700 text-white rounded-lg border border-slate-700 transition">
-            🔄 Refresh Feed
-          </button>
-        </div>
+        <button onclick="fetchLiveIncidents()" class="px-3 py-1.5 text-xs font-mono bg-slate-900 hover:bg-slate-800 text-slate-200 rounded border border-slate-700 transition">
+          Refresh Feed
+        </button>
       </div>
 
       <!-- Incident Stream Cards Container -->
       <div id="incidentsCardsContainer" class="space-y-4 font-mono text-xs">
-        <div class="bg-[#0f172a] border border-slate-800 rounded-xl p-8 text-center text-slate-500 space-y-2">
-          <p>No active correlated incidents in queue.</p>
-          <p class="text-xs text-slate-600">Send webhooks or trigger test scenarios to ingest live telemetry.</p>
+        <div class="bg-[#0f172a] border border-slate-800 rounded-lg p-8 text-center text-slate-500 space-y-2">
+          <p>No active incidents in queue.</p>
+          <p class="text-xs text-slate-600">Send webhooks or trigger test scenarios to populate live telemetry.</p>
         </div>
       </div>
     </div>
 
     <!-- TAB 3: WAZUH SIEM INGESTION CONFIG -->
     <div id="tab-wazuh" class="tab-page hidden p-6 space-y-6">
-      <div class="bg-[#0f172a] border border-slate-800 rounded-xl p-6 space-y-6 max-w-4xl">
+      <div class="bg-[#0f172a] border border-slate-800 rounded-lg p-6 space-y-6 max-w-4xl">
         <div>
-          <h2 class="text-lg font-bold text-white">Wazuh SIEM Integration Guide</h2>
-          <p class="text-xs text-slate-400 mt-1">Configure your open-source Wazuh SIEM manager to forward security alerts to Terminus</p>
+          <h2 class="text-base font-bold text-white">Wazuh SIEM Ingestion Setup</h2>
+          <p class="text-xs text-slate-400 mt-0.5">Forward Wazuh security events to Terminus via JSON webhooks</p>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 font-mono text-xs">
-          <div class="bg-slate-950 border border-slate-800 rounded-lg p-4 space-y-1">
-            <span class="text-slate-500 text-[10px] uppercase">Ingestion Endpoint URL</span>
-            <p class="text-sky-400 font-semibold break-all">http://localhost:8000/wazuh</p>
+          <div class="bg-slate-950 border border-slate-800 rounded p-4 space-y-1">
+            <span class="text-slate-500 text-[10px] uppercase">Ingestion Endpoint</span>
+            <p class="text-slate-200 font-semibold break-all">http://localhost:8000/wazuh</p>
           </div>
-          <div class="bg-slate-950 border border-slate-800 rounded-lg p-4 space-y-1">
-            <span class="text-slate-500 text-[10px] uppercase">Supported Payload Format</span>
-            <p class="text-emerald-400 font-semibold">SiemAlert JSON (Wazuh 4.x Compatible)</p>
+          <div class="bg-slate-950 border border-slate-800 rounded p-4 space-y-1">
+            <span class="text-slate-500 text-[10px] uppercase">Payload Format</span>
+            <p class="text-slate-200 font-semibold">SiemAlert JSON (Wazuh 4.x Compatible)</p>
           </div>
         </div>
 
         <div class="space-y-2">
-          <label class="text-xs font-semibold uppercase text-slate-300 font-mono">1. Add to Wazuh Manager (/var/ossec/etc/ossec.conf)</label>
-          <pre class="bg-slate-950 border border-slate-800 rounded-lg p-4 font-mono text-xs text-sky-300 overflow-x-auto">&lt;integration&gt;
+          <label class="text-xs font-semibold uppercase text-slate-300 font-mono">1. Add to Wazuh Manager Configuration (/var/ossec/etc/ossec.conf)</label>
+          <pre class="bg-slate-950 border border-slate-800 rounded p-4 font-mono text-xs text-slate-300 overflow-x-auto">&lt;integration&gt;
   &lt;name&gt;custom-terminus&lt;/name&gt;
   &lt;hook_url&gt;http://localhost:8000/wazuh&lt;/hook_url&gt;
   &lt;alert_format&gt;json&lt;/alert_format&gt;
@@ -322,9 +314,9 @@
 
         <!-- Live Ingestion Tester Form -->
         <div class="border-t border-slate-800 pt-5 space-y-4">
-          <h3 class="text-sm font-bold text-white">Test Ingestion Directly from Dashboard</h3>
-          <button onclick="sendTestAlert()" class="px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-xs font-semibold font-mono shadow-md transition">
-            🚀 Send Test Alert Payload to /wazuh
+          <h3 class="text-xs font-mono font-semibold text-white uppercase">Ingestion Test Payload</h3>
+          <button onclick="sendTestAlert()" class="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded text-xs font-mono font-semibold border border-slate-700 transition">
+            Send Test Alert to /wazuh
           </button>
         </div>
       </div>
@@ -332,35 +324,35 @@
 
     <!-- TAB 4: POLICY RULES ENGINE -->
     <div id="tab-policies" class="tab-page hidden p-6 space-y-6">
-      <div class="bg-[#0f172a] border border-slate-800 rounded-xl p-6 space-y-6 max-w-4xl">
+      <div class="bg-[#0f172a] border border-slate-800 rounded-lg p-6 space-y-6 max-w-4xl">
         <div>
-          <h2 class="text-lg font-bold text-white">Policy Engine Rules & Thresholds</h2>
-          <p class="text-xs text-slate-400 mt-1">Pure deterministic policy rules for threat triage and escalation</p>
+          <h2 class="text-base font-bold text-white">Policy Engine Rules</h2>
+          <p class="text-xs text-slate-400 mt-0.5">Deterministic evaluation rules for alert triage and escalation</p>
         </div>
 
         <div class="space-y-4 font-mono text-xs">
-          <div class="bg-slate-950 border border-slate-800 rounded-lg p-4 flex items-center justify-between">
+          <div class="bg-slate-950 border border-slate-800 rounded p-4 flex items-center justify-between">
             <div>
-              <span class="text-emerald-400 font-bold">Rule 1: Low-Level Noise Filtering</span>
-              <p class="text-slate-400 text-[11px] mt-0.5">Alert Level &lt; 5 → IGNORE (No LLM action, zero token cost)</p>
+              <span class="text-slate-200 font-bold">Rule 1: Low-Level Filter</span>
+              <p class="text-slate-400 text-[11px] mt-0.5">Alert Level &lt; 5 → IGNORE (No token cost)</p>
             </div>
-            <span class="px-2 py-1 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold">ACTIVE</span>
+            <span class="px-2 py-0.5 rounded bg-slate-900 text-slate-400 border border-slate-800 text-[10px]">Active</span>
           </div>
 
-          <div class="bg-slate-950 border border-slate-800 rounded-lg p-4 flex items-center justify-between">
+          <div class="bg-slate-950 border border-slate-800 rounded p-4 flex items-center justify-between">
             <div>
-              <span class="text-amber-400 font-bold">Rule 2: Medium Severity Triage</span>
-              <p class="text-slate-400 text-[11px] mt-0.5">Alert Level 5 - 9 → TRIAGE (Investigate & create ticket)</p>
+              <span class="text-slate-200 font-bold">Rule 2: Medium Severity Triage</span>
+              <p class="text-slate-400 text-[11px] mt-0.5">Alert Level 5 - 9 → TRIAGE (Investigate alert)</p>
             </div>
-            <span class="px-2 py-1 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-bold">ACTIVE</span>
+            <span class="px-2 py-0.5 rounded bg-slate-900 text-slate-400 border border-slate-800 text-[10px]">Active</span>
           </div>
 
-          <div class="bg-slate-950 border border-slate-800 rounded-lg p-4 flex items-center justify-between">
+          <div class="bg-slate-950 border border-slate-800 rounded p-4 flex items-center justify-between">
             <div>
-              <span class="text-rose-400 font-bold">Rule 3: Critical Threat Escalation</span>
-              <p class="text-slate-400 text-[11px] mt-0.5">Alert Level ≥ 10 → ESCALATE (Immediate containment & PagerDuty notification)</p>
+              <span class="text-slate-200 font-bold">Rule 3: High Threat Escalation</span>
+              <p class="text-slate-400 text-[11px] mt-0.5">Alert Level ≥ 10 → ESCALATE (Immediate containment)</p>
             </div>
-            <span class="px-2 py-1 rounded bg-rose-500/10 text-rose-400 border border-rose-500/20 font-bold">ACTIVE</span>
+            <span class="px-2 py-0.5 rounded bg-slate-900 text-slate-400 border border-slate-800 text-[10px]">Active</span>
           </div>
         </div>
       </div>
@@ -370,27 +362,27 @@
     <div id="tab-orgs" class="tab-page hidden p-6 space-y-6">
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl">
         <!-- Create Org -->
-        <div class="bg-[#0f172a] border border-slate-800 rounded-xl p-6 space-y-4">
-          <h3 class="text-sm font-bold text-white">Create New Tenant Organization</h3>
+        <div class="bg-[#0f172a] border border-slate-800 rounded-lg p-6 space-y-4">
+          <h3 class="text-sm font-bold text-white">Create Tenant Organization</h3>
           <form id="formCreateOrg" class="space-y-3 font-mono text-xs">
             <div>
               <label class="block text-slate-400 mb-1">Organization Name</label>
-              <input type="text" id="newOrgName" required placeholder="Acme Cyber Corp" class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-white outline-none focus:border-sky-500">
+              <input type="text" id="newOrgName" required placeholder="Acme Cyber Corp" class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-white outline-none focus:border-slate-700">
             </div>
-            <button type="submit" class="w-full py-2 bg-sky-600 hover:bg-sky-500 text-white rounded font-bold transition">
+            <button type="submit" class="w-full py-2 bg-slate-800 hover:bg-slate-700 text-white rounded font-semibold transition border border-slate-700">
               Create Organization
             </button>
           </form>
         </div>
 
         <!-- Tenant Information -->
-        <div class="bg-[#0f172a] border border-slate-800 rounded-xl p-6 space-y-4 font-mono text-xs">
-          <h3 class="text-sm font-bold text-white font-sans">Active Tenant Details</h3>
+        <div class="bg-[#0f172a] border border-slate-800 rounded-lg p-6 space-y-4 font-mono text-xs">
+          <h3 class="text-sm font-bold text-white font-sans">Tenant Profile</h3>
           <div class="space-y-2 text-slate-300">
-            <p>Org ID: <span class="text-sky-400 font-bold">org-00000001</span></p>
-            <p>Role: <span class="text-emerald-400 font-bold">ADMINISTRATOR</span></p>
-            <p>Seats Used: <span class="text-white font-bold">1 / 100</span></p>
-            <p>Tier: <span class="text-purple-400 font-bold">ENTERPRISE SAAS</span></p>
+            <p>Org ID: <span class="text-slate-200 font-bold">org-00000001</span></p>
+            <p>Role: <span class="text-slate-200 font-bold">ADMINISTRATOR</span></p>
+            <p>Seats Used: <span class="text-slate-200 font-bold">1 / 100</span></p>
+            <p>Tier: <span class="text-slate-200 font-bold">ENTERPRISE SAAS</span></p>
           </div>
         </div>
       </div>
@@ -400,14 +392,11 @@
     <div id="tab-agents" class="tab-page hidden p-6 space-y-6">
       <div class="flex items-center justify-between">
         <div>
-          <h2 class="text-lg font-bold text-white flex items-center space-x-2">
-            <span>AI SOC Agent Fleet</span>
-            <span class="px-2 py-0.5 rounded bg-sky-500/10 text-sky-400 border border-sky-500/30 text-xs font-mono font-bold">Autonomous Reasoning Engine</span>
-          </h2>
-          <p class="text-xs text-slate-400 mt-0.5">Manage specialized AI agents, master system prompts, ON/OFF states, and workflow routing</p>
+          <h2 class="text-base font-bold text-white">Agents Fleet</h2>
+          <p class="text-xs text-slate-400 mt-0.5">Specialized autonomous AI agents and master system prompts</p>
         </div>
-        <button onclick="openCreateAgentModal()" class="px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-lg font-mono text-xs font-bold transition flex items-center space-x-2 shadow-lg shadow-sky-600/20">
-          <span>＋ Deploy New AI Agent</span>
+        <button onclick="openCreateAgentModal()" class="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded font-mono text-xs font-semibold transition border border-slate-700">
+          Deploy Agent
         </button>
       </div>
 
@@ -417,26 +406,23 @@
       </div>
     </div>
 
-    <!-- TAB 8: WORKFLOW CANVAS (n8n Node Orchestrator) -->
+    <!-- TAB 8: WORKFLOW CANVAS -->
     <div id="tab-workflows" class="tab-page hidden p-6 space-y-6">
-      <div class="flex items-center justify-between bg-[#0f172a] border border-slate-800 rounded-xl p-4 shadow-xl">
+      <div class="flex items-center justify-between bg-[#0f172a] border border-slate-800 rounded-lg p-4">
         <div class="flex items-center space-x-4">
-          <div class="flex items-center space-x-2">
-            <span class="w-3 h-3 rounded-full bg-purple-500 animate-pulse"></span>
-            <h2 class="text-sm font-bold text-white font-mono">SOC Workflow Orchestrator (n8n Engine)</h2>
-          </div>
+          <h2 class="text-sm font-bold text-white font-mono">SOC Workflow Canvas</h2>
           
-          <select id="workflowSelect" onchange="selectWorkflow(this.value)" class="bg-slate-950 border border-slate-800 text-sky-400 font-mono text-xs rounded px-3 py-1.5 outline-none focus:border-sky-500">
+          <select id="workflowSelect" onchange="selectWorkflow(this.value)" class="bg-slate-950 border border-slate-800 text-slate-200 font-mono text-xs rounded px-3 py-1.5 outline-none focus:border-slate-700">
             <!-- Dynamically populated -->
           </select>
         </div>
 
         <div class="flex items-center space-x-3">
-          <button onclick="testRunWorkflow()" class="px-3 py-1.5 bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 rounded font-mono text-xs font-bold transition flex items-center space-x-1">
-            <span>⚡ Test Run Workflow</span>
+          <button onclick="testRunWorkflow()" class="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700 rounded font-mono text-xs font-semibold transition">
+            Test Run
           </button>
-          <button onclick="saveWorkflowCanvas()" class="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded font-mono text-xs font-bold transition shadow">
-            <span>💾 Save Canvas</span>
+          <button onclick="saveWorkflowCanvas()" class="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded font-mono text-xs font-semibold transition border border-slate-700">
+            Save Layout
           </button>
         </div>
       </div>
@@ -444,68 +430,59 @@
       <!-- Main Node Canvas Area -->
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[640px]">
         <!-- Node Palette Sidebar -->
-        <div class="lg:col-span-3 bg-[#0f172a] border border-slate-800 rounded-xl p-4 space-y-4 overflow-y-auto font-mono text-xs">
-          <h3 class="text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-800 pb-2">
-            Node Palette (Drag / Click to Add)
+        <div class="lg:col-span-3 bg-[#0f172a] border border-slate-800 rounded-lg p-4 space-y-4 overflow-y-auto font-mono text-xs">
+          <h3 class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider border-b border-slate-800 pb-2">
+            Node Palette
           </h3>
 
           <div class="space-y-3">
             <div>
-              <span class="text-[10px] text-slate-500 uppercase font-semibold block mb-1.5">⚡ Triggers & Ingestion</span>
+              <span class="text-[10px] text-slate-500 uppercase font-semibold block mb-1.5">Ingestion Triggers</span>
               <div class="space-y-1.5">
-                <button onclick="addNodeToCanvas('trigger_wazuh')" class="w-full text-left p-2 rounded bg-slate-950 border border-slate-800 hover:border-sky-500/50 text-slate-300 hover:text-white transition text-[11px] flex items-center space-x-2">
-                  <span class="text-amber-400">⚡</span>
-                  <span>Wazuh Alert Webhook</span>
+                <button onclick="addNodeToCanvas('trigger_wazuh')" class="w-full text-left p-2 rounded bg-slate-950 border border-slate-800 hover:border-slate-700 text-slate-300 transition text-[11px]">
+                  Wazuh Alert Webhook
                 </button>
-                <button onclick="addNodeToCanvas('trigger_cron')" class="w-full text-left p-2 rounded bg-slate-950 border border-slate-800 hover:border-sky-500/50 text-slate-300 hover:text-white transition text-[11px] flex items-center space-x-2">
-                  <span class="text-sky-400">⏱️</span>
-                  <span>Cron Schedule (Iterate/Poll)</span>
+                <button onclick="addNodeToCanvas('trigger_cron')" class="w-full text-left p-2 rounded bg-slate-950 border border-slate-800 hover:border-slate-700 text-slate-300 transition text-[11px]">
+                  Cron Schedule Loop
                 </button>
               </div>
             </div>
 
             <div>
-              <span class="text-[10px] text-slate-500 uppercase font-semibold block mb-1.5">🧠 AI Agents & Reasoning</span>
+              <span class="text-[10px] text-slate-500 uppercase font-semibold block mb-1.5">AI Agents & Reasoning</span>
               <div class="space-y-1.5">
-                <button onclick="addNodeToCanvas('agent_llm')" class="w-full text-left p-2 rounded bg-slate-950 border border-slate-800 hover:border-purple-500/50 text-slate-300 hover:text-white transition text-[11px] flex items-center space-x-2">
-                  <span class="text-purple-400">🧠</span>
-                  <span>LLM Reasoning Agent</span>
+                <button onclick="addNodeToCanvas('agent_llm')" class="w-full text-left p-2 rounded bg-slate-950 border border-slate-800 hover:border-slate-700 text-slate-300 transition text-[11px]">
+                  LLM Reasoning Agent
                 </button>
-                <button onclick="addNodeToCanvas('agent_intel')" class="w-full text-left p-2 rounded bg-slate-950 border border-slate-800 hover:border-purple-500/50 text-slate-300 hover:text-white transition text-[11px] flex items-center space-x-2">
-                  <span class="text-indigo-400">🔍</span>
-                  <span>Threat Intel Lookup</span>
+                <button onclick="addNodeToCanvas('agent_intel')" class="w-full text-left p-2 rounded bg-slate-950 border border-slate-800 hover:border-slate-700 text-slate-300 transition text-[11px]">
+                  Threat Intel Lookup
                 </button>
               </div>
             </div>
 
             <div>
-              <span class="text-[10px] text-slate-500 uppercase font-semibold block mb-1.5">🛡️ SOC Containment Tools</span>
+              <span class="text-[10px] text-slate-500 uppercase font-semibold block mb-1.5">Containment Tools</span>
               <div class="space-y-1.5">
-                <button onclick="addNodeToCanvas('tool_firewall')" class="w-full text-left p-2 rounded bg-slate-950 border border-slate-800 hover:border-rose-500/50 text-slate-300 hover:text-white transition text-[11px] flex items-center space-x-2">
-                  <span class="text-rose-400">🛡️</span>
-                  <span>Firewall IP Block</span>
+                <button onclick="addNodeToCanvas('tool_firewall')" class="w-full text-left p-2 rounded bg-slate-950 border border-slate-800 hover:border-slate-700 text-slate-300 transition text-[11px]">
+                  Firewall IP Block
                 </button>
-                <button onclick="addNodeToCanvas('tool_isolate')" class="w-full text-left p-2 rounded bg-slate-950 border border-slate-800 hover:border-rose-500/50 text-slate-300 hover:text-white transition text-[11px] flex items-center space-x-2">
-                  <span class="text-rose-400">🔒</span>
-                  <span>Host Isolation</span>
+                <button onclick="addNodeToCanvas('tool_isolate')" class="w-full text-left p-2 rounded bg-slate-950 border border-slate-800 hover:border-slate-700 text-slate-300 transition text-[11px]">
+                  Host Isolation
                 </button>
-                <button onclick="addNodeToCanvas('tool_slack')" class="w-full text-left p-2 rounded bg-slate-950 border border-slate-800 hover:border-emerald-500/50 text-slate-300 hover:text-white transition text-[11px] flex items-center space-x-2">
-                  <span class="text-emerald-400">💬</span>
-                  <span>Slack Fan-out</span>
+                <button onclick="addNodeToCanvas('tool_slack')" class="w-full text-left p-2 rounded bg-slate-950 border border-slate-800 hover:border-slate-700 text-slate-300 transition text-[11px]">
+                  Slack Integration
                 </button>
               </div>
             </div>
 
             <div>
-              <span class="text-[10px] text-slate-500 uppercase font-semibold block mb-1.5">🔀 Logic & Polling Loops</span>
+              <span class="text-[10px] text-slate-500 uppercase font-semibold block mb-1.5">Logic & Loops</span>
               <div class="space-y-1.5">
-                <button onclick="addNodeToCanvas('condition_severity')" class="w-full text-left p-2 rounded bg-slate-950 border border-slate-800 hover:border-amber-500/50 text-slate-300 hover:text-white transition text-[11px] flex items-center space-x-2">
-                  <span class="text-amber-400">🔀</span>
-                  <span>Severity Condition (>= 10)</span>
+                <button onclick="addNodeToCanvas('condition_severity')" class="w-full text-left p-2 rounded bg-slate-950 border border-slate-800 hover:border-slate-700 text-slate-300 transition text-[11px]">
+                  Severity Condition
                 </button>
-                <button onclick="addNodeToCanvas('loop_poll')" class="w-full text-left p-2 rounded bg-slate-950 border border-slate-800 hover:border-amber-500/50 text-slate-300 hover:text-white transition text-[11px] flex items-center space-x-2">
-                  <span class="text-sky-400">🔁</span>
-                  <span>Polling Loop (Every X sec)</span>
+                <button onclick="addNodeToCanvas('loop_poll')" class="w-full text-left p-2 rounded bg-slate-950 border border-slate-800 hover:border-slate-700 text-slate-300 transition text-[11px]">
+                  Polling Loop
                 </button>
               </div>
             </div>
@@ -513,74 +490,70 @@
         </div>
 
         <!-- Interactive Visual Canvas Container (Pan & Zoom Viewport) -->
-        <div class="lg:col-span-9 bg-[#0b0f19] border border-slate-800 rounded-xl relative overflow-hidden flex flex-col justify-between select-none cursor-grab active:cursor-grabbing" id="canvasContainer">
+        <div class="lg:col-span-9 bg-[#0b0f19] border border-slate-800 rounded-lg relative overflow-hidden flex flex-col justify-between select-none cursor-grab active:cursor-grabbing" id="canvasContainer">
           <!-- Floating Canvas Zoom & Pan Controls -->
-          <div class="absolute top-4 right-4 z-40 flex items-center space-x-1.5 bg-[#0f172a]/95 backdrop-blur border border-slate-800 rounded-lg p-1.5 shadow-2xl font-mono text-xs">
-            <button onclick="zoomCanvas(0.1)" title="Zoom In (+10%)" class="w-7 h-7 rounded bg-slate-900 hover:bg-slate-800 text-sky-400 font-bold border border-slate-800 transition flex items-center justify-center">＋</button>
-            <span id="canvasZoomText" class="px-2 text-slate-300 font-bold text-[11px]">100%</span>
-            <button onclick="zoomCanvas(-0.1)" title="Zoom Out (-10%)" class="w-7 h-7 rounded bg-slate-900 hover:bg-slate-800 text-sky-400 font-bold border border-slate-800 transition flex items-center justify-center">－</button>
-            <button onclick="resetCanvasView()" title="Reset View (100% Center)" class="px-2 py-1 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white text-[10px] font-bold border border-slate-800 transition">🎯 Reset</button>
-            <button onclick="fitCanvasView()" title="Fit Graph to Screen" class="px-2 py-1 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white text-[10px] font-bold border border-slate-800 transition">📐 Fit</button>
+          <div class="absolute top-4 right-4 z-40 flex items-center space-x-1 bg-[#0f172a]/95 backdrop-blur border border-slate-800 rounded p-1 font-mono text-xs">
+            <button onclick="zoomCanvas(0.1)" title="Zoom In" class="w-7 h-7 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 font-bold border border-slate-800 transition flex items-center justify-center">+</button>
+            <span id="canvasZoomText" class="px-2 text-slate-400 font-semibold text-[11px]">100%</span>
+            <button onclick="zoomCanvas(-0.1)" title="Zoom Out" class="w-7 h-7 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 font-bold border border-slate-800 transition flex items-center justify-center">-</button>
+            <button onclick="resetCanvasView()" title="Reset View" class="px-2 py-1 rounded bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white text-[10px] font-semibold border border-slate-800 transition">Reset</button>
+            <button onclick="fitCanvasView()" title="Fit to Screen" class="px-2 py-1 rounded bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white text-[10px] font-semibold border border-slate-800 transition">Fit</button>
           </div>
 
           <!-- Canvas Hint Overlay -->
-          <div class="absolute top-4 left-4 z-30 pointer-events-none text-[10px] font-mono text-slate-500 bg-slate-950/80 border border-slate-800/80 rounded px-2.5 py-1 flex items-center space-x-2">
-            <span class="w-2 h-2 rounded-full bg-sky-400 animate-ping"></span>
-            <span>Drag Canvas to Pan • Right-Click Menu • Scroll Wheel Zoom</span>
+          <div class="absolute top-4 left-4 z-30 pointer-events-none text-[10px] font-mono text-slate-500 bg-slate-950/80 border border-slate-800 rounded px-2 py-1 flex items-center space-x-2">
+            <span>Drag Canvas to Pan • Right-Click Context Menu</span>
           </div>
 
           <!-- Custom Right-Click Management Context Menu -->
-          <div id="canvasContextMenu" class="fixed z-50 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700 shadow-2xl rounded-xl py-1.5 w-60 font-mono text-xs hidden text-slate-200 divide-y divide-slate-800">
+          <div id="canvasContextMenu" class="fixed z-50 bg-[#0f172a]/95 backdrop-blur-md border border-slate-800 shadow-2xl rounded-lg py-1.5 w-56 font-mono text-xs hidden text-slate-200 divide-y divide-slate-800">
             <!-- Node Specific Actions -->
             <div id="contextNodeSection" class="hidden">
-              <div id="contextNodeHeader" class="px-3 py-1 text-[10px] text-slate-400 font-bold uppercase tracking-wider bg-slate-950/60">
+              <div id="contextNodeHeader" class="px-3 py-1 text-[10px] text-slate-500 font-semibold uppercase tracking-wider bg-slate-950/60">
                 <span>Node Options</span>
               </div>
               <div class="py-1">
-                <button onclick="contextAction('inspect')" class="w-full px-3 py-1.5 text-left hover:bg-slate-800/80 hover:text-sky-400 flex items-center space-x-2 text-[11px] transition">
-                  <span>⚙️ Inspect & Configure Node</span>
+                <button onclick="contextAction('inspect')" class="w-full px-3 py-1.5 text-left hover:bg-slate-800 text-slate-300 hover:text-white text-[11px] transition">
+                  Configure Node
                 </button>
-                <button onclick="contextAction('duplicate')" class="w-full px-3 py-1.5 text-left hover:bg-slate-800/80 hover:text-purple-300 flex items-center space-x-2 text-[11px] transition">
-                  <span>📋 Duplicate Node</span>
+                <button onclick="contextAction('duplicate')" class="w-full px-3 py-1.5 text-left hover:bg-slate-800 text-slate-300 hover:text-white text-[11px] transition">
+                  Duplicate Node
                 </button>
-                <button onclick="contextAction('execute')" class="w-full px-3 py-1.5 text-left hover:bg-slate-800/80 hover:text-rose-400 flex items-center space-x-2 text-[11px] transition">
-                  <span>⚡ Run Step Test</span>
+                <button onclick="contextAction('execute')" class="w-full px-3 py-1.5 text-left hover:bg-slate-800 text-slate-300 hover:text-white text-[11px] transition">
+                  Run Step Test
                 </button>
-                <button onclick="contextAction('delete')" class="w-full px-3 py-1.5 text-left hover:bg-rose-950/60 text-rose-400 flex items-center space-x-2 text-[11px] transition font-bold">
-                  <span>🗑️ Delete Node</span>
+                <button onclick="contextAction('delete')" class="w-full px-3 py-1.5 text-left hover:bg-red-950/40 text-red-400 text-[11px] transition font-semibold">
+                  Delete Node
                 </button>
               </div>
             </div>
 
             <!-- Canvas Background Quick-Add Actions -->
             <div id="contextCanvasSection" class="py-1 space-y-0.5">
-              <div class="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider bg-slate-950/60">＋ Quick Add Node</div>
-              <button onclick="contextAddNode('trigger_wazuh')" class="w-full px-3 py-1.5 text-left hover:bg-slate-800/80 text-amber-300 hover:text-amber-200 flex items-center space-x-2 text-[11px] transition">
-                <span>⚡ Wazuh Alert Webhook</span>
+              <div class="px-3 py-1 text-[10px] font-semibold text-slate-500 uppercase tracking-wider bg-slate-950/60">+ Add Node</div>
+              <button onclick="contextAddNode('trigger_wazuh')" class="w-full px-3 py-1.5 text-left hover:bg-slate-800 text-slate-300 text-[11px] transition">
+                Wazuh Alert Webhook
               </button>
-              <button onclick="contextAddNode('trigger_cron')" class="w-full px-3 py-1.5 text-left hover:bg-slate-800/80 text-sky-300 hover:text-sky-200 flex items-center space-x-2 text-[11px] transition">
-                <span>⏱️ Cron Polling Loop</span>
+              <button onclick="contextAddNode('trigger_cron')" class="w-full px-3 py-1.5 text-left hover:bg-slate-800 text-slate-300 text-[11px] transition">
+                Cron Schedule Loop
               </button>
-              <button onclick="contextAddNode('agent_llm')" class="w-full px-3 py-1.5 text-left hover:bg-slate-800/80 text-purple-300 hover:text-purple-200 flex items-center space-x-2 text-[11px] transition">
-                <span>🧠 LLM Reasoning Agent</span>
+              <button onclick="contextAddNode('agent_llm')" class="w-full px-3 py-1.5 text-left hover:bg-slate-800 text-slate-300 text-[11px] transition">
+                LLM Reasoning Agent
               </button>
-              <button onclick="contextAddNode('tool_firewall')" class="w-full px-3 py-1.5 text-left hover:bg-slate-800/80 text-rose-300 hover:text-rose-200 flex items-center space-x-2 text-[11px] transition">
-                <span>🛡️ Firewall IP Block Tool</span>
-              </button>
-              <button onclick="contextAddNode('tool_isolate')" class="w-full px-3 py-1.5 text-left hover:bg-slate-800/80 text-rose-300 hover:text-rose-200 flex items-center space-x-2 text-[11px] transition">
-                <span>🔒 Host Isolation Tool</span>
+              <button onclick="contextAddNode('tool_firewall')" class="w-full px-3 py-1.5 text-left hover:bg-slate-800 text-slate-300 text-[11px] transition">
+                Firewall IP Block Tool
               </button>
 
               <div class="my-1 border-t border-slate-800"></div>
-              <div class="px-3 py-1 text-[10px] font-bold text-slate-500 uppercase tracking-wider">📐 Viewport Controls</div>
-              <button onclick="contextCanvasView('reset')" class="w-full px-3 py-1.5 text-left hover:bg-slate-800/80 text-slate-300 hover:text-white flex items-center space-x-2 text-[11px] transition">
-                <span>🎯 Reset Viewport (100%)</span>
+              <div class="px-3 py-1 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Viewport</div>
+              <button onclick="contextCanvasView('reset')" class="w-full px-3 py-1.5 text-left hover:bg-slate-800 text-slate-400 hover:text-white text-[11px] transition">
+                Reset Viewport
               </button>
-              <button onclick="contextCanvasView('fit')" class="w-full px-3 py-1.5 text-left hover:bg-slate-800/80 text-slate-300 hover:text-white flex items-center space-x-2 text-[11px] transition">
-                <span>📐 Fit Graph to View</span>
+              <button onclick="contextCanvasView('fit')" class="w-full px-3 py-1.5 text-left hover:bg-slate-800 text-slate-400 hover:text-white text-[11px] transition">
+                Fit to View
               </button>
-              <button onclick="saveWorkflowCanvas()" class="w-full px-3 py-1.5 text-left hover:bg-slate-800/80 text-sky-400 flex items-center space-x-2 text-[11px] transition font-bold">
-                <span>💾 Save Canvas Graph</span>
+              <button onclick="saveWorkflowCanvas()" class="w-full px-3 py-1.5 text-left hover:bg-slate-800 text-slate-300 text-[11px] transition font-semibold">
+                Save Layout
               </button>
             </div>
           </div>
@@ -594,10 +567,9 @@
             <svg id="canvasSvg" class="absolute inset-0 w-[4000px] h-[4000px] pointer-events-none z-10">
               <defs>
                 <marker id="arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-                  <path d="M 0 0 L 10 5 L 0 10 z" fill="#38bdf8" />
+                  <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b" />
                 </marker>
               </defs>
-              <!-- Dynamic curve lines -->
             </svg>
 
             <!-- Rendered Nodes Layer -->
@@ -606,46 +578,43 @@
             </div>
           </div>
 
-          <!-- Slide-Over Node Inspector Drawer (Right Side of Canvas) -->
+          <!-- Slide-Over Node Inspector Drawer -->
           <div id="nodeInspectorDrawer" class="absolute top-0 right-0 bottom-0 w-80 bg-[#0f172a]/95 backdrop-blur-md border-l border-slate-800 p-5 z-50 shadow-2xl flex flex-col justify-between font-mono text-xs transform translate-x-full transition-transform duration-200">
             <div class="space-y-4">
               <div class="flex items-center justify-between border-b border-slate-800 pb-3">
-                <div class="flex items-center space-x-2">
-                  <span class="text-sky-400 text-sm">⚙️</span>
-                  <h3 class="font-bold text-white text-xs">Node Inspector</h3>
-                </div>
+                <h3 class="font-bold text-white text-xs">Node Inspector</h3>
                 <button onclick="closeNodeInspector()" class="text-slate-400 hover:text-white font-bold text-sm">✕</button>
               </div>
 
               <div class="space-y-3 text-slate-300">
                 <div>
-                  <label class="block text-[10px] text-slate-500 uppercase font-bold mb-1">Node Title / Label</label>
-                  <input type="text" id="inspectorNodeLabel" class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-slate-200 text-xs outline-none focus:border-sky-500">
+                  <label class="block text-[10px] text-slate-500 uppercase font-semibold mb-1">Node Title / Label</label>
+                  <input type="text" id="inspectorNodeLabel" class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-slate-200 text-xs outline-none focus:border-slate-700">
                 </div>
 
                 <div>
-                  <label class="block text-[10px] text-slate-500 uppercase font-bold mb-1">Node Type ID</label>
+                  <label class="block text-[10px] text-slate-500 uppercase font-semibold mb-1">Node Type ID</label>
                   <input type="text" id="inspectorNodeType" readonly class="w-full bg-slate-950/60 border border-slate-800/80 rounded p-2 text-slate-500 text-[11px]">
                 </div>
 
                 <div>
-                  <label class="block text-[10px] text-slate-500 uppercase font-bold mb-1">Configuration Parameters (JSON)</label>
-                  <textarea id="inspectorNodeConfig" rows="5" class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-sky-300 text-[11px] font-mono outline-none focus:border-sky-500 leading-relaxed"></textarea>
+                  <label class="block text-[10px] text-slate-500 uppercase font-semibold mb-1">Config Parameters (JSON)</label>
+                  <textarea id="inspectorNodeConfig" rows="5" class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-slate-300 text-[11px] font-mono outline-none focus:border-slate-700 leading-relaxed"></textarea>
                 </div>
               </div>
             </div>
 
             <div class="pt-3 border-t border-slate-800 flex items-center justify-between space-x-2">
-              <button onclick="deleteSelectedNode()" class="px-3 py-1.5 bg-rose-600/20 hover:bg-rose-600/30 text-rose-400 border border-rose-500/30 rounded font-bold text-[11px] transition">🗑️ Delete</button>
-              <button onclick="saveNodeInspector()" class="px-4 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded font-bold text-[11px] shadow transition">Save Config</button>
+              <button onclick="deleteSelectedNode()" class="px-3 py-1.5 bg-red-950/40 hover:bg-red-900/40 text-red-400 border border-red-900/50 rounded font-semibold text-[11px] transition">Delete</button>
+              <button onclick="saveNodeInspector()" class="px-4 py-1.5 bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 rounded font-semibold text-[11px] transition">Save Config</button>
             </div>
           </div>
 
           <!-- Canvas Footer Stats -->
-          <div class="relative z-30 p-4 border-t border-slate-800/80 bg-[#0f172a]/90 backdrop-blur flex items-center justify-between text-[11px] font-mono text-slate-500">
-            <span>Connected Nodes: <span id="canvasNodeCount" class="text-sky-400 font-bold">6</span></span>
-            <span>Viewport Pan: <span id="canvasPanText" class="text-slate-300 font-bold">(0, 0)</span></span>
-            <span>n8n SOC Graph Engine v3.2</span>
+          <div class="relative z-30 p-3 border-t border-slate-800/80 bg-[#0f172a]/90 backdrop-blur flex items-center justify-between text-[11px] font-mono text-slate-500">
+            <span>Nodes: <span id="canvasNodeCount" class="text-slate-300 font-semibold">6</span></span>
+            <span>Viewport: <span id="canvasPanText" class="text-slate-400">(0, 0)</span></span>
+            <span>n8n Engine v3.2</span>
           </div>
         </div>
       </div>
@@ -653,13 +622,13 @@
 
   </div>
 
-  <!-- AI FORENSIC DETAIL INSPECTOR MODAL -->
+  <!-- FORENSIC DETAIL INSPECTOR MODAL -->
   <div id="inspectorModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
-    <div class="bg-[#0f172a] border border-slate-800 rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden font-mono text-xs">
+    <div class="bg-[#0f172a] border border-slate-800 rounded-lg w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden font-mono text-xs">
       <!-- Modal Header -->
       <div class="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/60">
         <div class="flex items-center space-x-3">
-          <span class="px-2.5 py-1 rounded bg-sky-500/10 text-sky-400 border border-sky-500/30 text-[10px] font-bold">🤖 TERMINUS AI AGENT</span>
+          <span class="px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700 text-[10px] font-semibold">AI Forensics</span>
           <h3 class="text-sm font-bold text-white" id="modalTicketId">TICK-XXXX</h3>
         </div>
         <button onclick="closeInspector()" class="text-slate-400 hover:text-white text-lg font-bold">✕</button>
@@ -668,10 +637,10 @@
       <!-- Modal Content Body -->
       <div class="p-6 overflow-y-auto space-y-5 text-slate-300">
         <!-- Header Meta Badges -->
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-950 p-4 rounded-xl border border-slate-800 text-[11px]">
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-950 p-4 rounded border border-slate-800 text-[11px]">
           <div>
-            <span class="text-slate-500 text-[10px] uppercase block">AI Verdict Severity</span>
-            <span id="modalSeverity" class="font-bold text-rose-400">CRITICAL</span>
+            <span class="text-slate-500 text-[10px] uppercase block">Severity Verdict</span>
+            <span id="modalSeverity" class="font-bold text-red-400">CRITICAL</span>
           </div>
           <div>
             <span class="text-slate-500 text-[10px] uppercase block">Confidence Score</span>
@@ -679,42 +648,41 @@
           </div>
           <div>
             <span class="text-slate-500 text-[10px] uppercase block">Target Workload</span>
-            <span id="modalAgent" class="text-sky-300 font-semibold">prod-web-front-01</span>
+            <span id="modalAgent" class="text-slate-300 font-semibold">prod-web-front-01</span>
           </div>
           <div>
-            <span class="text-slate-500 text-[10px] uppercase block">Policy Tier</span>
-            <span id="modalPolicy" class="text-purple-400 font-semibold">ESCALATE</span>
+            <span class="text-slate-500 text-[10px] uppercase block">Policy Action</span>
+            <span id="modalPolicy" class="text-slate-300 font-semibold">ESCALATE</span>
           </div>
         </div>
 
         <!-- AI Forensic Summary Box -->
-        <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-4 space-y-2">
-          <div class="flex items-center space-x-2 text-sky-400 font-bold text-[11px] uppercase tracking-wider">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-            <span>Autonomous AI Investigation Reasoning</span>
+        <div class="bg-slate-950/80 border border-slate-800 rounded p-4 space-y-2">
+          <div class="text-slate-300 font-semibold text-[11px] uppercase tracking-wider">
+            Investigation Reasoning Summary
           </div>
-          <p id="modalSummary" class="text-slate-200 leading-relaxed text-[11px]">Analyzing forensic telemetry...</p>
+          <p id="modalSummary" class="text-slate-300 leading-relaxed text-[11px]">Analyzing forensic telemetry...</p>
         </div>
 
         <!-- Recommended Actions / Playbook -->
         <div class="space-y-2">
-          <h4 class="text-xs font-bold text-slate-200 uppercase tracking-wider">AI Containment Playbook & Recommended Actions</h4>
+          <h4 class="text-xs font-semibold text-slate-200 uppercase tracking-wider">Recommended Response Playbook</h4>
           <div id="modalActions" class="space-y-2"></div>
         </div>
 
-        <!-- Raw Event Telemetry & Rule Details -->
+        <!-- Raw Event Telemetry -->
         <div class="space-y-2">
-          <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Raw Ingested Security Event Payload</h4>
-          <pre id="modalLog" class="bg-slate-950 border border-slate-800 p-3 rounded-lg text-slate-400 text-[10px] whitespace-pre-wrap overflow-x-auto max-h-40 font-mono"></pre>
+          <h4 class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Raw Telemetry Log Payload</h4>
+          <pre id="modalLog" class="bg-slate-950 border border-slate-800 p-3 rounded text-slate-400 text-[10px] whitespace-pre-wrap overflow-x-auto max-h-40 font-mono"></pre>
         </div>
       </div>
 
       <!-- Modal Footer -->
       <div class="px-6 py-3 border-t border-slate-800 bg-slate-950/60 flex items-center justify-between">
-        <span class="text-[10px] text-slate-500">Autonomous LLM Reasoning Engine v2.4</span>
+        <span class="text-[10px] text-slate-500">Autonomous Reasoning Pipeline</span>
         <div class="flex space-x-2">
-          <button onclick="triggerReInvestigation()" class="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded font-bold text-[11px] transition">⚡ Re-Run AI Agent Analysis</button>
-          <button onclick="closeInspector()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded font-bold text-[11px]">Close</button>
+          <button onclick="triggerReInvestigation()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded border border-slate-700 text-[11px] transition">Re-Run Analysis</button>
+          <button onclick="closeInspector()" class="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-300 rounded border border-slate-800 text-[11px]">Close</button>
         </div>
       </div>
     </div>
@@ -725,7 +693,7 @@
     function switchTab(tabId) {
       document.querySelectorAll('.tab-page').forEach(page => page.classList.add('hidden'));
       document.querySelectorAll('.nav-btn').forEach(btn => {
-        btn.classList.remove('bg-sky-600/10', 'text-sky-400', 'border', 'border-sky-500/20', 'font-semibold');
+        btn.classList.remove('bg-slate-800', 'text-white', 'border', 'border-slate-700');
         btn.classList.add('text-slate-400');
       });
 
@@ -734,7 +702,7 @@
 
       const navBtn = document.getElementById('nav-' + tabId.replace('tab-', ''));
       if (navBtn) {
-        navBtn.classList.add('bg-sky-600/10', 'text-sky-400', 'border', 'border-sky-500/20', 'font-semibold');
+        navBtn.classList.add('bg-slate-800', 'text-white', 'border', 'border-slate-700');
         navBtn.classList.remove('text-slate-400');
       }
     }
@@ -750,7 +718,7 @@
           labels: ['Critical (P1)', 'High (P2)', 'Medium (P3)'],
           datasets: [{
             data: [0, 0, 0],
-            backgroundColor: ['#f43f5e', '#fbbf24', '#38bdf8'],
+            backgroundColor: ['#ef4444', '#f59e0b', '#64748b'],
             borderWidth: 2,
             borderColor: '#0f172a'
           }]
@@ -764,7 +732,7 @@
               labels: { color: '#94a3b8', font: { family: 'JetBrains Mono', size: 11 } }
             }
           },
-          cutout: '70%'
+          cutout: '75%'
         }
       });
 
@@ -776,8 +744,8 @@
           datasets: [{
             label: 'Incidents Ingested',
             data: [],
-            borderColor: '#38bdf8',
-            backgroundColor: 'rgba(56, 189, 248, 0.1)',
+            borderColor: '#64748b',
+            backgroundColor: 'rgba(100, 116, 139, 0.1)',
             fill: true,
             tension: 0.3
           }]
@@ -830,7 +798,7 @@
     }
 
     async function executeInlineAction(ticketId, actionType) {
-      showToast(`Executing '${actionType.replace('_', ' ')}' on ${ticketId}...`, 'info');
+      showToast(`Executing ${actionType.replace('_', ' ')} on ${ticketId}...`, 'info');
       try {
         const res = await fetch(`/incidents/${ticketId}/action`, {
           method: 'POST',
@@ -872,7 +840,7 @@
       if (count === 0) {
         if (emptyState) emptyState.classList.remove('hidden');
         if (table) table.classList.add('hidden');
-        if (cardsContainer) cardsContainer.innerHTML = `<div class="bg-[#0f172a] border border-slate-800 rounded-xl p-8 text-center text-slate-500 font-mono">No active correlated incidents in queue. Send webhooks or trigger test scenarios.</div>`;
+        if (cardsContainer) cardsContainer.innerHTML = `<div class="bg-[#0f172a] border border-slate-800 rounded-lg p-8 text-center text-slate-500 font-mono">No active incidents in queue. Send webhooks or trigger test scenarios.</div>`;
         return;
       }
 
@@ -885,19 +853,19 @@
       tickets.forEach(t => {
         window.ticketsById[t.id] = t;
         const isCrit = (t.severity || '').toUpperCase().includes('CRITICAL');
-        const sevClass = isCrit ? 'bg-rose-950 text-rose-400 border-rose-800' : 'bg-amber-950 text-amber-400 border-amber-800';
-        const summaryText = t.summary || 'AI Forensic Analysis Completed';
+        const sevClass = isCrit ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-amber-500/10 text-amber-400 border-amber-500/20';
+        const summaryText = t.summary || 'Investigation completed.';
         
         tableRowsHtml += `
           <tr class="hover:bg-slate-900/60 transition">
-            <td class="py-3 px-3 text-sky-400 font-bold font-mono">${t.id}</td>
-            <td class="py-3 px-3"><span class="px-2 py-0.5 rounded text-[10px] font-bold border ${sevClass}">${(t.severity || 'HIGH').toUpperCase()}</span></td>
+            <td class="py-3 px-3 text-slate-200 font-bold font-mono">${t.id}</td>
+            <td class="py-3 px-3"><span class="px-2 py-0.5 rounded text-[10px] font-semibold border ${sevClass}">${(t.severity || 'HIGH').toUpperCase()}</span></td>
             <td class="py-3 px-3 text-slate-300 font-mono text-[11px]">${t.rule_description || t.alert_id || 'Security Event'}</td>
-            <td class="py-3 px-3 text-slate-200 text-[11px] max-w-md truncate" title="${summaryText}">${summaryText}</td>
-            <td class="py-3 px-3"><span class="px-2 py-0.5 rounded text-[10px] font-bold bg-sky-500/10 text-sky-400 border border-sky-500/30">${t.status || 'OPEN'}</span></td>
+            <td class="py-3 px-3 text-slate-300 text-[11px] max-w-md truncate" title="${summaryText}">${summaryText}</td>
+            <td class="py-3 px-3"><span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-900 text-slate-300 border border-slate-800">${t.status || 'OPEN'}</span></td>
             <td class="py-3 px-3 text-right">
-              <button onclick="openInspector('${t.id}')" class="px-3 py-1 text-[11px] bg-sky-600/20 hover:bg-sky-600/30 text-sky-300 border border-sky-500/30 rounded font-bold transition flex items-center space-x-1 ml-auto">
-                <span>🤖 AI Inspector</span>
+              <button onclick="openInspector('${t.id}')" class="px-3 py-1 text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded font-semibold transition ml-auto">
+                Inspect
               </button>
             </td>
           </tr>
@@ -911,28 +879,28 @@
         cardsContainer.innerHTML = tickets.map(t => {
           const isCrit = (t.severity || '').toUpperCase().includes('CRITICAL');
           const sevBadge = isCrit 
-            ? `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-950 text-rose-400 border border-rose-800">P1 CRITICAL</span>`
-            : `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-950 text-amber-400 border border-amber-800">P2 HIGH</span>`;
+            ? `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-red-500/10 text-red-400 border border-red-500/20">P1 Critical</span>`
+            : `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">P2 High</span>`;
 
-          const assetTag = t.asset_criticality || "💎 TIER 1 CROWN JEWEL";
-          const killChainStage = t.kill_chain_stage || "Credential Access";
-          const threatIntel = t.threat_intel_score || "AbuseIPDB: 98/100 (High Risk) • VT: 42/70 Malicious";
-          const statusText = t.mitigation_status || (t.policy_tier === 'isolate' ? 'AUTO_CONTAINED' : 'PENDING_ACTION');
-          const isContained = statusText.includes('CONTAINED');
+          const assetTag = (t.asset_criticality || "Tier-1 Asset").replace(/[^a-zA-Z0-9\s-]/g, '').trim();
+          const killChainStage = (t.kill_chain_stage || "Credential Access").replace(/[^a-zA-Z0-9\s-&]/g, '').trim();
+          const threatIntel = (t.threat_intel_score || "AbuseIPDB: 98/100 (High Risk)").replace(/[^a-zA-Z0-9\s-:()/•]/g, '').trim();
+          const statusText = t.mitigation_status || (t.policy_tier === 'isolate' ? 'Auto-Contained' : 'Pending Action');
+          const isContained = statusText.toUpperCase().includes('CONTAINED');
 
           const statusBadge = isContained
-            ? `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-800">🛡️ ${statusText}</span>`
-            : `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-950 text-amber-300 border border-amber-700 animate-pulse">⚡ ${statusText}</span>`;
+            ? `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">${statusText}</span>`
+            : `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">${statusText}</span>`;
 
           return `
-            <div class="bg-[#0f172a] border border-slate-800 hover:border-slate-700 rounded-xl p-5 shadow-2xl space-y-3 font-mono text-xs transition">
+            <div class="bg-[#0f172a] border border-slate-800 hover:border-slate-700 rounded-lg p-5 shadow-xl space-y-3 font-mono text-xs transition">
               <!-- Card Header Row -->
               <div class="flex items-center justify-between border-b border-slate-800 pb-3 flex-wrap gap-2">
                 <div class="flex items-center space-x-3">
-                  <span class="text-sky-400 font-extrabold text-sm">${t.id}</span>
+                  <span class="text-white font-bold text-sm">${t.id}</span>
                   ${sevBadge}
-                  <span class="px-2 py-0.5 rounded bg-slate-950 border border-slate-800 text-slate-300 text-[10px] font-bold">${assetTag}</span>
-                  <span class="px-2 py-0.5 rounded bg-purple-950 text-purple-300 border border-purple-800 text-[10px]">⚡ ${killChainStage}</span>
+                  <span class="px-2 py-0.5 rounded bg-slate-950 border border-slate-800 text-slate-300 text-[10px] font-semibold">${assetTag}</span>
+                  <span class="px-2 py-0.5 rounded bg-slate-950 text-slate-400 border border-slate-800 text-[10px]">${killChainStage}</span>
                 </div>
                 <div>${statusBadge}</div>
               </div>
@@ -940,42 +908,42 @@
               <!-- Incident Story & Correlation Body -->
               <div class="space-y-1.5 font-sans">
                 <h4 class="text-sm font-bold text-white font-mono">${t.rule_description || t.alert_id}</h4>
-                <p class="text-xs text-slate-300 leading-relaxed font-mono bg-slate-950 p-2.5 rounded border border-slate-800/80">
-                  <span class="text-sky-400 font-bold">AI Verdict:</span> ${t.summary || 'Correlated kill-chain event analyzed by Terminus Autonomous SOC.'}
+                <p class="text-xs text-slate-300 leading-relaxed font-mono bg-slate-950 p-2.5 rounded border border-slate-800">
+                  <span class="text-slate-400 font-semibold">Verdict Summary:</span> ${t.summary || 'Correlated security event analyzed by Terminus.'}
                 </p>
               </div>
 
               <!-- Threat Context & Asset Metadata Bar -->
-              <div class="grid grid-cols-1 md:grid-cols-3 gap-2 text-[10px] bg-slate-950 p-2 rounded border border-slate-800/60 font-mono">
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-2 text-[10px] bg-slate-950 p-2.5 rounded border border-slate-800 font-mono text-slate-400">
                 <div>
-                  <span class="text-slate-500 block uppercase">Target Workload</span>
-                  <span class="text-sky-400 font-bold">${t.agent_name || 'prod-ad-dc-01'}</span>
+                  <span class="text-slate-500 block uppercase text-[9px]">Target Host</span>
+                  <span class="text-slate-200 font-semibold">${t.agent_name || 'prod-ad-dc-01'}</span>
                 </div>
                 <div>
-                  <span class="text-slate-500 block uppercase">Threat Intel Context</span>
-                  <span class="text-emerald-400 truncate block">${threatIntel}</span>
+                  <span class="text-slate-500 block uppercase text-[9px]">Threat Intel</span>
+                  <span class="text-slate-300 truncate block">${threatIntel}</span>
                 </div>
                 <div>
-                  <span class="text-slate-500 block uppercase">Decision SLA</span>
-                  <span class="text-purple-400 font-bold">Resolved in 14s (MTTR &lt; 45s)</span>
+                  <span class="text-slate-500 block uppercase text-[9px]">Decision SLA</span>
+                  <span class="text-slate-300 font-semibold">Processed in 14s (MTTR &lt; 45s)</span>
                 </div>
               </div>
 
-              <!-- Inline 1-Click Action Bar -->
+              <!-- Inline Action Bar -->
               <div class="pt-2 border-t border-slate-800 flex items-center justify-between flex-wrap gap-2">
                 <div class="flex items-center space-x-2">
-                  <button onclick="executeInlineAction('${t.id}', 'isolate_host')" class="px-3 py-1.5 bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 rounded font-bold text-[11px] transition flex items-center space-x-1">
-                    <span>🔒 Isolate Host</span>
+                  <button onclick="executeInlineAction('${t.id}', 'isolate_host')" class="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700 rounded font-semibold text-[11px] transition">
+                    Isolate Host
                   </button>
-                  <button onclick="executeInlineAction('${t.id}', 'block_ip')" class="px-3 py-1.5 bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/30 rounded font-bold text-[11px] transition flex items-center space-x-1">
-                    <span>🛡️ Block Attacker IP</span>
+                  <button onclick="executeInlineAction('${t.id}', 'block_ip')" class="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700 rounded font-semibold text-[11px] transition">
+                    Block IP
                   </button>
-                  <button onclick="executeInlineAction('${t.id}', 'run_playbook')" class="px-3 py-1.5 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 rounded font-bold text-[11px] transition flex items-center space-x-1">
-                    <span>⚡ Run Playbook</span>
+                  <button onclick="executeInlineAction('${t.id}', 'run_playbook')" class="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700 rounded font-semibold text-[11px] transition">
+                    Run Playbook
                   </button>
                 </div>
-                <button onclick="openInspector('${t.id}')" class="px-3 py-1.5 bg-sky-600/20 hover:bg-sky-600/30 text-sky-300 border border-sky-500/30 rounded font-bold text-[11px] transition flex items-center space-x-1">
-                  <span>🤖 Full AI Forensics →</span>
+                <button onclick="openInspector('${t.id}')" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 rounded font-semibold text-[11px] transition">
+                  Inspect Forensics →
                 </button>
               </div>
             </div>
@@ -1002,7 +970,7 @@
       document.getElementById('modalConfidence').textContent = (t.confidence || 'HIGH').toUpperCase() + ' (96% CONFIDENCE)';
       document.getElementById('modalAgent').textContent = t.agent_name || 'prod-web-front-01';
       document.getElementById('modalPolicy').textContent = (t.policy_tier || 'ESCALATE').toUpperCase();
-      document.getElementById('modalSummary').textContent = t.summary || 'AI Investigation completed.';
+      document.getElementById('modalSummary').textContent = t.summary || 'Investigation completed.';
 
       const actionsContainer = document.getElementById('modalActions');
       let actions = t.recommended_actions;
@@ -1029,14 +997,14 @@
     }
 
     function triggerReInvestigation() {
-      showToast('Re-running Autonomous AI Investigation Agent...', 'info');
+      showToast('Re-running investigation pipeline...', 'info');
       setTimeout(() => {
-        showToast('AI Investigation Completed! Verdict verified.', 'info');
+        showToast('Investigation completed. Verdict verified.', 'info');
       }, 800);
     }
 
     async function seedDemoScenarios() {
-      showToast('Ingesting Critical AI Threat Vectors...', 'info');
+      showToast('Ingesting test threat telemetry...', 'info');
       const scenarios = [
         {
           alert_id: "alt-log4j-cve-2021-44228",
@@ -1082,7 +1050,7 @@
         });
       }
 
-      showToast('3 High-Impact AI Threat Scenarios Ingested!', 'info');
+      showToast('Ingested 3 test scenarios', 'info');
       fetchLiveIncidents();
     }
 
@@ -1091,7 +1059,7 @@
       const payload = {
         alert_id: "alt-manual-test-" + Date.now(),
         rule_id: 100999,
-        rule_description: "Dashboard Manual Test Ingestion Alert",
+        rule_description: "Manual Test Ingestion Alert",
         level: 12
       };
       
@@ -1103,7 +1071,7 @@
       fetchLiveIncidents();
     }
 
-    // ─── AGENTS & WORKFLOWS JAVASCRIPT LOGIC ────────────────────────────────────────
+    // ─── AGENTS & WORKFLOWS LOGIC ────────────────────────────────────────
 
     window.agents = [];
     window.workflows = [];
@@ -1133,15 +1101,17 @@
       grid.innerHTML = agents.map(a => {
         const isActive = (a.status || '').toLowerCase() === 'active';
         const statusBadge = isActive 
-          ? `<span class="px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800 text-[10px] font-bold">ACTIVE</span>`
-          : `<span class="px-2 py-0.5 rounded bg-slate-900 text-slate-500 border border-slate-800 text-[10px] font-bold">PAUSED</span>`;
+          ? `<span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-semibold">ACTIVE</span>`
+          : `<span class="px-2 py-0.5 rounded bg-slate-900 text-slate-500 border border-slate-800 text-[10px] font-semibold">PAUSED</span>`;
 
         return `
-          <div class="bg-[#0f172a] border border-slate-800 rounded-xl p-5 shadow-xl space-y-4 font-mono text-xs flex flex-col justify-between hover:border-slate-700 transition">
+          <div class="bg-[#0f172a] border border-slate-800 rounded-lg p-5 shadow-xl space-y-4 font-mono text-xs flex flex-col justify-between hover:border-slate-700 transition">
             <div class="space-y-3">
               <div class="flex items-center justify-between">
                 <div class="flex items-center space-x-3">
-                  <div class="w-9 h-9 rounded-lg bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-sky-400 font-bold text-base">🤖</div>
+                  <div class="w-8 h-8 rounded bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-300 font-bold text-xs">
+                    AG
+                  </div>
                   <div>
                     <h3 class="text-sm font-bold text-white">${a.name}</h3>
                     <span class="text-[10px] text-slate-400 font-sans">${a.role_description}</span>
@@ -1152,7 +1122,7 @@
                   ${statusBadge}
                   <label class="relative inline-flex items-center cursor-pointer">
                     <input type="checkbox" ${isActive ? 'checked' : ''} onchange="toggleAgentStatus('${a.id}', this.checked)" class="sr-only peer">
-                    <div class="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-600"></div>
+                    <div class="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-slate-600"></div>
                   </label>
                 </div>
               </div>
@@ -1161,29 +1131,29 @@
               <div class="space-y-1">
                 <div class="flex items-center justify-between text-[10px] text-slate-400 uppercase font-semibold">
                   <span>Master System Prompt</span>
-                  <button onclick="openEditPromptModal('${a.id}')" class="text-sky-400 hover:text-sky-300">✏️ Edit</button>
+                  <button onclick="openEditPromptModal('${a.id}')" class="text-slate-400 hover:text-white">Edit</button>
                 </div>
-                <pre class="bg-slate-950 border border-slate-800/90 rounded-lg p-3 text-slate-300 text-[10px] whitespace-pre-wrap font-mono max-h-28 overflow-y-auto leading-relaxed">${a.master_prompt}</pre>
+                <pre class="bg-slate-950 border border-slate-800 rounded p-3 text-slate-300 text-[10px] whitespace-pre-wrap font-mono max-h-28 overflow-y-auto leading-relaxed">${a.master_prompt}</pre>
               </div>
 
               <!-- Stats Row -->
-              <div class="grid grid-cols-2 gap-3 bg-slate-950 p-2.5 rounded-lg border border-slate-800/60 text-[10px]">
+              <div class="grid grid-cols-2 gap-3 bg-slate-950 p-2.5 rounded border border-slate-800 text-[10px]">
                 <div>
-                  <span class="text-slate-500 block uppercase">Workload Processed</span>
-                  <span class="font-bold text-sky-400 text-xs">${(a.incidents_processed || 0).toLocaleString()} Incidents</span>
+                  <span class="text-slate-500 block uppercase">Incidents Processed</span>
+                  <span class="font-bold text-slate-200 text-xs">${(a.incidents_processed || 0).toLocaleString()}</span>
                 </div>
                 <div>
                   <span class="text-slate-500 block uppercase">Avg Response SLA</span>
-                  <span class="font-bold text-emerald-400 text-xs">${a.avg_sla_ms || 2.4} ms</span>
+                  <span class="font-bold text-slate-200 text-xs">${a.avg_sla_ms || 2.4} ms</span>
                 </div>
               </div>
             </div>
 
             <!-- Action Toolbar -->
-            <div class="pt-2 border-t border-slate-800/80 flex items-center justify-between">
+            <div class="pt-2 border-t border-slate-800 flex items-center justify-between">
               <span class="text-[10px] text-slate-500">ID: ${a.id}</span>
-              <button onclick="switchWorkflowForAgent('${a.id}')" class="px-3 py-1.5 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 rounded font-bold text-[11px] transition flex items-center space-x-1">
-                <span>⚙️ Workflow Config →</span>
+              <button onclick="switchWorkflowForAgent('${a.id}')" class="px-3 py-1 bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700 rounded font-semibold text-[11px] transition">
+                Configure Workflow →
               </button>
             </div>
           </div>
@@ -1245,7 +1215,7 @@
       }
     }
 
-    // ─── WORKFLOW CANVAS INTERACTIVE PAN, ZOOM & DRAG ENGINE ───────────────────────
+    // ─── WORKFLOW CANVAS ENGINE ───────────────────────
 
     window.canvasState = {
       panX: 0,
@@ -1316,16 +1286,13 @@
       if (!container || container.dataset.initialized) return;
       container.dataset.initialized = 'true';
 
-      // Mouse Wheel Zoom
       container.addEventListener('wheel', (e) => {
         e.preventDefault();
         const delta = e.deltaY < 0 ? 0.08 : -0.08;
         zoomCanvas(delta);
       }, { passive: false });
 
-      // Mouse Down (Background Pan vs Node Drag)
       container.addEventListener('mousedown', (e) => {
-        // If clicking inside a node card, handle node drag
         const nodeEl = e.target.closest('[id^="node-"]');
         if (nodeEl) {
           const nodeId = nodeEl.id.replace('node-', '');
@@ -1340,10 +1307,8 @@
           return;
         }
 
-        // Ignore pan if clicking inside interactive buttons, controls, or inspector drawer
         if (e.target.closest('button, input, textarea, select, #nodeInspectorDrawer')) return;
 
-        // Click-and-Hold to Pan Viewport smoothly across entire background
         window.canvasState.isPanning = true;
         window.canvasState.startMouseX = e.clientX;
         window.canvasState.startMouseY = e.clientY;
@@ -1352,7 +1317,6 @@
         container.style.cursor = 'grabbing';
       });
 
-      // Global Mouse Move
       window.addEventListener('mousemove', (e) => {
         if (window.canvasState.isPanning) {
           const dx = e.clientX - window.canvasState.startMouseX;
@@ -1381,7 +1345,6 @@
         }
       });
 
-      // Custom Right-Click Context Menu Listener
       container.addEventListener('contextmenu', (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -1390,7 +1353,6 @@
         const nodeSection = document.getElementById('contextNodeSection');
         const nodeHeader = document.getElementById('contextNodeHeader');
 
-        // Store click coordinates relative to canvas for quick adding at cursor location
         const rect = container.getBoundingClientRect();
         const rawX = e.clientX - rect.left;
         const rawY = e.clientY - rect.top;
@@ -1398,7 +1360,6 @@
         window.canvasState.contextMenuGraphX = Math.round((rawX - window.canvasState.panX) / window.canvasState.zoom);
         window.canvasState.contextMenuGraphY = Math.round((rawY - window.canvasState.panY) / window.canvasState.zoom);
 
-        // Check if right click was on a specific node card
         const nodeEl = e.target.closest('[id^="node-"]');
         if (nodeEl) {
           const nodeId = nodeEl.id.replace('node-', '');
@@ -1414,11 +1375,10 @@
           if (nodeSection) nodeSection.classList.add('hidden');
         }
 
-        // Adjust position so menu doesn't overflow viewport boundaries
         let x = e.clientX;
         let y = e.clientY;
-        const menuWidth = 240;
-        const menuHeight = nodeEl ? 380 : 280;
+        const menuWidth = 220;
+        const menuHeight = nodeEl ? 320 : 240;
 
         if (x + menuWidth > window.innerWidth) x = window.innerWidth - menuWidth - 10;
         if (y + menuHeight > window.innerHeight) y = window.innerHeight - menuHeight - 10;
@@ -1430,7 +1390,6 @@
         }
       });
 
-      // Dismiss Context Menu on click outside or Escape key
       window.addEventListener('click', (e) => {
         const menu = document.getElementById('canvasContextMenu');
         if (menu && !menu.contains(e.target)) {
@@ -1445,7 +1404,6 @@
         }
       });
 
-      // Global Mouse Up
       window.addEventListener('mouseup', () => {
         window.canvasState.isPanning = false;
         window.canvasState.draggingNodeId = null;
@@ -1462,38 +1420,29 @@
       const nodesContainer = document.getElementById('canvasNodes');
       document.getElementById('canvasNodeCount').textContent = wf.nodes.length;
 
-      // Render Nodes
       nodesContainer.innerHTML = wf.nodes.map(n => {
-        let icon = '⚡';
-        let borderColor = 'border-slate-700 hover:border-sky-400';
-        if (n.type.includes('agent')) { icon = '🧠'; borderColor = 'border-purple-800/80 hover:border-purple-400'; }
-        else if (n.type.includes('tool')) { icon = '🛡️'; borderColor = 'border-rose-800/80 hover:border-rose-400'; }
-        else if (n.type.includes('condition') || n.type.includes('loop')) { icon = '🔀'; borderColor = 'border-amber-800/80 hover:border-amber-400'; }
+        let borderColor = 'border-slate-800 hover:border-slate-700';
 
         return `
-          <div id="node-${n.id}" style="left: ${n.x}px; top: ${n.y}px;" class="absolute w-60 bg-[#0f172a] ${borderColor} rounded-xl p-3.5 shadow-2xl space-y-2.5 font-mono text-xs cursor-grab active:cursor-grabbing transition-shadow group z-20">
-            <div class="flex items-center justify-between border-b border-slate-800 pb-2">
-              <div class="flex items-center space-x-2">
-                <span class="text-base">${icon}</span>
-                <span class="font-bold text-white text-[11px] truncate max-w-[130px]">${n.label}</span>
-              </div>
-              <span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+          <div id="node-${n.id}" style="left: ${n.x}px; top: ${n.y}px;" class="absolute w-56 bg-[#0f172a] ${borderColor} rounded-lg p-3 shadow-xl space-y-2 font-mono text-xs cursor-grab active:cursor-grabbing transition-shadow group z-20">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-1.5">
+              <span class="font-bold text-white text-[11px] truncate">${n.label}</span>
+              <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
             </div>
 
-            <div class="text-[10px] text-slate-400 font-sans truncate">
-              Type: <span class="font-mono text-sky-400 font-semibold">${n.type}</span>
+            <div class="text-[10px] text-slate-400 truncate">
+              Type: <span class="font-mono text-slate-200 font-semibold">${n.type}</span>
             </div>
 
             ${n.config && Object.keys(n.config).length ? `
-              <div class="bg-slate-950 p-2 rounded border border-slate-800/80 text-[9px] text-slate-300 font-mono truncate leading-relaxed">
+              <div class="bg-slate-950 p-1.5 rounded border border-slate-800/80 text-[9px] text-slate-400 font-mono truncate leading-relaxed">
                 ${JSON.stringify(n.config)}
               </div>
             ` : ''}
 
-            <!-- Node Ports -->
-            <div class="flex justify-between items-center text-[9px] font-bold text-slate-500 pt-1.5 border-t border-slate-800/80">
-              <span class="text-sky-400">In ●</span>
-              <span class="text-emerald-400">● Out</span>
+            <div class="flex justify-between items-center text-[9px] font-bold text-slate-500 pt-1 border-t border-slate-800/80">
+              <span class="text-slate-400">In ●</span>
+              <span class="text-slate-400">● Out</span>
             </div>
           </div>
         `;
@@ -1510,7 +1459,7 @@
       let svgLines = `
         <defs>
           <marker id="arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-            <path d="M 0 0 L 10 5 L 0 10 z" fill="#38bdf8" />
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b" />
           </marker>
         </defs>
       `;
@@ -1519,19 +1468,19 @@
         const sourceNode = wf.nodes.find(n => n.id === e.source);
         const targetNode = wf.nodes.find(n => n.id === e.target);
         if (sourceNode && targetNode) {
-          const x1 = sourceNode.x + 240;
-          const y1 = sourceNode.y + 40;
+          const x1 = sourceNode.x + 224;
+          const y1 = sourceNode.y + 35;
           const x2 = targetNode.x;
-          const y2 = targetNode.y + 40;
+          const y2 = targetNode.y + 35;
 
-          const cx1 = x1 + 80;
+          const cx1 = x1 + 60;
           const cy1 = y1;
-          const cx2 = x2 - 80;
+          const cx2 = x2 - 60;
           const cy2 = y2;
 
           svgLines += `
             <path d="M ${x1} ${y1} C ${cx1} ${cy1}, ${cx2} ${cy2}, ${x2} ${y2}" 
-                  stroke="#38bdf8" stroke-width="2.5" fill="none" marker-end="url(#arrow)" opacity="0.85"/>
+                  stroke="#475569" stroke-width="2" fill="none" marker-end="url(#arrow)" opacity="0.8"/>
           `;
         }
       });
@@ -1601,12 +1550,12 @@
       const newNodeId = 'n' + (wf.nodes.length + 1);
       const labels = {
         trigger_wazuh: 'Wazuh Alert Webhook',
-        trigger_cron: 'Cron Polling Loop (5m)',
+        trigger_cron: 'Cron Schedule Loop (5m)',
         agent_llm: 'LLM Reasoning Agent',
         agent_intel: 'Threat Intel Lookup',
         tool_firewall: 'Firewall IP Block',
         tool_isolate: 'Host Isolation',
-        tool_slack: 'Slack Alert Fan-out',
+        tool_slack: 'Slack Integration',
         condition_severity: 'Severity Condition (>= 10)',
         loop_poll: 'Polling Loop (30s)'
       };
@@ -1630,43 +1579,9 @@
       }
 
       renderWorkflowCanvas(window.activeWorkflowId);
-      showToast(`Added '${newNode.label}' node to canvas`);
+      showToast(`Added '${newNode.label}' to canvas`);
     }
 
-    async function testRunWorkflow() {
-      if (!window.activeWorkflowId) return;
-      showToast('Executing test run on visual node workflow...', 'info');
-      try {
-        const res = await fetch(`/workflows/${window.activeWorkflowId}/execute`, { method: 'POST' });
-        if (res.ok) {
-          const data = await res.json();
-          showToast(`Test Run Success! Executed ${data.nodes_executed} nodes seamlessly.`, 'info');
-        }
-      } catch (err) {
-        showToast('Workflow execution error', 'error');
-      }
-    }
-
-    async function saveWorkflowCanvas() {
-      if (!window.activeWorkflowId) return;
-      const wf = window.workflows.find(w => w.id === window.activeWorkflowId);
-      if (!wf) return;
-
-      try {
-        const res = await fetch(`/workflows/${wf.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(wf)
-        });
-        if (res.ok) {
-          showToast('Workflow layout and node graph saved!');
-        }
-      } catch (err) {
-        showToast('Failed to save workflow', 'error');
-      }
-    }
-
-    // Context Menu Handler Functions
     function closeContextMenu() {
       const menu = document.getElementById('canvasContextMenu');
       if (menu) menu.classList.add('hidden');
@@ -1680,12 +1595,12 @@
       const newNodeId = 'n' + (wf.nodes.length + 1);
       const labels = {
         trigger_wazuh: 'Wazuh Alert Webhook',
-        trigger_cron: 'Cron Polling Loop (5m)',
+        trigger_cron: 'Cron Schedule Loop (5m)',
         agent_llm: 'LLM Reasoning Agent',
         agent_intel: 'Threat Intel Lookup',
         tool_firewall: 'Firewall IP Block',
         tool_isolate: 'Host Isolation',
-        tool_slack: 'Slack Alert Fan-out',
+        tool_slack: 'Slack Integration',
         condition_severity: 'Severity Condition (>= 10)',
         loop_poll: 'Polling Loop (30s)'
       };
@@ -1709,7 +1624,7 @@
       }
 
       renderWorkflowCanvas(window.activeWorkflowId);
-      showToast(`Added '${newNode.label}' node via Context Menu`);
+      showToast(`Added '${newNode.label}' via Context Menu`);
     }
 
     function contextAction(action) {
@@ -1750,6 +1665,39 @@
       else if (action === 'fit') fitCanvasView();
     }
 
+    async function testRunWorkflow() {
+      if (!window.activeWorkflowId) return;
+      showToast('Executing test run on node workflow...', 'info');
+      try {
+        const res = await fetch(`/workflows/${window.activeWorkflowId}/execute`, { method: 'POST' });
+        if (res.ok) {
+          const data = await res.json();
+          showToast(`Test Run Success! Executed ${data.nodes_executed} nodes.`, 'info');
+        }
+      } catch (err) {
+        showToast('Workflow execution error', 'error');
+      }
+    }
+
+    async function saveWorkflowCanvas() {
+      if (!window.activeWorkflowId) return;
+      const wf = window.workflows.find(w => w.id === window.activeWorkflowId);
+      if (!wf) return;
+
+      try {
+        const res = await fetch(`/workflows/${wf.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(wf)
+        });
+        if (res.ok) {
+          showToast('Workflow layout saved');
+        }
+      } catch (err) {
+        showToast('Failed to save workflow', 'error');
+      }
+    }
+
     // Modal Handlers
     function openCreateAgentModal() {
       document.getElementById('modalCreateAgent').classList.remove('hidden');
@@ -1771,7 +1719,7 @@
           body: JSON.stringify({ name, role_description, master_prompt })
         });
         if (res.ok) {
-          showToast(`Deployed new AI Agent '${name}'!`);
+          showToast(`Deployed AI Agent '${name}'!`);
           closeCreateAgentModal();
           fetchAgents();
         }
@@ -1813,41 +1761,6 @@
       }
     }
 
-    // Send Test Alert directly from Wazuh Tab
-    async function sendTestAlert() {
-      const payload = {
-        alert_id: "alt-manual-test-" + Date.now(),
-        rule_id: "rule-100999",
-        rule_description: "Dashboard Manual Test Ingestion Alert",
-        level: 12,
-        agent_id: "agent-test-01",
-        agent_name: "prod-web-front-01",
-        full_log: "Manual ingestion test fired from Terminus UI",
-        timestamp: new Date().toISOString()
-      };
-
-      try {
-        const res = await fetch('/wazuh', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Org-ID': 'org-00000001',
-            'Authorization': 'Bearer tok-demo-sim-agent'
-          },
-          body: JSON.stringify(payload)
-        });
-
-        if (res.ok) {
-          showToast('Test alert ingested successfully!');
-          fetchLiveIncidents();
-        } else {
-          showToast('Alert ingestion failed', 'error');
-        }
-      } catch (err) {
-        showToast('Network error triggering alert', 'error');
-      }
-    }
-
     function showToast(msg, type = 'info') {
       const toast = document.getElementById('toast');
       const toastMsg = document.getElementById('toastMsg');
@@ -1868,33 +1781,31 @@
 
   <!-- MODAL: CREATE AI AGENT -->
   <div id="modalCreateAgent" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
-    <div class="bg-[#0f172a] border border-slate-800 rounded-2xl w-full max-w-xl p-6 shadow-2xl space-y-4 font-mono text-xs">
+    <div class="bg-[#0f172a] border border-slate-800 rounded-lg w-full max-w-xl p-6 shadow-2xl space-y-4 font-mono text-xs">
       <div class="flex items-center justify-between border-b border-slate-800 pb-3">
-        <h3 class="text-sm font-bold text-white flex items-center space-x-2">
-          <span>🤖 Deploy New Autonomous AI SOC Agent</span>
-        </h3>
+        <h3 class="text-sm font-bold text-white">Deploy AI SOC Agent</h3>
         <button onclick="closeCreateAgentModal()" class="text-slate-400 hover:text-white font-bold">✕</button>
       </div>
 
       <form onsubmit="handleCreateAgent(event)" class="space-y-4">
         <div>
           <label class="block text-slate-400 mb-1">Agent Name</label>
-          <input type="text" id="createAgentName" required placeholder="e.g. Malware Sandbox Agent" class="w-full bg-slate-950 border border-slate-800 rounded p-2.5 text-slate-200 outline-none focus:border-sky-500">
+          <input type="text" id="createAgentName" required placeholder="e.g. Malware Sandbox Agent" class="w-full bg-slate-950 border border-slate-800 rounded p-2.5 text-slate-200 outline-none focus:border-slate-700">
         </div>
 
         <div>
-          <label class="block text-slate-400 mb-1">Role Description (Generated Work Description)</label>
-          <input type="text" id="createAgentRole" required placeholder="e.g. Detonates suspicious binaries in dynamic memory sandbox" class="w-full bg-slate-950 border border-slate-800 rounded p-2.5 text-slate-200 outline-none focus:border-sky-500">
+          <label class="block text-slate-400 mb-1">Role Description</label>
+          <input type="text" id="createAgentRole" required placeholder="e.g. Analyzes suspicious binary execution telemetry" class="w-full bg-slate-950 border border-slate-800 rounded p-2.5 text-slate-200 outline-none focus:border-slate-700">
         </div>
 
         <div>
-          <label class="block text-slate-400 mb-1">Master System Prompt (Instructions describing its role)</label>
-          <textarea id="createAgentPrompt" rows="4" required placeholder="You are the Malware Sandbox Agent. Your role is to..." class="w-full bg-slate-950 border border-slate-800 rounded p-2.5 text-sky-300 outline-none focus:border-sky-500 leading-relaxed"></textarea>
+          <label class="block text-slate-400 mb-1">Master System Prompt</label>
+          <textarea id="createAgentPrompt" rows="4" required placeholder="You are the Malware Sandbox Agent. Your role is to..." class="w-full bg-slate-950 border border-slate-800 rounded p-2.5 text-slate-300 outline-none focus:border-slate-700 leading-relaxed"></textarea>
         </div>
 
         <div class="flex items-center justify-end space-x-2 pt-2 border-t border-slate-800">
-          <button type="button" onclick="closeCreateAgentModal()" class="px-3 py-2 bg-slate-800 text-slate-300 rounded font-bold">Cancel</button>
-          <button type="submit" class="px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded font-bold shadow">Deploy Agent</button>
+          <button type="button" onclick="closeCreateAgentModal()" class="px-3 py-2 bg-slate-900 text-slate-300 rounded font-semibold border border-slate-800">Cancel</button>
+          <button type="submit" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded font-semibold border border-slate-700">Deploy Agent</button>
         </div>
       </form>
     </div>
@@ -1902,21 +1813,21 @@
 
   <!-- MODAL: EDIT MASTER SYSTEM PROMPT -->
   <div id="modalEditPrompt" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
-    <div class="bg-[#0f172a] border border-slate-800 rounded-2xl w-full max-w-xl p-6 shadow-2xl space-y-4 font-mono text-xs">
+    <div class="bg-[#0f172a] border border-slate-800 rounded-lg w-full max-w-xl p-6 shadow-2xl space-y-4 font-mono text-xs">
       <div class="flex items-center justify-between border-b border-slate-800 pb-3">
-        <h3 class="text-sm font-bold text-white">✏️ Refine Agent Master System Prompt</h3>
+        <h3 class="text-sm font-bold text-white">Refine Master System Prompt</h3>
         <button onclick="closeEditPromptModal()" class="text-slate-400 hover:text-white font-bold">✕</button>
       </div>
 
       <form onsubmit="handleSavePrompt(event)" class="space-y-4">
         <div>
           <label class="block text-slate-400 mb-1">Master System Prompt (LLM Instructions)</label>
-          <textarea id="editPromptInput" rows="6" required class="w-full bg-slate-950 border border-slate-800 rounded p-3 text-sky-300 outline-none focus:border-sky-500 leading-relaxed font-mono"></textarea>
+          <textarea id="editPromptInput" rows="6" required class="w-full bg-slate-950 border border-slate-800 rounded p-3 text-slate-300 outline-none focus:border-slate-700 leading-relaxed font-mono"></textarea>
         </div>
 
         <div class="flex items-center justify-end space-x-2 pt-2 border-t border-slate-800">
-          <button type="button" onclick="closeEditPromptModal()" class="px-3 py-2 bg-slate-800 text-slate-300 rounded font-bold">Cancel</button>
-          <button type="submit" class="px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded font-bold shadow">Save Prompt Changes</button>
+          <button type="button" onclick="closeEditPromptModal()" class="px-3 py-2 bg-slate-900 text-slate-300 rounded font-semibold border border-slate-800">Cancel</button>
+          <button type="submit" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded font-semibold border border-slate-700">Save Prompt</button>
         </div>
       </form>
     </div>
