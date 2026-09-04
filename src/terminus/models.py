@@ -74,9 +74,14 @@ class SiemAlert(BaseModel):
         validation_alias=AliasChoices(
             AliasPath("rule", "description"),
             "description",
+            "rule_description",
         ),
         default="",
     )
+
+    @property
+    def rule_description(self) -> str:
+        return self.description
     mitre: str | None = Field(
         validation_alias=AliasChoices(
             AliasPath("rule", "mitre", "id"),

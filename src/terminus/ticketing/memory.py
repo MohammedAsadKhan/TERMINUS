@@ -32,9 +32,19 @@ class MemoryTickets(TicketStore):
             "id": ticket_id,
             "org_id": org_id,
             "alert_id": alert.id,
+            "rule_description": alert.rule_description,
             "severity": report.verdict.severity.value,
+            "confidence": report.verdict.confidence.value,
             "summary": report.verdict.summary,
+            "recommended_actions": report.verdict.recommended_actions,
+            "agent_name": report.evidence.agent_name or alert.agent_name or "prod-workload-01",
+            "threat_intel": report.evidence.threat_intel,
+            "context_notes": report.evidence.context_notes,
+            "full_log": alert.full_log,
+            "policy_tier": report.policy.tier.value,
+            "policy_reason": report.policy.reason,
             "status": "OPEN",
+            "timestamp": alert.timestamp,
         }
         with self._lock:
             self._tickets[(org_id, ticket_id)] = ticket_data
