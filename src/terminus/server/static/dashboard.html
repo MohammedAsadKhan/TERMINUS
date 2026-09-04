@@ -531,7 +531,63 @@
           <!-- Canvas Hint Overlay -->
           <div class="absolute top-4 left-4 z-30 pointer-events-none text-[10px] font-mono text-slate-500 bg-slate-950/80 border border-slate-800/80 rounded px-2.5 py-1 flex items-center space-x-2">
             <span class="w-2 h-2 rounded-full bg-sky-400 animate-ping"></span>
-            <span>Drag Canvas to Pan • Scroll Wheel to Zoom • Drag Nodes to Move</span>
+            <span>Drag Canvas to Pan • Right-Click Menu • Scroll Wheel Zoom</span>
+          </div>
+
+          <!-- Custom Right-Click Management Context Menu -->
+          <div id="canvasContextMenu" class="fixed z-50 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700 shadow-2xl rounded-xl py-1.5 w-60 font-mono text-xs hidden text-slate-200 divide-y divide-slate-800">
+            <!-- Node Specific Actions -->
+            <div id="contextNodeSection" class="hidden">
+              <div id="contextNodeHeader" class="px-3 py-1 text-[10px] text-slate-400 font-bold uppercase tracking-wider bg-slate-950/60">
+                <span>Node Options</span>
+              </div>
+              <div class="py-1">
+                <button onclick="contextAction('inspect')" class="w-full px-3 py-1.5 text-left hover:bg-slate-800/80 hover:text-sky-400 flex items-center space-x-2 text-[11px] transition">
+                  <span>⚙️ Inspect & Configure Node</span>
+                </button>
+                <button onclick="contextAction('duplicate')" class="w-full px-3 py-1.5 text-left hover:bg-slate-800/80 hover:text-purple-300 flex items-center space-x-2 text-[11px] transition">
+                  <span>📋 Duplicate Node</span>
+                </button>
+                <button onclick="contextAction('execute')" class="w-full px-3 py-1.5 text-left hover:bg-slate-800/80 hover:text-rose-400 flex items-center space-x-2 text-[11px] transition">
+                  <span>⚡ Run Step Test</span>
+                </button>
+                <button onclick="contextAction('delete')" class="w-full px-3 py-1.5 text-left hover:bg-rose-950/60 text-rose-400 flex items-center space-x-2 text-[11px] transition font-bold">
+                  <span>🗑️ Delete Node</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Canvas Background Quick-Add Actions -->
+            <div id="contextCanvasSection" class="py-1 space-y-0.5">
+              <div class="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider bg-slate-950/60">＋ Quick Add Node</div>
+              <button onclick="contextAddNode('trigger_wazuh')" class="w-full px-3 py-1.5 text-left hover:bg-slate-800/80 text-amber-300 hover:text-amber-200 flex items-center space-x-2 text-[11px] transition">
+                <span>⚡ Wazuh Alert Webhook</span>
+              </button>
+              <button onclick="contextAddNode('trigger_cron')" class="w-full px-3 py-1.5 text-left hover:bg-slate-800/80 text-sky-300 hover:text-sky-200 flex items-center space-x-2 text-[11px] transition">
+                <span>⏱️ Cron Polling Loop</span>
+              </button>
+              <button onclick="contextAddNode('agent_llm')" class="w-full px-3 py-1.5 text-left hover:bg-slate-800/80 text-purple-300 hover:text-purple-200 flex items-center space-x-2 text-[11px] transition">
+                <span>🧠 LLM Reasoning Agent</span>
+              </button>
+              <button onclick="contextAddNode('tool_firewall')" class="w-full px-3 py-1.5 text-left hover:bg-slate-800/80 text-rose-300 hover:text-rose-200 flex items-center space-x-2 text-[11px] transition">
+                <span>🛡️ Firewall IP Block Tool</span>
+              </button>
+              <button onclick="contextAddNode('tool_isolate')" class="w-full px-3 py-1.5 text-left hover:bg-slate-800/80 text-rose-300 hover:text-rose-200 flex items-center space-x-2 text-[11px] transition">
+                <span>🔒 Host Isolation Tool</span>
+              </button>
+
+              <div class="my-1 border-t border-slate-800"></div>
+              <div class="px-3 py-1 text-[10px] font-bold text-slate-500 uppercase tracking-wider">📐 Viewport Controls</div>
+              <button onclick="contextCanvasView('reset')" class="w-full px-3 py-1.5 text-left hover:bg-slate-800/80 text-slate-300 hover:text-white flex items-center space-x-2 text-[11px] transition">
+                <span>🎯 Reset Viewport (100%)</span>
+              </button>
+              <button onclick="contextCanvasView('fit')" class="w-full px-3 py-1.5 text-left hover:bg-slate-800/80 text-slate-300 hover:text-white flex items-center space-x-2 text-[11px] transition">
+                <span>📐 Fit Graph to View</span>
+              </button>
+              <button onclick="saveWorkflowCanvas()" class="w-full px-3 py-1.5 text-left hover:bg-slate-800/80 text-sky-400 flex items-center space-x-2 text-[11px] transition font-bold">
+                <span>💾 Save Canvas Graph</span>
+              </button>
+            </div>
           </div>
 
           <!-- Pan Grid Background Layer -->
@@ -1219,6 +1275,70 @@
         }
       });
 
+      // Custom Right-Click Context Menu Listener
+      container.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const menu = document.getElementById('canvasContextMenu');
+        const nodeSection = document.getElementById('contextNodeSection');
+        const nodeHeader = document.getElementById('contextNodeHeader');
+
+        // Store click coordinates relative to canvas for quick adding at cursor location
+        const rect = container.getBoundingClientRect();
+        const rawX = e.clientX - rect.left;
+        const rawY = e.clientY - rect.top;
+
+        window.canvasState.contextMenuGraphX = Math.round((rawX - window.canvasState.panX) / window.canvasState.zoom);
+        window.canvasState.contextMenuGraphY = Math.round((rawY - window.canvasState.panY) / window.canvasState.zoom);
+
+        // Check if right click was on a specific node card
+        const nodeEl = e.target.closest('[id^="node-"]');
+        if (nodeEl) {
+          const nodeId = nodeEl.id.replace('node-', '');
+          window.canvasState.selectedNodeId = nodeId;
+          const wf = window.workflows.find(w => w.id === window.activeWorkflowId);
+          const n = wf ? wf.nodes.find(item => item.id === nodeId) : null;
+          if (n && nodeHeader) {
+            nodeHeader.querySelector('span').textContent = `Node: ${n.label} (${n.id})`;
+          }
+          if (nodeSection) nodeSection.classList.remove('hidden');
+        } else {
+          window.canvasState.selectedNodeId = null;
+          if (nodeSection) nodeSection.classList.add('hidden');
+        }
+
+        // Adjust position so menu doesn't overflow viewport boundaries
+        let x = e.clientX;
+        let y = e.clientY;
+        const menuWidth = 240;
+        const menuHeight = nodeEl ? 380 : 280;
+
+        if (x + menuWidth > window.innerWidth) x = window.innerWidth - menuWidth - 10;
+        if (y + menuHeight > window.innerHeight) y = window.innerHeight - menuHeight - 10;
+
+        if (menu) {
+          menu.style.left = `${x}px`;
+          menu.style.top = `${y}px`;
+          menu.classList.remove('hidden');
+        }
+      });
+
+      // Dismiss Context Menu on click outside or Escape key
+      window.addEventListener('click', (e) => {
+        const menu = document.getElementById('canvasContextMenu');
+        if (menu && !menu.contains(e.target)) {
+          closeContextMenu();
+        }
+      });
+
+      window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          closeContextMenu();
+          closeNodeInspector();
+        }
+      });
+
       // Global Mouse Up
       window.addEventListener('mouseup', () => {
         window.canvasState.isPanning = false;
@@ -1438,6 +1558,90 @@
       } catch (err) {
         showToast('Failed to save workflow', 'error');
       }
+    }
+
+    // Context Menu Handler Functions
+    function closeContextMenu() {
+      const menu = document.getElementById('canvasContextMenu');
+      if (menu) menu.classList.add('hidden');
+    }
+
+    function contextAddNode(nodeType) {
+      closeContextMenu();
+      const wf = window.workflows.find(w => w.id === window.activeWorkflowId);
+      if (!wf) return;
+
+      const newNodeId = 'n' + (wf.nodes.length + 1);
+      const labels = {
+        trigger_wazuh: 'Wazuh Alert Webhook',
+        trigger_cron: 'Cron Polling Loop (5m)',
+        agent_llm: 'LLM Reasoning Agent',
+        agent_intel: 'Threat Intel Lookup',
+        tool_firewall: 'Firewall IP Block',
+        tool_isolate: 'Host Isolation',
+        tool_slack: 'Slack Alert Fan-out',
+        condition_severity: 'Severity Condition (>= 10)',
+        loop_poll: 'Polling Loop (30s)'
+      };
+
+      let targetX = window.canvasState.contextMenuGraphX || 100;
+      let targetY = window.canvasState.contextMenuGraphY || 100;
+
+      const lastNode = wf.nodes[wf.nodes.length - 1];
+      const newNode = {
+        id: newNodeId,
+        type: nodeType,
+        label: labels[nodeType] || 'Custom Node',
+        config: {},
+        x: targetX,
+        y: targetY
+      };
+
+      wf.nodes.push(newNode);
+      if (lastNode) {
+        wf.edges.push({ id: 'e' + Date.now(), source: lastNode.id, target: newNodeId });
+      }
+
+      renderWorkflowCanvas(window.activeWorkflowId);
+      showToast(`Added '${newNode.label}' node via Context Menu`);
+    }
+
+    function contextAction(action) {
+      closeContextMenu();
+      const nodeId = window.canvasState.selectedNodeId;
+      if (!nodeId) return;
+
+      const wf = window.workflows.find(w => w.id === window.activeWorkflowId);
+      if (!wf) return;
+      const n = wf.nodes.find(item => item.id === nodeId);
+
+      if (action === 'inspect') {
+        openNodeInspector(nodeId);
+      } else if (action === 'duplicate') {
+        if (!n) return;
+        const dupId = 'n' + (wf.nodes.length + 1);
+        const dupNode = {
+          id: dupId,
+          type: n.type,
+          label: n.label + ' (Copy)',
+          config: JSON.parse(JSON.stringify(n.config || {})),
+          x: n.x + 30,
+          y: n.y + 30
+        };
+        wf.nodes.push(dupNode);
+        renderWorkflowCanvas(window.activeWorkflowId);
+        showToast(`Duplicated node '${n.label}'`);
+      } else if (action === 'execute') {
+        testRunWorkflow();
+      } else if (action === 'delete') {
+        deleteSelectedNode();
+      }
+    }
+
+    function contextCanvasView(action) {
+      closeContextMenu();
+      if (action === 'reset') resetCanvasView();
+      else if (action === 'fit') fitCanvasView();
     }
 
     // Modal Handlers
