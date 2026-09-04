@@ -77,6 +77,14 @@
           </div>
         </button>
 
+        <button onclick="switchTab('tab-reports')" id="nav-reports" class="nav-btn w-full flex items-center space-x-3 px-3 py-2 rounded text-slate-300 hover:text-white hover:bg-slate-900 transition">
+          <svg class="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+          <div class="flex items-center justify-between flex-1">
+            <span>Daily Reports</span>
+            <span id="badgeReportCount" class="px-1.5 py-0.2 rounded bg-sky-950 text-sky-300 border border-sky-800 font-mono text-[10px] font-bold">0</span>
+          </div>
+        </button>
+
         <div class="pt-3 px-3 py-1.5 text-[10px] uppercase font-mono font-semibold text-slate-400">Automation & Orchestration</div>
 
         <button onclick="switchTab('tab-agents')" id="nav-agents" class="nav-btn w-full flex items-center space-x-3 px-3 py-2 rounded text-slate-300 hover:text-white hover:bg-slate-900 transition">
@@ -280,6 +288,55 @@
           <p>No active incidents in queue.</p>
           <p class="text-xs text-slate-500 mt-1">Send webhooks or trigger test scenarios to populate live telemetry.</p>
         </div>
+      </div>
+
+      <!-- Report Manager & Daily Operations Summary Panel -->
+      <div class="bg-[#0f172a] border border-slate-800 rounded-lg p-5 space-y-4 shadow mt-8">
+        <div class="flex items-center justify-between flex-wrap gap-4 border-b border-slate-800 pb-4">
+          <div>
+            <div class="flex items-center space-x-2">
+              <h3 class="text-sm font-bold text-white">Daily Operations & Incident Report Manager</h3>
+              <span class="px-2 py-0.5 rounded bg-sky-950 text-sky-300 border border-sky-800 font-mono text-[10px] font-bold uppercase">Automated & Quick Reports</span>
+            </div>
+            <p class="text-xs text-slate-400 mt-0.5">Automated 24-hour daily executive summaries and on-demand quick reports based on logs from start of day to now</p>
+          </div>
+          <div class="flex items-center space-x-2">
+            <button onclick="triggerQuickReport()" class="px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded font-mono text-xs font-bold transition shadow flex items-center space-x-1.5">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+              <span>Generate Quick Report</span>
+            </button>
+            <button onclick="triggerDaily24hReport()" class="px-3 py-2 bg-purple-950/80 hover:bg-purple-900 text-purple-300 border border-purple-800 rounded font-mono text-xs font-bold transition">
+              <span>Generate 24H Summary</span>
+            </button>
+          </div>
+        </div>
+
+        <div id="incidentsReportsList" class="space-y-3 font-mono text-xs">
+          <div class="text-center py-6 text-slate-400">Loading daily incident reports...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: DAILY REPORTS MANAGER -->
+    <div id="tab-reports" class="tab-page hidden p-6 space-y-6">
+      <div class="flex items-center justify-between flex-wrap gap-4">
+        <div>
+          <h2 class="text-base font-bold text-white">Daily Incident Reports & Operations Manager</h2>
+          <p class="text-xs text-slate-400 mt-0.5">Automated 24-hour daily executive summaries and on-demand quick incident reports</p>
+        </div>
+        <div class="flex items-center space-x-2">
+          <button onclick="triggerQuickReport()" class="px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded font-mono text-xs font-bold transition shadow flex items-center space-x-1.5">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+            <span>Generate Quick Report</span>
+          </button>
+          <button onclick="triggerDaily24hReport()" class="px-3 py-2 bg-purple-950/80 hover:bg-purple-900 text-purple-300 border border-purple-800 rounded font-mono text-xs font-bold transition">
+            <span>Generate 24H Daily Summary</span>
+          </button>
+        </div>
+      </div>
+
+      <div id="reportsGridContainer" class="grid grid-cols-1 md:grid-cols-2 gap-4 font-mono text-xs">
+        <div class="col-span-2 text-center py-12 text-slate-400">Loading daily incident reports...</div>
       </div>
     </div>
 
@@ -1761,12 +1818,168 @@
       }
     }
 
-    function showToast(msg, type = 'info') {
-      const toast = document.getElementById('toast');
-      const toastMsg = document.getElementById('toastMsg');
-      toastMsg.textContent = msg;
-      toast.classList.remove('hidden');
-      setTimeout(() => toast.classList.add('hidden'), 3000);
+    // ─── DAILY INCIDENT REPORTS LOGIC ──────────────────────────────────────────
+    window.reports = [];
+
+    async function fetchReports() {
+      try {
+        const res = await fetch('/reports');
+        if (res.ok) {
+          window.reports = await res.json();
+          renderReports(window.reports);
+        }
+      } catch (err) {
+        console.error('Error fetching reports:', err);
+      }
+    }
+
+    function renderReports(reports) {
+      const badge = document.getElementById('badgeReportCount');
+      if (badge) badge.textContent = reports.length;
+      
+      const incidentsContainer = document.getElementById('incidentsReportsList');
+      const gridContainer = document.getElementById('reportsGridContainer');
+
+      if (!reports || reports.length === 0) {
+        if (incidentsContainer) incidentsContainer.innerHTML = `<div class="text-center py-4 text-slate-500">No reports generated yet. Click 'Generate Quick Report' above.</div>`;
+        if (gridContainer) gridContainer.innerHTML = `<div class="col-span-2 text-center py-12 text-slate-400">No reports generated yet. Click 'Generate Quick Report' above.</div>`;
+        return;
+      }
+
+      if (incidentsContainer) {
+        incidentsContainer.innerHTML = reports.slice(0, 3).map(r => renderReportCard(r)).join('');
+      }
+
+      if (gridContainer) {
+        gridContainer.innerHTML = reports.map(r => renderReportCard(r)).join('');
+      }
+    }
+
+    function renderReportCard(r) {
+      const isQuick = r.report_type === 'quick';
+      const badgeStyle = isQuick
+        ? 'bg-sky-950/80 text-sky-300 border-sky-800'
+        : 'bg-purple-950/80 text-purple-300 border-purple-800';
+      const badgeLabel = isQuick ? 'QUICK REPORT' : '24H DAILY SUMMARY';
+
+      const pStart = new Date(r.period_start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const pEnd = new Date(r.period_end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+      return `
+        <div class="bg-[#0f172a] border border-slate-800 hover:border-slate-700 rounded-lg p-4 space-y-3 transition shadow">
+          <div class="flex items-center justify-between">
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold border ${badgeStyle}">${badgeLabel}</span>
+            <span class="text-slate-400 text-[11px] font-mono">${new Date(r.created_at).toLocaleDateString()} ${new Date(r.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>
+          </div>
+
+          <div>
+            <h4 class="text-sm font-bold text-white font-mono">${escapeHtml(r.title)}</h4>
+            <p class="text-xs text-slate-400 mt-1 line-clamp-2">${escapeHtml(r.executive_summary)}</p>
+          </div>
+
+          <div class="grid grid-cols-4 gap-2 text-center bg-slate-950 border border-slate-800/80 rounded p-2 text-[11px]">
+            <div>
+              <span class="text-slate-400 text-[9px] block uppercase">Incidents</span>
+              <span class="font-bold text-white">${r.metrics.total_incidents}</span>
+            </div>
+            <div>
+              <span class="text-slate-400 text-[9px] block uppercase">Critical</span>
+              <span class="font-bold text-rose-400">${r.metrics.critical_incidents}</span>
+            </div>
+            <div>
+              <span class="text-slate-400 text-[9px] block uppercase">Contained</span>
+              <span class="font-bold text-emerald-400">${r.metrics.contained_incidents}</span>
+            </div>
+            <div>
+              <span class="text-slate-400 text-[9px] block uppercase">Avg MTTR</span>
+              <span class="font-bold text-sky-400">${r.metrics.avg_mttr_sec}s</span>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between pt-1 border-t border-slate-800/80">
+            <span class="text-[10px] text-slate-500 font-mono">Coverage: ${pStart} - ${pEnd}</span>
+            <button onclick="openReportModal('${r.id}')" class="px-3 py-1 bg-sky-950/80 hover:bg-sky-900 text-sky-300 border border-sky-800 rounded font-bold text-[11px] transition">
+              View Executive Report
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    async function triggerQuickReport() {
+      try {
+        const res = await fetch('/reports/quick', { method: 'POST' });
+        if (res.ok) {
+          showToast('Generated Quick Report based on logs from start of day to now!');
+          fetchReports();
+        } else {
+          showToast('Failed to generate quick report', 'error');
+        }
+      } catch (err) {
+        showToast('Error generating report', 'error');
+      }
+    }
+
+    async function triggerDaily24hReport() {
+      try {
+        const res = await fetch('/reports/daily', { method: 'POST' });
+        if (res.ok) {
+          showToast('Generated 24-Hour Daily Operations Summary Report!');
+          fetchReports();
+        } else {
+          showToast('Failed to generate daily report', 'error');
+        }
+      } catch (err) {
+        showToast('Error generating report', 'error');
+      }
+    }
+
+    function openReportModal(reportId) {
+      const r = window.reports.find(x => x.id === reportId);
+      if (!r) return;
+
+      const isQuick = r.report_type === 'quick';
+      const badgeStyle = isQuick ? 'bg-sky-950 text-sky-300 border-sky-800' : 'bg-purple-950 text-purple-300 border-purple-800';
+      const badgeLabel = isQuick ? 'QUICK REPORT' : '24H DAILY SUMMARY';
+
+      const modalBadge = document.getElementById('reportModalBadge');
+      modalBadge.className = `px-2 py-0.5 rounded text-[10px] font-bold font-mono uppercase border ${badgeStyle}`;
+      modalBadge.textContent = badgeLabel;
+
+      document.getElementById('reportModalTitle').textContent = r.title;
+      document.getElementById('reportModalTime').textContent = `Coverage Period: ${new Date(r.period_start).toLocaleString()} to ${new Date(r.period_end).toLocaleString()}`;
+      document.getElementById('reportModalNarrative').textContent = r.executive_summary;
+      document.getElementById('reportModalTotal').textContent = r.metrics.total_incidents;
+      document.getElementById('reportModalCritical').textContent = r.metrics.critical_incidents;
+      document.getElementById('reportModalContained').textContent = r.metrics.contained_incidents;
+      document.getElementById('reportModalMttr').textContent = `${r.metrics.avg_mttr_sec}s / ${r.metrics.avg_mttd_sec}s`;
+
+      const hostsContainer = document.getElementById('reportModalHosts');
+      if (r.top_impacted_hosts && r.top_impacted_hosts.length > 0) {
+        hostsContainer.innerHTML = r.top_impacted_hosts.map(h => `
+          <div class="flex items-center justify-between bg-slate-950 border border-slate-800/80 rounded px-3 py-1.5">
+            <span class="text-slate-200 font-bold">${escapeHtml(h.host)}</span>
+            <span class="text-rose-400 font-bold">${h.incident_count} incident log(s)</span>
+          </div>
+        `).join('');
+      } else {
+        hostsContainer.innerHTML = `<div class="text-slate-500 font-mono text-xs">No host violations recorded during this report window.</div>`;
+      }
+
+      const actionsContainer = document.getElementById('reportModalActions');
+      if (r.recommended_actions && r.recommended_actions.length > 0) {
+        actionsContainer.innerHTML = r.recommended_actions.map(act => `
+          <li class="leading-relaxed font-mono text-slate-300">${escapeHtml(act)}</li>
+        `).join('');
+      } else {
+        actionsContainer.innerHTML = `<li class="text-slate-500">Continue standard security operations monitoring.</li>`;
+      }
+
+      document.getElementById('modalViewReport').classList.remove('hidden');
+    }
+
+    function closeReportModal() {
+      document.getElementById('modalViewReport').classList.add('hidden');
     }
 
     // Init
@@ -1775,7 +1988,9 @@
       fetchLiveIncidents();
       fetchAgents();
       fetchWorkflows();
+      fetchReports();
       setInterval(fetchLiveIncidents, 3000);
+      setInterval(fetchReports, 10000);
     });
   </script>
 
@@ -1830,6 +2045,65 @@
           <button type="submit" class="px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded font-bold transition shadow">Save Prompt</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- MODAL: EXECUTIVE INCIDENT REPORT VIEWER -->
+  <div id="modalViewReport" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-[#0f172a] border border-slate-800 rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6 space-y-6 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+        <div>
+          <span id="reportModalBadge" class="px-2 py-0.5 rounded text-[10px] font-bold font-mono uppercase bg-sky-950 text-sky-300 border border-sky-800">Quick Report</span>
+          <h3 id="reportModalTitle" class="text-base font-bold text-white mt-1">Daily Incident Report</h3>
+          <p id="reportModalTime" class="text-xs font-mono text-slate-400 mt-0.5">Coverage Period: 00:00:00 UTC to 05:54:17 UTC</p>
+        </div>
+        <div class="flex items-center space-x-2">
+          <button onclick="window.print()" class="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 rounded text-xs font-mono font-semibold transition">Print / Export PDF</button>
+          <button onclick="closeReportModal()" class="text-slate-400 hover:text-white font-bold text-lg px-2">✕</button>
+        </div>
+      </div>
+
+      <!-- Executive Narrative -->
+      <div class="bg-slate-950 border border-slate-800 rounded p-4 space-y-2">
+        <h4 class="text-xs font-bold text-sky-400 font-mono uppercase tracking-wider">Executive Summary Narrative</h4>
+        <p id="reportModalNarrative" class="text-xs text-slate-200 leading-relaxed font-sans"></p>
+      </div>
+
+      <!-- Metrics Breakdown Grid -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 font-mono text-xs">
+        <div class="bg-slate-950 border border-slate-800 rounded p-3 text-center">
+          <span class="text-slate-400 text-[10px] uppercase font-bold block">Total Telemetry Logs</span>
+          <span id="reportModalTotal" class="text-lg font-bold text-white">0</span>
+        </div>
+        <div class="bg-slate-950 border border-slate-800 rounded p-3 text-center">
+          <span class="text-slate-400 text-[10px] uppercase font-bold block">Critical Threats</span>
+          <span id="reportModalCritical" class="text-lg font-bold text-rose-400">0</span>
+        </div>
+        <div class="bg-slate-950 border border-slate-800 rounded p-3 text-center">
+          <span class="text-slate-400 text-[10px] uppercase font-bold block">Contained</span>
+          <span id="reportModalContained" class="text-lg font-bold text-emerald-400">0</span>
+        </div>
+        <div class="bg-slate-950 border border-slate-800 rounded p-3 text-center">
+          <span class="text-slate-400 text-[10px] uppercase font-bold block">Avg MTTR / MTTD</span>
+          <span id="reportModalMttr" class="text-lg font-bold text-sky-400">42s / 18s</span>
+        </div>
+      </div>
+
+      <!-- Top Impacted Workloads -->
+      <div class="space-y-2">
+        <h4 class="text-xs font-bold text-white font-mono uppercase tracking-wider">Top Impacted Workloads</h4>
+        <div id="reportModalHosts" class="space-y-1.5 font-mono text-xs"></div>
+      </div>
+
+      <!-- Actionable Security Directives -->
+      <div class="space-y-2">
+        <h4 class="text-xs font-bold text-amber-400 font-mono uppercase tracking-wider">Actionable Security Directives</h4>
+        <ul id="reportModalActions" class="space-y-1.5 text-xs text-slate-300 list-disc list-inside bg-slate-950 border border-slate-800 rounded p-4"></ul>
+      </div>
+
+      <div class="border-t border-slate-800 pt-4 flex justify-end">
+        <button onclick="closeReportModal()" class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-slate-300 rounded font-semibold text-xs border border-slate-800">Close</button>
+      </div>
     </div>
   </div>
 </body>

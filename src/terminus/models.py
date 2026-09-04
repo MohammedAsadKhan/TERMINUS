@@ -214,3 +214,48 @@ class Workflow(BaseModel):
     enabled: bool = True
     nodes: list[WorkflowNode] = Field(default_factory=list)
     edges: list[WorkflowEdge] = Field(default_factory=list)
+
+
+# ─── Daily Incident Report Models ──────────────────────────────────────────────────
+
+
+class ReportType(StrEnum):
+    """Type classification of a daily incident report."""
+
+    QUICK = "quick"
+    DAILY_24H = "daily_24h"
+
+
+class DailyReportMetrics(BaseModel):
+    """Aggregated threat metrics for a report period."""
+
+    model_config = ConfigDict(extra="allow")
+
+    total_incidents: int = 0
+    critical_incidents: int = 0
+    high_incidents: int = 0
+    medium_incidents: int = 0
+    low_incidents: int = 0
+    contained_incidents: int = 0
+    resolved_incidents: int = 0
+    avg_mttd_sec: float = 18.0
+    avg_mttr_sec: float = 42.0
+
+
+class DailyIncidentReport(BaseModel):
+    """Daily Incident Operations and Executive Summary Report."""
+
+    model_config = ConfigDict(extra="allow")
+
+    id: str
+    org_id: str
+    title: str
+    report_type: ReportType = ReportType.QUICK
+    created_at: str
+    period_start: str
+    period_end: str
+    metrics: DailyReportMetrics = Field(default_factory=DailyReportMetrics)
+    executive_summary: str
+    top_impacted_hosts: list[dict[str, Any]] = Field(default_factory=list)
+    recommended_actions: list[str] = Field(default_factory=list)
+

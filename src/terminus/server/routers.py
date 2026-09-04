@@ -454,3 +454,76 @@ async def execute_test_workflow(
         "nodes_executed": len(wf.nodes),
         "summary": f"Simulated execution of '{wf.name}' finished with 0 errors across {len(wf.nodes)} nodes.",
     }
+
+
+# ─── Report Manager Router ──────────────────────────────────────────────────────────
+
+report_router = APIRouter(prefix="/reports", tags=["Reports"])
+
+from terminus.models import DailyIncidentReport, ReportType
+from terminus.reports.service import generate_daily_report
+from terminus.server.deps import get_reports_store
+
+
+@report_router.post("/quick", status_code=status.HTTP_201_CREATED)
+async def generate_quick_report(
+    org_id: Annotated[OrgId, Depends(get_webhook_org)],
+    reports_store: Annotated[dict[str, dict[str, DailyIncidentReport]], Depends(get_reports_store)],
+    pipeline_runner: Annotated[PipelineRunner, Depends(get_pipeline_runner)],
+) -> DailyIncidentReport:
+    """Generate a Quick Report based on all logs from the start of the current day to now."""
+    ticket_store = pipeline_runner.deployment.ticket_store
+    report = await generate_daily_report(org_id, ReportType.QUICK, ticket_store)
+    if org_id not in reports_store:
+        reports_store[org_id] = {}
+    reports_store[org_id][report.id] = report
+    return report
+
+
+@report_router.post("/daily", status_code=status.HTTP_201_CREATED)
+async def generate_24h_report(
+    org_id: Annotated[OrgId, Depends(get_webhook_org)],
+    reports_store: Annotated[dict[str, dict[str, DailyIncidentReport]], Depends(get_reports_store)],
+    pipeline_runner: Annotated[PipelineRunner, Depends(get_pipeline_runner)],
+) -> DailyIncidentReport:
+    """Generate a 24-Hour Daily Operations Summary Report."""
+    ticket_store = pipeline_runner.deployment.ticket_store
+    report = await generate_daily_report(org_id, ReportType.DAILY_24H, ticket_store)
+    if org_id not in reports_store:
+        reports_store[org_id] = {}
+    reports_store[org_id][report.id] = report
+    return report
+
+
+@report_router.get("")
+async def list_reports(
+    org_id: Annotated[OrgId, Depends(get_webhook_org)],
+    reports_store: Annotated[dict[str, dict[str, DailyIncidentReport]], Depends(get_reports_store)],
+    pipeline_runner: Annotated[PipelineRunner, Depends(get_pipeline_runner)],
+) -> list[DailyIncidentReport]:
+    """List all daily and quick incident reports for the active tenant."""
+    org_reports = reports_store.get(org_id, {})
+    if not org_reports:
+        ticket_store = pipeline_runner.deployment.ticket_store
+        initial_report = await generate_daily_report(org_id, ReportType.QUICK, ticket_store)
+        if org_id not in reports_store:
+            reports_store[org_id] = {}
+        reports_store[org_id][initial_report.id] = initial_report
+        org_reports = reports_store[org_id]
+
+    return sorted(org_reports.values(), key=lambda r: r.created_at, reverse=True)
+
+
+@report_router.get("/{report_id}")
+async def get_report(
+    report_id: str,
+    org_id: Annotated[OrgId, Depends(get_webhook_org)],
+    reports_store: Annotated[dict[str, dict[str, DailyIncidentReport]], Depends(get_reports_store)],
+) -> DailyIncidentReport:
+    """Fetch details for a specific daily incident report."""
+    org_reports = reports_store.get(org_id, {})
+    report = org_reports.get(report_id)
+    if not report:
+        raise HTTPException(status_code=404, detail=f"Report '{report_id}' not found")
+    return report
+

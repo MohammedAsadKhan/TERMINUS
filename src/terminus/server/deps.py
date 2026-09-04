@@ -27,7 +27,16 @@ from terminus.policies.engine import PolicyEngine
 from terminus.siem.static import StaticSiemClient
 from terminus.siem.wazuh import WazuhClient
 from terminus.ticketing.jira import JiraTickets
-from terminus.models import AgentStatus, SocAgent, Workflow, WorkflowEdge, WorkflowNode
+from terminus.models import (
+    AgentStatus,
+    DailyIncidentReport,
+    DailyReportMetrics,
+    ReportType,
+    SocAgent,
+    Workflow,
+    WorkflowEdge,
+    WorkflowNode,
+)
 from terminus.ticketing.memory import MemoryTickets
 
 # ─── Global State Container (In-Memory for MVP-1) ──────────────────────────────────
@@ -37,6 +46,7 @@ _org_store = OrganizationStore()
 _membership_store = MembershipStore()
 _ticket_store = MemoryTickets()
 _auth_service = AuthService(_user_store)
+_reports_store: dict[str, dict[str, DailyIncidentReport]] = {}
 
 _agents_store: dict[str, SocAgent] = {
     "agent-triage": SocAgent(
@@ -329,3 +339,9 @@ def require_admin(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Operation requires organization admin role",
         )
+
+
+def get_reports_store() -> dict[str, dict[str, DailyIncidentReport]]:
+    """Return in-memory daily incident reports store singleton."""
+    return _reports_store
+
