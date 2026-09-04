@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-[#090d16] text-slate-100">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Terminus Enterprise Platform | Analyst Command & Management Console</title>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Chart.js & Tailwind CSS CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="h-full font-sans antialiased bg-[#090d16] text-slate-100 flex selection:bg-sky-500 selection:text-white">
+
+  <!-- Toast Notification System -->
+  <div id="toast" class="fixed bottom-5 right-5 z-50 hidden bg-slate-900 border border-slate-700 text-slate-100 px-4 py-3 rounded-lg shadow-2xl text-sm font-medium transition-all flex items-center gap-3">
+    <span id="toastIcon" class="w-2 h-2 rounded-full bg-sky-400"></span>
+    <span id="toastMsg">Notification message</span>
+  </div>
+
+  <!-- LEFT SIDEBAR NAVIGATION -->
+  <aside class="w-64 bg-[#0c121e] border-r border-slate-800/80 flex flex-col justify-between shrink-0 h-screen sticky top-0 z-50">
+    <div>
+      <!-- Brand & Tenant Indicator -->
+      <div class="p-4 border-b border-slate-800/80">
+        <div class="flex items-center space-x-3">
+          <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-sky-500 to-blue-700 flex items-center justify-center shadow-lg shadow-sky-950 ring-1 ring-sky-400/30">
+            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+            </svg>
+          </div>
+          <div>
+            <span class="font-extrabold text-base tracking-tight text-white block">TERMINUS</span>
+            <span class="text-[10px] font-mono text-sky-400 uppercase font-semibold">Enterprise SaaS</span>
+          </div>
+        </div>
+
+        <!-- Active Organization Picker -->
+        <div class="mt-4 bg-slate-900/90 border border-slate-800 rounded-lg p-2.5 flex items-center justify-between">
+          <div class="flex items-center space-x-2 overflow-hidden">
+            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+            <span class="text-xs font-mono text-slate-200 font-semibold truncate" id="sidebarOrgName">org-00000001</span>
+          </div>
+          <span class="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded font-mono">Tenant</span>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <nav class="p-3 space-y-1 text-xs font-medium">
+        <div class="px-3 py-1.5 text-[10px] uppercase font-mono font-semibold text-slate-500">Security Operations</div>
+
+        <button onclick="switchTab('tab-analytics')" id="nav-analytics" class="nav-btn w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg bg-sky-600/10 text-sky-400 border border-sky-500/20 font-semibold transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+          <span>Traffic & Insights</span>
+        </button>
+
+        <button onclick="switchTab('tab-incidents')" id="nav-incidents" class="nav-btn w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-900 transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+          <div class="flex items-center justify-between flex-1">
+            <span>Incident Queue</span>
+            <span id="badgeIncidentCount" class="px-1.5 py-0.2 rounded-full bg-rose-500/20 text-rose-400 font-mono text-[10px] font-bold">0</span>
+          </div>
+        </button>
+
+        <div class="pt-3 px-3 py-1.5 text-[10px] uppercase font-mono font-semibold text-slate-500">Configuration & Ingestion</div>
+
+        <button onclick="switchTab('tab-wazuh')" id="nav-wazuh" class="nav-btn w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-900 transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+          <span>Wazuh SIEM Setup</span>
+        </button>
+
+        <button onclick="switchTab('tab-policies')" id="nav-policies" class="nav-btn w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-900 transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+          <span>Policy Rules Engine</span>
+        </button>
+
+        <button onclick="switchTab('tab-orgs')" id="nav-orgs" class="nav-btn w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-900 transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+          <span>Tenant Management</span>
+        </button>
+
+        <button onclick="switchTab('tab-license')" id="nav-license" class="nav-btn w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-900 transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 0121 9z"/></svg>
+          <span>License & Entitlements</span>
+        </button>
+      </nav>
+    </div>
+
+    <!-- User Profile Footer -->
+    <div class="p-4 border-t border-slate-800/80 bg-slate-950/40">
+      <div class="flex items-center space-x-3">
+        <div class="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-sky-400 text-xs">
+          A
+        </div>
+        <div class="flex-1 overflow-hidden">
+          <span id="userDisplayName" class="text-xs font-semibold text-white block truncate">Analyst Admin</span>
+          <span class="text-[10px] text-slate-400 font-mono block truncate">admin@terminus.io</span>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- RIGHT MAIN CONTENT CONTAINER -->
+  <div class="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto">
+
+    <!-- Top Bar -->
+    <header class="h-14 border-b border-slate-800/80 bg-[#0c121e]/80 backdrop-blur px-6 flex items-center justify-between sticky top-0 z-40 shrink-0">
+      <div class="flex items-center space-x-4">
+        <span class="text-xs font-mono text-slate-400">Environment: <strong class="text-emerald-400">PRODUCTION AGENT PIPELINE</strong></span>
+        <span class="text-slate-700">|</span>
+        <span class="text-xs font-mono text-slate-400">Engine: <strong class="text-sky-400">Wazuh SIEM Ingest Active</strong></span>
+      </div>
+
+      <div class="flex items-center space-x-4">
+        <div class="flex items-center space-x-2 bg-slate-900 border border-slate-800 px-3 py-1 rounded text-xs font-mono">
+          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span class="text-slate-300">Live API Polling</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- TAB 1: TRAFFIC & INSIGHTS (Analytics Dashboard) -->
+    <div id="tab-analytics" class="tab-page p-6 space-y-6">
+      
+      <!-- Filter Toolbar -->
+      <div class="bg-[#0f172a] border border-slate-800 rounded-lg p-3 flex items-center justify-between flex-wrap gap-4 text-xs font-mono">
+        <div class="flex items-center space-x-3">
+          <span class="text-slate-400 font-semibold uppercase text-[10px]">Filter View:</span>
+          <select id="filterSeveritySelect" class="bg-slate-950 border border-slate-800 rounded px-2.5 py-1 text-white text-xs outline-none">
+            <option value="ALL">All Severities</option>
+            <option value="CRITICAL">Critical Only (P1)</option>
+            <option value="HIGH">High Only (P2)</option>
+            <option value="MEDIUM">Medium Only (P3)</option>
+          </select>
+        </div>
+
+        <div class="flex items-center space-x-2 text-[11px] text-slate-400">
+          <span>Active Endpoint:</span>
+          <span class="px-2 py-0.5 rounded bg-slate-950 border border-slate-800 text-sky-400">http://localhost:8000/wazuh</span>
+        </div>
+      </div>
+
+      <!-- KPI Summary Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="bg-[#0f172a] border border-slate-800 rounded-xl p-5 shadow-lg">
+          <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Live Ingested Incidents</span>
+          <div class="text-3xl font-extrabold text-white font-mono mt-2" id="stat-total-incidents">0</div>
+          <p class="text-xs text-slate-500 mt-1">Populated directly from API webhooks</p>
+        </div>
+
+        <div class="bg-[#0f172a] border border-slate-800 rounded-xl p-5 shadow-lg">
+          <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block">High / Critical Threat Ratio</span>
+          <div class="text-3xl font-extrabold text-rose-400 font-mono mt-2" id="stat-high-incidents">0</div>
+          <p class="text-xs text-slate-500 mt-1">Escalated to LLM Investigation Agent</p>
+        </div>
+
+        <div class="bg-[#0f172a] border border-slate-800 rounded-xl p-5 shadow-lg">
+          <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Autonomous Noise Reduction</span>
+          <div class="text-3xl font-extrabold text-emerald-400 font-mono mt-2" id="stat-noise-filtered">100.0%</div>
+          <p class="text-xs text-slate-500 mt-1">Low level alerts auto-filtered</p>
+        </div>
+
+        <div class="bg-[#0f172a] border border-slate-800 rounded-xl p-5 shadow-lg">
+          <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Avg Investigation SLA</span>
+          <div class="text-3xl font-extrabold text-sky-400 font-mono mt-2">2.4 ms</div>
+          <p class="text-xs text-slate-500 mt-1">Sub-second policy evaluation</p>
+        </div>
+      </div>
+
+      <!-- Analytics Charts Row -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- Threat Category Donut Chart -->
+        <div class="lg:col-span-5 bg-[#0f172a] border border-slate-800 rounded-xl p-5 shadow-xl flex flex-col">
+          <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider mb-4 border-b border-slate-800 pb-2">
+            Threat Severity Distribution
+          </h3>
+          <div class="flex-1 flex items-center justify-center relative min-h-[220px]">
+            <canvas id="liveCategoryChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Ingestion Volume Timeline -->
+        <div class="lg:col-span-7 bg-[#0f172a] border border-slate-800 rounded-xl p-5 shadow-xl flex flex-col">
+          <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider mb-4 border-b border-slate-800 pb-2">
+            Real-Time Ingestion Timeline
+          </h3>
+          <div class="flex-1 min-h-[220px]">
+            <canvas id="liveTimelineChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Incident Preview Table -->
+      <div class="bg-[#0f172a] border border-slate-800 rounded-xl p-5 shadow-xl space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+          <h3 class="text-sm font-bold text-white uppercase tracking-wider">
+            Live Stream (Latest Ingested Telemetry)
+          </h3>
+          <button onclick="switchTab('tab-incidents')" class="text-xs text-sky-400 hover:text-sky-300 font-mono">
+            View All in Operations →
+          </button>
+        </div>
+
+        <div id="analyticsEmptyState" class="text-center py-12 text-slate-500 font-mono text-xs space-y-2">
+          <svg class="w-8 h-8 text-slate-600 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/></svg>
+          <p>No active incidents ingested for tenant org-00000001 yet.</p>
+          <p class="text-slate-600">Run the Opposer tool or send a Wazuh POST payload to populate real data.</p>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table id="analyticsTable" class="w-full text-left font-mono text-xs text-slate-300 hidden">
+            <thead>
+              <tr class="border-b border-slate-800 text-slate-500 uppercase text-[10px]">
+                <th class="py-2 px-3">Ticket ID</th>
+                <th class="py-2 px-3">Severity</th>
+                <th class="py-2 px-3">Alert ID</th>
+                <th class="py-2 px-3">Summary</th>
+                <th class="py-2 px-3">Status</th>
+              </tr>
+            </thead>
+            <tbody id="analyticsTableBody" class="divide-y divide-slate-800/60"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 2: INCIDENT OPERATIONS (Full Management & Detail Inspector) -->
+    <div id="tab-incidents" class="tab-page hidden p-6 space-y-6">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-lg font-bold text-white">Incident Operations Center</h2>
+          <p class="text-xs text-slate-400">Inspect, triage, and manage autonomous investigation tickets</p>
+        </div>
+        <button onclick="fetchLiveIncidents()" class="px-3 py-1.5 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-white rounded-lg border border-slate-700 font-mono transition">
+          🔄 Refresh Feed
+        </button>
+      </div>
+
+      <div class="bg-[#0f172a] border border-slate-800 rounded-xl p-5 shadow-xl space-y-4">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left font-mono text-xs text-slate-300">
+            <thead>
+              <tr class="border-b border-slate-800 text-slate-500 uppercase text-[10px]">
+                <th class="py-3 px-3">Ticket ID</th>
+                <th class="py-3 px-3">Severity</th>
+                <th class="py-3 px-3">Alert Ref</th>
+                <th class="py-3 px-3">Summary / AI Verdict</th>
+                <th class="py-3 px-3">Status</th>
+                <th class="py-3 px-3 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="incidentsFullTableBody" class="divide-y divide-slate-800/60">
+              <tr>
+                <td colspan="6" class="text-center py-8 text-slate-500">
+                  No active incidents in queue. Send webhooks to ingest alerts.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: WAZUH SIEM INGESTION CONFIG -->
+    <div id="tab-wazuh" class="tab-page hidden p-6 space-y-6">
+      <div class="bg-[#0f172a] border border-slate-800 rounded-xl p-6 space-y-6 max-w-4xl">
+        <div>
+          <h2 class="text-lg font-bold text-white">Wazuh SIEM Integration Guide</h2>
+          <p class="text-xs text-slate-400 mt-1">Configure your open-source Wazuh SIEM manager to forward security alerts to Terminus</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 font-mono text-xs">
+          <div class="bg-slate-950 border border-slate-800 rounded-lg p-4 space-y-1">
+            <span class="text-slate-500 text-[10px] uppercase">Ingestion Endpoint URL</span>
+            <p class="text-sky-400 font-semibold break-all">http://localhost:8000/wazuh</p>
+          </div>
+          <div class="bg-slate-950 border border-slate-800 rounded-lg p-4 space-y-1">
+            <span class="text-slate-500 text-[10px] uppercase">Supported Payload Format</span>
+            <p class="text-emerald-400 font-semibold">SiemAlert JSON (Wazuh 4.x Compatible)</p>
+          </div>
+        </div>
+
+        <div class="space-y-2">
+          <label class="text-xs font-semibold uppercase text-slate-300 font-mono">1. Add to Wazuh Manager (/var/ossec/etc/ossec.conf)</label>
+          <pre class="bg-slate-950 border border-slate-800 rounded-lg p-4 font-mono text-xs text-sky-300 overflow-x-auto">&lt;integration&gt;
+  &lt;name&gt;custom-terminus&lt;/name&gt;
+  &lt;hook_url&gt;http://localhost:8000/wazuh&lt;/hook_url&gt;
+  &lt;alert_format&gt;json&lt;/alert_format&gt;
+  &lt;api_key&gt;Bearer tok-demo-sim-agent&lt;/api_key&gt;
+&lt;/integration&gt;</pre>
+        </div>
+
+        <!-- Live Ingestion Tester Form -->
+        <div class="border-t border-slate-800 pt-5 space-y-4">
+          <h3 class="text-sm font-bold text-white">Test Ingestion Directly from Dashboard</h3>
+          <button onclick="sendTestAlert()" class="px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-xs font-semibold font-mono shadow-md transition">
+            🚀 Send Test Alert Payload to /wazuh
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 4: POLICY RULES ENGINE -->
+    <div id="tab-policies" class="tab-page hidden p-6 space-y-6">
+      <div class="bg-[#0f172a] border border-slate-800 rounded-xl p-6 space-y-6 max-w-4xl">
+        <div>
+          <h2 class="text-lg font-bold text-white">Policy Engine Rules & Thresholds</h2>
+          <p class="text-xs text-slate-400 mt-1">Pure deterministic policy rules for threat triage and escalation</p>
+        </div>
+
+        <div class="space-y-4 font-mono text-xs">
+          <div class="bg-slate-950 border border-slate-800 rounded-lg p-4 flex items-center justify-between">
+            <div>
+              <span class="text-emerald-400 font-bold">Rule 1: Low-Level Noise Filtering</span>
+              <p class="text-slate-400 text-[11px] mt-0.5">Alert Level &lt; 5 → IGNORE (No LLM action, zero token cost)</p>
+            </div>
+            <span class="px-2 py-1 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold">ACTIVE</span>
+          </div>
+
+          <div class="bg-slate-950 border border-slate-800 rounded-lg p-4 flex items-center justify-between">
+            <div>
+              <span class="text-amber-400 font-bold">Rule 2: Medium Severity Triage</span>
+              <p class="text-slate-400 text-[11px] mt-0.5">Alert Level 5 - 9 → TRIAGE (Investigate & create ticket)</p>
+            </div>
+            <span class="px-2 py-1 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-bold">ACTIVE</span>
+          </div>
+
+          <div class="bg-slate-950 border border-slate-800 rounded-lg p-4 flex items-center justify-between">
+            <div>
+              <span class="text-rose-400 font-bold">Rule 3: Critical Threat Escalation</span>
+              <p class="text-slate-400 text-[11px] mt-0.5">Alert Level ≥ 10 → ESCALATE (Immediate containment & PagerDuty notification)</p>
+            </div>
+            <span class="px-2 py-1 rounded bg-rose-500/10 text-rose-400 border border-rose-500/20 font-bold">ACTIVE</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 5: TENANT MANAGEMENT -->
+    <div id="tab-orgs" class="tab-page hidden p-6 space-y-6">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl">
+        <!-- Create Org -->
+        <div class="bg-[#0f172a] border border-slate-800 rounded-xl p-6 space-y-4">
+          <h3 class="text-sm font-bold text-white">Create New Tenant Organization</h3>
+          <form id="formCreateOrg" class="space-y-3 font-mono text-xs">
+            <div>
+              <label class="block text-slate-400 mb-1">Organization Name</label>
+              <input type="text" id="newOrgName" required placeholder="Acme Cyber Corp" class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-white outline-none focus:border-sky-500">
+            </div>
+            <button type="submit" class="w-full py-2 bg-sky-600 hover:bg-sky-500 text-white rounded font-bold transition">
+              Create Organization
+            </button>
+          </form>
+        </div>
+
+        <!-- Tenant Information -->
+        <div class="bg-[#0f172a] border border-slate-800 rounded-xl p-6 space-y-4 font-mono text-xs">
+          <h3 class="text-sm font-bold text-white font-sans">Active Tenant Details</h3>
+          <div class="space-y-2 text-slate-300">
+            <p>Org ID: <span class="text-sky-400 font-bold">org-00000001</span></p>
+            <p>Role: <span class="text-emerald-400 font-bold">ADMINISTRATOR</span></p>
+            <p>Seats Used: <span class="text-white font-bold">1 / 100</span></p>
+            <p>Tier: <span class="text-purple-400 font-bold">ENTERPRISE SAAS</span></p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 6: LICENSE MANAGEMENT -->
+    <div id="tab-license" class="tab-page hidden p-6 space-y-6">
+      <div class="bg-[#0f172a] border border-slate-800 rounded-xl p-6 space-y-6 max-w-3xl">
+        <div>
+          <h2 class="text-lg font-bold text-white">Software License & Entitlements</h2>
+          <p class="text-xs text-slate-400 mt-1">Manage cryptographic license tokens and feature entitlements</p>
+        </div>
+
+        <form id="formLicense" class="space-y-3 font-mono text-xs">
+          <div>
+            <label class="block text-slate-400 mb-1">Cryptographic License Token</label>
+            <textarea id="licenseTokenInput" rows="3" placeholder="Paste signed license token..." class="w-full bg-slate-950 border border-slate-800 rounded p-3 text-emerald-400 outline-none focus:border-sky-500"></textarea>
+          </div>
+          <button type="submit" class="px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded font-bold transition">
+            Activate / Upgrade License
+          </button>
+        </form>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // Tab Switcher Logic
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-page').forEach(page => page.classList.add('hidden'));
+      document.querySelectorAll('.nav-btn').forEach(btn => {
+        btn.classList.remove('bg-sky-600/10', 'text-sky-400', 'border', 'border-sky-500/20', 'font-semibold');
+        btn.classList.add('text-slate-400');
+      });
+
+      const selectedPage = document.getElementById(tabId);
+      if (selectedPage) selectedPage.classList.remove('hidden');
+
+      const navBtn = document.getElementById('nav-' + tabId.replace('tab-', ''));
+      if (navBtn) {
+        navBtn.classList.add('bg-sky-600/10', 'text-sky-400', 'border', 'border-sky-500/20', 'font-semibold');
+        navBtn.classList.remove('text-slate-400');
+      }
+    }
+
+    // Chart.js Instances
+    let catChart, timeChart;
+
+    function initCharts() {
+      const ctxCat = document.getElementById('liveCategoryChart').getContext('2d');
+      catChart = new Chart(ctxCat, {
+        type: 'doughnut',
+        data: {
+          labels: ['Critical (P1)', 'High (P2)', 'Medium (P3)'],
+          datasets: [{
+            data: [0, 0, 0],
+            backgroundColor: ['#f43f5e', '#fbbf24', '#38bdf8'],
+            borderWidth: 2,
+            borderColor: '#0f172a'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'right',
+              labels: { color: '#94a3b8', font: { family: 'JetBrains Mono', size: 11 } }
+            }
+          },
+          cutout: '70%'
+        }
+      });
+
+      const ctxTime = document.getElementById('liveTimelineChart').getContext('2d');
+      timeChart = new Chart(ctxTime, {
+        type: 'line',
+        data: {
+          labels: [],
+          datasets: [{
+            label: 'Incidents Ingested',
+            data: [],
+            borderColor: '#38bdf8',
+            backgroundColor: 'rgba(56, 189, 248, 0.1)',
+            fill: true,
+            tension: 0.3
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: { grid: { color: '#1e293b' }, ticks: { color: '#64748b', font: { family: 'JetBrains Mono', size: 10 } } },
+            y: { grid: { color: '#1e293b' }, ticks: { color: '#64748b', font: { family: 'JetBrains Mono', size: 10 } } }
+          },
+          plugins: { legend: { display: false } }
+        }
+      });
+    }
+
+    // Live Incident API Fetcher
+    async function fetchLiveIncidents() {
+      try {
+        const res = await fetch('/incidents', {
+          headers: {
+            'X-Org-ID': 'org-00000001',
+            'Authorization': 'Bearer tok-demo-sim-agent'
+          }
+        });
+
+        if (res.ok) {
+          const tickets = await res.json();
+          renderIncidents(tickets || []);
+        }
+      } catch (err) {
+        console.error('Incident fetch error:', err);
+      }
+    }
+
+    function renderIncidents(tickets) {
+      const count = tickets.length;
+      document.getElementById('stat-total-incidents').textContent = count;
+      document.getElementById('badgeIncidentCount').textContent = count;
+
+      const highCount = tickets.filter(t => (t.severity || '').toUpperCase().includes('HIGH') || (t.severity || '').toUpperCase().includes('CRITICAL')).length;
+      document.getElementById('stat-high-incidents').textContent = highCount;
+
+      const emptyState = document.getElementById('analyticsEmptyState');
+      const table = document.getElementById('analyticsTable');
+      const analyticsBody = document.getElementById('analyticsTableBody');
+      const fullBody = document.getElementById('incidentsFullTableBody');
+
+      if (count === 0) {
+        emptyState.classList.remove('hidden');
+        table.classList.add('hidden');
+        fullBody.innerHTML = `<tr><td colspan="6" class="text-center py-8 text-slate-500 font-mono">No active incidents in queue. Launch Opposer to ingest threat telemetry.</td></tr>`;
+        return;
+      }
+
+      emptyState.classList.add('hidden');
+      table.classList.remove('hidden');
+
+      let rowsHtml = '';
+      tickets.forEach(t => {
+        const sevClass = (t.severity || '').toUpperCase().includes('CRITICAL') ? 'bg-rose-950 text-rose-400 border-rose-800' : 'bg-amber-950 text-amber-400 border-amber-800';
+        rowsHtml += `
+          <tr class="hover:bg-slate-900/60 transition">
+            <td class="py-3 px-3 text-sky-400 font-bold">${t.id}</td>
+            <td class="py-3 px-3"><span class="px-2 py-0.5 rounded text-[10px] font-bold border ${sevClass}">${t.severity || 'HIGH'}</span></td>
+            <td class="py-3 px-3 text-white">${t.alert_id || 'honeypot'}</td>
+            <td class="py-3 px-3 text-slate-200">${t.summary || 'Live Telemetry Ingested'}</td>
+            <td class="py-3 px-3"><span class="px-2 py-0.5 rounded text-[10px] font-bold bg-sky-500/10 text-sky-400 border border-sky-500/30">${t.status || 'OPEN'}</span></td>
+            <td class="py-3 px-3 text-right">
+              <button onclick="showToast('Inspecting ticket ${t.id}')" class="px-2 py-1 text-[10px] bg-slate-800 hover:bg-slate-700 text-slate-300 rounded">Details</button>
+            </td>
+          </tr>
+        `;
+      });
+
+      analyticsBody.innerHTML = rowsHtml;
+      fullBody.innerHTML = rowsHtml;
+
+      // Update Donut Chart
+      if (catChart) {
+        const crit = tickets.filter(t => (t.severity || '').toLowerCase() === 'critical').length;
+        const high = tickets.filter(t => (t.severity || '').toLowerCase() === 'high').length;
+        const med = tickets.filter(t => (t.severity || '').toLowerCase() === 'medium').length;
+        catChart.data.datasets[0].data = [crit || count, high, med];
+        catChart.update();
+      }
+    }
+
+    // Send Test Alert directly from Wazuh Tab
+    async function sendTestAlert() {
+      const payload = {
+        alert_id: "alt-manual-test-" + Date.now(),
+        rule_id: "rule-100999",
+        rule_description: "Dashboard Manual Test Ingestion Alert",
+        level: 12,
+        agent_id: "agent-test-01",
+        agent_name: "prod-web-front-01",
+        full_log: "Manual ingestion test fired from Terminus UI",
+        timestamp: new Date().toISOString()
+      };
+
+      try {
+        const res = await fetch('/wazuh', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Org-ID': 'org-00000001',
+            'Authorization': 'Bearer tok-demo-sim-agent'
+          },
+          body: JSON.stringify(payload)
+        });
+
+        if (res.ok) {
+          showToast('Test alert ingested successfully!');
+          fetchLiveIncidents();
+        } else {
+          showToast('Alert ingestion failed', 'error');
+        }
+      } catch (err) {
+        showToast('Network error triggering alert', 'error');
+      }
+    }
+
+    function showToast(msg, type = 'info') {
+      const toast = document.getElementById('toast');
+      const toastMsg = document.getElementById('toastMsg');
+      toastMsg.textContent = msg;
+      toast.classList.remove('hidden');
+      setTimeout(() => toast.classList.add('hidden'), 3000);
+    }
+
+    // Init
+    window.addEventListener('DOMContentLoaded', () => {
+      initCharts();
+      fetchLiveIncidents();
+      setInterval(fetchLiveIncidents, 3000);
+    });
+  </script>
+</body>
+</html>

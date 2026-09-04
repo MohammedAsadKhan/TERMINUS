@@ -1,0 +1,508 @@
+/* ==========================================================================
+   Agentic SOC — app.css
+   Light enterprise product theme on top of Zurb Foundation 6.8.1
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. Design tokens
+   -------------------------------------------------------------------------- */
+:root {
+  /* surfaces */
+  --bg: #f5f7fa;
+  --surface: #ffffff;
+  --surface-alt: #f8fafc;
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+
+  /* text */
+  --text: #1a2233;
+  --muted: #5b6b82;
+  --faint: #8a97a8;
+
+  /* single professional accent */
+  --accent: #175cd3;
+  --accent-dark: #1246a0;
+  --accent-bg: #eff4ff;
+
+  /* semantic */
+  --green: #067647;
+  --green-bg: #ecfdf3;
+  --green-dot: #12b76a;
+  --red: #b42318;
+  --red-bg: #fef3f2;
+  --red-dot: #f04438;
+  --red-deep: #7a271a;
+  --amber: #b54708;
+  --amber-bg: #fffaeb;
+  --amber-dot: #f79009;
+  --gray-bg: #f2f4f7;
+
+  /* type */
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, "Cascadia Mono", Consolas, "Liberation Mono", Menlo, monospace;
+
+  /* shape + motion */
+  --r: 8px;
+  --r-sm: 5px;
+  --speed: 220ms;
+  --shadow: 0 1px 2px rgba(16, 24, 40, 0.06);
+}
+
+/* --------------------------------------------------------------------------
+   2. Base
+   -------------------------------------------------------------------------- */
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  -webkit-font-smoothing: antialiased;
+}
+.grid-container { max-width: 71.25rem; } /* 1140px */
+h1, h2, h3, h4 { font-weight: 700; letter-spacing: -0.01em; color: var(--text); }
+h1 { font-size: 2.5rem; }
+h2 { font-size: 1.5rem; }
+h3 { font-size: 1.05rem; }
+p { color: var(--muted); }
+.mono { font-family: var(--mono); }
+.muted { color: var(--muted); }
+.faint { color: var(--faint); }
+.small-text { font-size: 0.85rem; }
+.nowrap { white-space: nowrap; }
+::selection { background: var(--accent-bg); }
+
+/* --------------------------------------------------------------------------
+   3. Top navigation (Foundation top-bar overrides)
+   -------------------------------------------------------------------------- */
+.title-bar { background: var(--surface); border-bottom: 1px solid var(--border); }
+.title-bar-title { color: var(--text); font-weight: 700; }
+.title-bar .menu-icon::after { background: var(--text); box-shadow: 0 7px 0 var(--text), 0 14px 0 var(--text); }
+.top-bar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0;
+}
+.top-bar, .top-bar ul { background: var(--surface); }
+.top-bar .menu { background: transparent; }
+.top-bar .menu > li > a {
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 500;
+  padding: 1.05rem 1rem;
+  line-height: 1;
+  box-shadow: inset 0 -2px 0 transparent;
+  transition: color var(--speed) ease, box-shadow var(--speed) ease;
+}
+.top-bar .menu > li > a:hover { color: var(--text); }
+.top-bar .menu > li > a.is-active {
+  color: var(--accent);
+  font-weight: 600;
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.9rem 1rem 0.9rem 0;
+  font-weight: 700;
+  color: var(--text);
+  font-size: 0.95rem;
+}
+.brand-mark {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  background: var(--accent);
+  display: inline-block;
+}
+.brand-sub { color: var(--faint); font-weight: 500; }
+
+/* --------------------------------------------------------------------------
+   4. Buttons (Foundation overrides)
+   -------------------------------------------------------------------------- */
+.button {
+  font-weight: 600;
+  border-radius: var(--r-sm);
+  transition: background var(--speed) ease, border-color var(--speed) ease, color var(--speed) ease;
+}
+.button.primary { background: var(--accent); }
+.button.primary:hover, .button.primary:focus { background: var(--accent-dark); }
+.button.success { background: var(--green); }
+.button.success:hover, .button.success:focus { background: #05603a; }
+.button.hollow { border-width: 1px; }
+.button.hollow.primary { color: var(--accent); border-color: var(--accent); }
+.button.hollow.primary:hover, .button.hollow.primary:focus { background: var(--accent-bg); border-color: var(--accent-dark); color: var(--accent-dark); }
+.button.hollow.alert { color: var(--red); border-color: var(--red); }
+.button.hollow.alert:hover, .button.hollow.alert:focus { background: var(--red-bg); color: var(--red-deep); border-color: var(--red-deep); }
+.button.hollow.secondary { color: var(--muted); border-color: var(--border-strong); }
+.button.hollow.secondary:hover, .button.hollow.secondary:focus { background: var(--surface-alt); color: var(--text); }
+.button[disabled], .button.disabled { opacity: 0.55; }
+.play-icon {
+  display: inline-block;
+  width: 0; height: 0;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-left: 8px solid currentColor;
+  margin-right: 0.5rem;
+  vertical-align: 0;
+}
+
+/* --------------------------------------------------------------------------
+   5. Panels, cards, stat cards
+   -------------------------------------------------------------------------- */
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  box-shadow: var(--shadow);
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.25rem;
+}
+.panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.6rem;
+  margin-bottom: 0.9rem;
+}
+.panel-title { font-size: 0.95rem; font-weight: 700; margin: 0; }
+.panel-sub { font-size: 0.78rem; color: var(--faint); }
+
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  box-shadow: var(--shadow);
+  padding: 0.9rem 1.1rem;
+  margin-bottom: 1.25rem;
+}
+.stat-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--faint);
+  margin-bottom: 0.35rem;
+}
+.stat-value { font-size: 1.75rem; font-weight: 700; line-height: 1.1; color: var(--text); font-variant-numeric: tabular-nums; }
+.stat-sub { font-size: 0.75rem; color: var(--muted); margin-top: 0.25rem; }
+.stat-sub.up { color: var(--red); }
+.stat-sub.down { color: var(--green); }
+
+/* Foundation callout re-skin (used for page-level banners) */
+.callout { border-radius: var(--r); border: 1px solid var(--border); background: var(--surface); color: var(--text); }
+.callout.primary { background: var(--accent-bg); border-color: #b2ccff; color: var(--accent-dark); }
+.callout.success { background: var(--green-bg); border-color: #a6f4c5; color: var(--green); }
+.callout.warning { background: var(--amber-bg); border-color: #fedf89; color: var(--amber); }
+.callout.alert { background: var(--red-bg); border-color: #fecdca; color: var(--red); }
+
+/* --------------------------------------------------------------------------
+   6. Badges — severity, status, tags
+   -------------------------------------------------------------------------- */
+.badge {
+  border-radius: 4px;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 0.32em 0.55em;
+  min-width: 0;
+}
+.sev-critical { background: var(--red-bg); color: var(--red); }
+.sev-high     { background: var(--amber-bg); color: var(--amber); }
+.sev-medium   { background: var(--accent-bg); color: var(--accent); }
+.sev-low      { background: var(--gray-bg); color: var(--muted); }
+
+.st-new           { background: var(--gray-bg); color: var(--muted); }
+.st-investigating { background: var(--accent-bg); color: var(--accent); }
+.st-awaiting      { background: var(--amber-bg); color: var(--amber); }
+.st-closed        { background: var(--green-bg); color: var(--green); }
+.st-escalated     { background: var(--red); color: #ffffff; }
+
+.tag {
+  display: inline-block;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 0.2em 0.5em;
+  border-radius: 3px;
+  vertical-align: 2px;
+  margin-left: 0.4rem;
+}
+.tag-free { background: var(--green-bg); color: var(--green); }
+.tag-ent  { background: var(--gray-bg); color: var(--muted); }
+
+/* --------------------------------------------------------------------------
+   7. Host board
+   -------------------------------------------------------------------------- */
+.host-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left-width: 4px;
+  border-radius: var(--r-sm);
+  padding: 0.75rem 0.9rem;
+  height: 100%;
+}
+.host-card.red   { border-left-color: var(--red-dot); }
+.host-card.amber { border-left-color: var(--amber-dot); }
+.host-card.green { border-left-color: var(--green-dot); }
+.host-name { font-family: var(--mono); font-size: 0.9rem; font-weight: 700; color: var(--text); }
+.host-meta { font-size: 0.72rem; color: var(--faint); margin-top: 0.15rem; }
+.host-status { display: flex; align-items: center; gap: 0.4rem; margin-top: 0.55rem; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+.dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex: 0 0 auto; }
+.dot-red   { background: var(--red-dot); }
+.dot-amber { background: var(--amber-dot); }
+.dot-green { background: var(--green-dot); }
+.host-status.red   { color: var(--red); }
+.host-status.amber { color: var(--amber); }
+.host-status.green { color: var(--green); }
+
+/* --------------------------------------------------------------------------
+   8. Agent activity log (light console)
+   -------------------------------------------------------------------------- */
+.log-box {
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  line-height: 1.65;
+  color: var(--text);
+  padding: 0.75rem 0.9rem;
+  height: 240px;
+  overflow-y: auto;
+}
+.log-line { display: block; white-space: pre-wrap; word-break: break-word; }
+.log-line .ts { color: var(--faint); margin-right: 0.6rem; }
+.log-ok   { color: var(--green); font-weight: 700; }
+.log-bad  { color: var(--red); font-weight: 700; }
+.log-info { color: var(--accent); font-weight: 700; }
+.log-warn { color: var(--amber); font-weight: 700; }
+.log-caret::after {
+  content: "";
+  display: inline-block;
+  width: 7px; height: 12px;
+  background: var(--accent);
+  margin-left: 2px;
+  vertical-align: -1px;
+  animation: caret-blink 0.9s steps(1) infinite;
+}
+@keyframes caret-blink { 50% { opacity: 0; } }
+
+/* --------------------------------------------------------------------------
+   9. Tables
+   -------------------------------------------------------------------------- */
+table { border: 1px solid var(--border); border-radius: var(--r-sm); }
+table thead { background: var(--surface-alt); border-bottom: 1px solid var(--border); }
+table thead th {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--faint);
+  padding: 0.6rem 0.75rem;
+}
+table tbody td { font-size: 0.83rem; padding: 0.55rem 0.75rem; color: var(--text); }
+table tbody tr { transition: background var(--speed) ease; }
+table.hover tbody tr:hover { background: var(--surface-alt); }
+table .mono { font-size: 0.78rem; }
+tr.row-new { animation: row-in 0.35s ease; }
+@keyframes row-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+
+/* --------------------------------------------------------------------------
+   10. Reveal modal (approval gate)
+   -------------------------------------------------------------------------- */
+.reveal {
+  border-radius: var(--r);
+  border: 1px solid var(--border);
+  box-shadow: 0 12px 32px rgba(16, 24, 40, 0.18);
+  padding: 1.5rem;
+}
+.reveal-overlay { background: rgba(26, 34, 51, 0.45); }
+.modal-kicker {
+  font-size: 0.68rem; font-weight: 700; letter-spacing: 0.07em;
+  text-transform: uppercase; color: var(--amber); margin-bottom: 0.4rem;
+}
+.modal-detail {
+  width: 100%;
+  margin: 1rem 0;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  font-size: 0.83rem;
+}
+.modal-detail td { padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border); }
+.modal-detail tr:last-child td { border-bottom: 0; }
+.modal-detail td:first-child { color: var(--faint); font-weight: 600; width: 34%; background: var(--surface-alt); }
+
+/* --------------------------------------------------------------------------
+   11. Pipeline flow (how-it-works)
+   -------------------------------------------------------------------------- */
+.stage { position: relative; display: flex; gap: 1rem; padding-bottom: 1.1rem; }
+.stage::before {
+  content: "";
+  position: absolute;
+  left: 17px; top: 40px; bottom: 0;
+  width: 2px;
+  background: var(--border);
+}
+.stage:last-child::before { display: none; }
+.stage-num {
+  flex: 0 0 36px;
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 2px solid var(--accent);
+  color: var(--accent);
+  font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.9rem;
+  z-index: 1;
+}
+.stage-body {
+  flex: 1;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  box-shadow: var(--shadow);
+  padding: 0.85rem 1.1rem;
+}
+.stage-name { font-weight: 700; font-size: 0.98rem; margin-bottom: 0.2rem; }
+.stage-desc { font-size: 0.85rem; color: var(--muted); margin-bottom: 0.5rem; }
+.tool-chip {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  color: var(--accent-dark);
+  background: var(--accent-bg);
+  border-radius: 4px;
+  padding: 0.18em 0.5em;
+  margin: 0.15rem 0.25rem 0 0;
+}
+
+/* tier cards */
+.tier-card { height: 100%; }
+.tier-kicker { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; }
+.tier-1 .tier-kicker { color: var(--green); }
+.tier-2 .tier-kicker { color: var(--accent); }
+.tier-3 .tier-kicker { color: var(--amber); }
+
+/* --------------------------------------------------------------------------
+   12. Chips (integrations)
+   -------------------------------------------------------------------------- */
+.chip {
+  display: inline-block;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.32rem 0.7rem;
+  font-size: 0.83rem;
+  color: var(--text);
+  margin: 0.18rem 0.22rem;
+  transition: border-color var(--speed) ease, background var(--speed) ease;
+}
+.chip:hover { border-color: var(--border-strong); background: var(--surface-alt); }
+.chip .tag { margin-left: 0.35rem; }
+
+/* --------------------------------------------------------------------------
+   13. Home hero + steps
+   -------------------------------------------------------------------------- */
+.hero { padding: 4.5rem 0 3rem; }
+.hero-eyebrow {
+  font-size: 0.72rem; font-weight: 700; letter-spacing: 0.09em;
+  text-transform: uppercase; color: var(--accent); margin-bottom: 0.9rem;
+}
+.hero h1 { font-size: 3rem; line-height: 1.08; margin-bottom: 1rem; }
+.hero-lede { font-size: 1.1rem; color: var(--muted); max-width: 40rem; margin-bottom: 1.75rem; }
+
+.step-strip { counter-reset: step; }
+.step-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  box-shadow: var(--shadow);
+  padding: 1.1rem 1.25rem;
+  height: 100%;
+}
+.step-name { font-weight: 700; font-size: 1rem; margin-bottom: 0.25rem; }
+.step-name .step-index { color: var(--accent); font-family: var(--mono); margin-right: 0.45rem; }
+.step-desc { font-size: 0.85rem; color: var(--muted); margin: 0; }
+
+.big-stat { padding: 1.4rem 1.25rem; }
+.big-stat .stat-value { font-size: 2.4rem; }
+.big-stat .stat-value .unit { font-size: 1.1rem; color: var(--muted); font-weight: 600; }
+.big-stat .stat-label { margin-bottom: 0.5rem; }
+.big-stat .stat-sub { font-size: 0.8rem; }
+
+.section { padding: 2.25rem 0; }
+.section-tight { padding: 1.5rem 0; }
+.section-title { font-size: 1.35rem; margin-bottom: 0.35rem; }
+.section-sub { color: var(--muted); font-size: 0.95rem; margin-bottom: 1.5rem; }
+.page-head { padding: 2.75rem 0 0.5rem; }
+
+/* --------------------------------------------------------------------------
+   14. Dashboard layout extras
+   -------------------------------------------------------------------------- */
+.dash { padding: 1.5rem 0 2.5rem; }
+.side-menu { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); box-shadow: var(--shadow); padding: 0.5rem; }
+.side-menu li > a {
+  color: var(--muted);
+  font-size: 0.88rem;
+  font-weight: 500;
+  border-radius: var(--r-sm);
+  padding: 0.55rem 0.75rem;
+  transition: background var(--speed) ease, color var(--speed) ease;
+}
+.side-menu li > a:hover { background: var(--surface-alt); color: var(--text); }
+.side-menu li > a.is-active { background: var(--accent-bg); color: var(--accent); font-weight: 600; }
+.side-menu li > a.is-disabled { color: var(--faint); pointer-events: none; }
+.side-menu li > a.is-disabled .soon { float: right; font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--border-strong); margin-top: 2px; }
+.dash-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
+.dash-toolbar h2 { margin: 0; }
+.sim-banner { display: none; margin-bottom: 1.25rem; }
+.sim-banner.show { display: block; animation: row-in 0.3s ease; }
+
+/* ticket / notification mini lists */
+.mini-list { list-style: none; margin: 0; }
+.mini-list li {
+  display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.83rem;
+}
+.mini-list li:last-child { border-bottom: 0; }
+.mini-list .mono { font-size: 0.78rem; }
+
+/* --------------------------------------------------------------------------
+   15. Footer
+   -------------------------------------------------------------------------- */
+.site-footer {
+  border-top: 1px solid var(--border);
+  padding: 1.5rem 0 2rem;
+  margin-top: 1.5rem;
+  font-size: 0.8rem;
+  color: var(--faint);
+}
+
+/* --------------------------------------------------------------------------
+   16. Motion — scroll reveal (subtle, reduced-motion safe)
+   -------------------------------------------------------------------------- */
+.reveal-on-scroll { opacity: 0; transform: translateY(10px); transition: opacity 260ms ease, transform 260ms ease; }
+.reveal-on-scroll.is-visible { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) {
+  .reveal-on-scroll { opacity: 1; transform: none; transition: none; }
+  .log-caret::after { animation: none; }
+  tr.row-new { animation: none; }
+}
+
+/* --------------------------------------------------------------------------
+   17. Small-screen tweaks
+   -------------------------------------------------------------------------- */
+@media screen and (max-width: 39.9375em) {
+  .hero { padding: 2.75rem 0 1.75rem; }
+  .hero h1 { font-size: 2.1rem; }
+  h1 { font-size: 2rem; }
+  .top-bar .menu > li > a { padding: 0.85rem 0.9rem; }
+  .side-menu { margin-bottom: 1.25rem; }
+}

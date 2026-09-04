@@ -1,0 +1,22 @@
+{
+  "id": "1732100000.123456",
+  "rule": {
+    "id": 5710,
+    "level": 10,
+    "description": "Attempt to login using a non-existent user",
+    "mitre": {
+      "id": "T1110"
+    }
+  },
+  "agent": {
+    "id": "001",
+    "name": "ubuntu-webserver"
+  },
+  "timestamp": "2026-09-04T01:00:00.000+0000",
+  "location": "/var/log/auth.log",
+  "data": {
+    "srcip": "192.168.1.105",
+    "dstuser": "nonexistent_admin"
+  },
+  "full_log": "Sep  4 01:00:00 ubuntu-webserver sshd[12345]: Failed password for invalid user nonexistent_admin from 192.168.1.105 port 54321 ssh2"
+}

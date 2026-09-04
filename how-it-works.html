@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html class="no-js" lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>How it works — Agentic SOC</title>
+  <link rel="stylesheet" href="css/foundation.min.css">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+  <!-- ===== Shared navigation ===== -->
+  <div class="title-bar" data-responsive-toggle="main-menu" data-hide-for="medium">
+    <button class="menu-icon" type="button" data-toggle="main-menu"></button>
+    <div class="title-bar-title">Agentic SOC</div>
+  </div>
+  <div class="top-bar" id="main-menu">
+    <div class="grid-container top-bar-inner">
+      <div class="top-bar-left">
+        <a class="brand" href="index.html"><span class="brand-mark"></span>Agentic SOC</a>
+      </div>
+      <div class="top-bar-right">
+        <ul class="menu" data-nav>
+          <li><a href="index.html">Home</a></li>
+          <li><a href="how-it-works.html">How It Works</a></li>
+          <li><a href="dashboard.html">Dashboard</a></li>
+          <li><a href="integrations.html">Integrations</a></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Page head ===== -->
+  <section class="page-head">
+    <div class="grid-container">
+      <p class="hero-eyebrow reveal-on-scroll">Agentic SOC — the pipeline</p>
+      <h1 class="reveal-on-scroll">How it works</h1>
+      <p class="hero-lede reveal-on-scroll">Seven stages from raw log to resolved incident. The agent does the busywork; an engineer makes the final calls.</p>
+    </div>
+  </section>
+
+  <!-- ===== The pipeline ===== -->
+  <section class="section">
+    <div class="grid-container">
+      <h2 class="section-title reveal-on-scroll">The pipeline</h2>
+      <p class="section-sub reveal-on-scroll">Each stage hands off to the next — and only the irreversible actions stop for a human.</p>
+
+      <div class="stage reveal-on-scroll">
+        <div class="stage-num">1</div>
+        <div class="stage-body">
+          <div class="stage-name">The vulnerable service</div>
+          <p class="stage-desc">A deliberately vulnerable Apache server runs in a VM as the bait — the thing an attacker would hit.</p>
+          <div>
+            <span class="tool-chip">Apache VM</span>
+            <span class="tool-chip">bridged network</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="stage reveal-on-scroll">
+        <div class="stage-num">2</div>
+        <div class="stage-body">
+          <div class="stage-name">Wazuh SIEM ingests logs</div>
+          <p class="stage-desc">Wazuh collects endpoint and web logs. Our policies flag suspicious activity — brute force, webshell uploads.</p>
+          <div>
+            <span class="tool-chip">Wazuh</span>
+            <span class="tool-chip">detection rules</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="stage reveal-on-scroll">
+        <div class="stage-num">3</div>
+        <div class="stage-body">
+          <div class="stage-name">Agent dispatched</div>
+          <p class="stage-desc">A policy hit dispatches an AI agent to investigate the incident within a set timeframe.</p>
+          <div>
+            <span class="tool-chip">opencode agent runtime</span>
+            <span class="tool-chip">OpenCode Go</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="stage reveal-on-scroll">
+        <div class="stage-num">4</div>
+        <div class="stage-body">
+          <div class="stage-name">Investigation</div>
+          <p class="stage-desc">The agent queries the Wazuh API, correlates related events, enriches indicators via VirusTotal, and maps behavior to MITRE ATT&amp;CK.</p>
+          <div>
+            <span class="tool-chip">Wazuh API</span>
+            <span class="tool-chip">VirusTotal</span>
+            <span class="tool-chip">MITRE ATT&amp;CK</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="stage reveal-on-scroll">
+        <div class="stage-num">5</div>
+        <div class="stage-body">
+          <div class="stage-name">Decision engine</div>
+          <p class="stage-desc">Reversible actions auto-execute. Irreversible actions queue for an engineer's approval.</p>
+          <div>
+            <span class="tool-chip">policy engine</span>
+            <span class="tool-chip">human-in-the-loop</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="stage reveal-on-scroll">
+        <div class="stage-num">6</div>
+        <div class="stage-body">
+          <div class="stage-name">Actions fire</div>
+          <p class="stage-desc">A Jira ticket is created, the engineer is notified via Slack / PagerDuty / SMS, and lockdown runs after approval.</p>
+          <div>
+            <span class="tool-chip">Jira</span>
+            <span class="tool-chip">Slack</span>
+            <span class="tool-chip">PagerDuty</span>
+            <span class="tool-chip">SMS</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="stage reveal-on-scroll">
+        <div class="stage-num">7</div>
+        <div class="stage-body">
+          <div class="stage-name">Web dashboard</div>
+          <p class="stage-desc">A live dashboard shows the whole lifecycle — alerts flip from red to green as they're patched.</p>
+          <div>
+            <span class="tool-chip">dashboard.html</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Human in the loop ===== -->
+  <section class="section">
+    <div class="grid-container">
+      <h2 class="section-title reveal-on-scroll">Human in the loop</h2>
+      <p class="section-sub reveal-on-scroll">Autonomy scales with reversibility — the more destructive the action, the more it waits for a person.</p>
+
+      <div class="grid-x grid-margin-x">
+        <div class="cell medium-4 reveal-on-scroll">
+          <div class="panel tier-card tier-1">
+            <p class="tier-kicker">Tier 1 · Autonomous</p>
+            <h3>Read-only</h3>
+            <p class="stage-desc">Enrichment, context gathering, correlation, report drafting. No side effects — runs with no approval.</p>
+          </div>
+        </div>
+
+        <div class="cell medium-4 reveal-on-scroll">
+          <div class="panel tier-card tier-2">
+            <p class="tier-kicker">Tier 2 · Auto-execute</p>
+            <h3>Reversible writes</h3>
+            <p class="stage-desc">Tickets, notifications, blocking a single IP. Safe to undo, so the agent just does it.</p>
+          </div>
+        </div>
+
+        <div class="cell medium-4 reveal-on-scroll">
+          <div class="panel tier-card tier-3">
+            <p class="tier-kicker">Tier 3 · Human approval</p>
+            <h3>Irreversible</h3>
+            <p class="stage-desc">Host isolation, account disablement. High blast radius — waits for an engineer to approve.</p>
+          </div>
+        </div>
+      </div>
+
+      <p class="small-text muted reveal-on-scroll" style="margin-top:0.75rem;">~70% of organizations already run this &ldquo;AI recommends, human approves&rdquo; model — only ~14% let AI act unsupervised.</p>
+    </div>
+  </section>
+
+  <!-- ===== Why it matters ===== -->
+  <section class="section-tight">
+    <div class="grid-container">
+      <h2 class="section-title reveal-on-scroll">Why SOCs need this</h2>
+      <p class="section-sub reveal-on-scroll">Analysts drown in noise. We automate the noise so engineers only touch real threats.</p>
+      <div class="grid-x grid-margin-x">
+
+        <div class="cell small-6 medium-6 large-3 reveal-on-scroll">
+          <div class="stat-card big-stat">
+            <div class="stat-value">46<span class="unit">%</span></div>
+            <div class="stat-label">of SOC alerts are false positives</div>
+          </div>
+        </div>
+
+        <div class="cell small-6 medium-6 large-3 reveal-on-scroll">
+          <div class="stat-card big-stat">
+            <div class="stat-value">73<span class="unit">%</span></div>
+            <div class="stat-label">rank false positives their #1 challenge — SANS 2025</div>
+          </div>
+        </div>
+
+        <div class="cell small-6 medium-6 large-3 reveal-on-scroll">
+          <div class="stat-card big-stat">
+            <div class="stat-value">0.01<span class="unit">%</span></div>
+            <div class="stat-label">of 24K–134K daily alerts are real attacks</div>
+          </div>
+        </div>
+
+        <div class="cell small-6 medium-6 large-3 reveal-on-scroll">
+          <div class="stat-card big-stat">
+            <div class="stat-value">−80<span class="unit"> days</span></div>
+            <div class="stat-label">breach response with AI — ~$1.9M saved per incident, IBM</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== CTA ===== -->
+  <section class="section-tight">
+    <div class="grid-container">
+      <div class="callout primary reveal-on-scroll">
+        <div class="grid-x grid-margin-x align-middle">
+          <div class="cell medium-8">
+            <h3 style="color:inherit;">See it in action.</h3>
+            <p style="color:inherit; margin-bottom:0;">Watch the pipeline run live on the dashboard — and approve the lockdown yourself.</p>
+          </div>
+          <div class="cell medium-4 text-right">
+            <a class="button primary large" style="margin-bottom:0;" href="dashboard.html">Open the dashboard</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Footer ===== -->
+  <footer class="site-footer">
+    <div class="grid-container">
+      Agentic SOC — AI investigates, engineers approve. &nbsp;·&nbsp; Wazuh · opencode · OpenCode Go · Ollama fail-safe · Python · all in VMs
+    </div>
+  </footer>
+
+  <script src="js/jquery.min.js"></script>
+  <script src="js/what-input.min.js"></script>
+  <script src="js/foundation.min.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
