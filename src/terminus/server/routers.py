@@ -246,7 +246,7 @@ async def wazuh_webhook(
 async def list_incidents(
     org_id: Annotated[OrgId, Depends(get_webhook_org)],
     pipeline_runner: Annotated[PipelineRunner, Depends(get_pipeline_runner)],
-) -> list[dict[str, str]]:
+) -> list[dict[str, Any]]:
     """Fetch live incident tickets for the active tenant."""
     return await pipeline_runner.deployment.ticket_store.list_tickets(org_id)
 

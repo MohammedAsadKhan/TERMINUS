@@ -517,26 +517,84 @@
           </div>
         </div>
 
-        <!-- Interactive Visual Canvas Container -->
-        <div class="lg:col-span-9 bg-[#0b0f19] border border-slate-800 rounded-xl p-6 relative overflow-hidden flex flex-col justify-between" id="canvasContainer">
-          <!-- Grid Background Effect -->
-          <div class="absolute inset-0 bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:16px_16px] opacity-40 pointer-events-none"></div>
+        <!-- Interactive Visual Canvas Container (Pan & Zoom Viewport) -->
+        <div class="lg:col-span-9 bg-[#0b0f19] border border-slate-800 rounded-xl relative overflow-hidden flex flex-col justify-between select-none cursor-grab active:cursor-grabbing" id="canvasContainer">
+          <!-- Floating Canvas Zoom & Pan Controls -->
+          <div class="absolute top-4 right-4 z-40 flex items-center space-x-1.5 bg-[#0f172a]/95 backdrop-blur border border-slate-800 rounded-lg p-1.5 shadow-2xl font-mono text-xs">
+            <button onclick="zoomCanvas(0.1)" title="Zoom In (+10%)" class="w-7 h-7 rounded bg-slate-900 hover:bg-slate-800 text-sky-400 font-bold border border-slate-800 transition flex items-center justify-center">＋</button>
+            <span id="canvasZoomText" class="px-2 text-slate-300 font-bold text-[11px]">100%</span>
+            <button onclick="zoomCanvas(-0.1)" title="Zoom Out (-10%)" class="w-7 h-7 rounded bg-slate-900 hover:bg-slate-800 text-sky-400 font-bold border border-slate-800 transition flex items-center justify-center">－</button>
+            <button onclick="resetCanvasView()" title="Reset View (100% Center)" class="px-2 py-1 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white text-[10px] font-bold border border-slate-800 transition">🎯 Reset</button>
+            <button onclick="fitCanvasView()" title="Fit Graph to Screen" class="px-2 py-1 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white text-[10px] font-bold border border-slate-800 transition">📐 Fit</button>
+          </div>
 
-          <!-- SVG Wires Overlay -->
-          <svg id="canvasSvg" class="absolute inset-0 w-full h-full pointer-events-none z-10">
-            <!-- Connection lines drawn dynamically -->
-          </svg>
+          <!-- Canvas Hint Overlay -->
+          <div class="absolute top-4 left-4 z-30 pointer-events-none text-[10px] font-mono text-slate-500 bg-slate-950/80 border border-slate-800/80 rounded px-2.5 py-1 flex items-center space-x-2">
+            <span class="w-2 h-2 rounded-full bg-sky-400 animate-ping"></span>
+            <span>Drag Canvas to Pan • Scroll Wheel to Zoom • Drag Nodes to Move</span>
+          </div>
 
-          <!-- Nodes Wrapper -->
-          <div id="canvasNodes" class="relative z-20 w-full h-full min-h-[520px]">
-            <!-- Rendered Nodes -->
+          <!-- Pan Grid Background Layer -->
+          <div id="canvasGridBg" class="absolute inset-0 bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:20px_20px] opacity-40 pointer-events-none"></div>
+
+          <!-- Draggable & Zoomable Viewport Wrapper -->
+          <div id="canvasViewport" class="absolute inset-0 origin-top-left">
+            <!-- SVG Connection Lines Layer -->
+            <svg id="canvasSvg" class="absolute inset-0 w-[4000px] h-[4000px] pointer-events-none z-10">
+              <defs>
+                <marker id="arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                  <path d="M 0 0 L 10 5 L 0 10 z" fill="#38bdf8" />
+                </marker>
+              </defs>
+              <!-- Dynamic curve lines -->
+            </svg>
+
+            <!-- Rendered Nodes Layer -->
+            <div id="canvasNodes" class="absolute inset-0 w-[4000px] h-[4000px] z-20">
+              <!-- Dynamic node cards -->
+            </div>
+          </div>
+
+          <!-- Slide-Over Node Inspector Drawer (Right Side of Canvas) -->
+          <div id="nodeInspectorDrawer" class="absolute top-0 right-0 bottom-0 w-80 bg-[#0f172a]/95 backdrop-blur-md border-l border-slate-800 p-5 z-50 shadow-2xl flex flex-col justify-between font-mono text-xs transform translate-x-full transition-transform duration-200">
+            <div class="space-y-4">
+              <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div class="flex items-center space-x-2">
+                  <span class="text-sky-400 text-sm">⚙️</span>
+                  <h3 class="font-bold text-white text-xs">Node Inspector</h3>
+                </div>
+                <button onclick="closeNodeInspector()" class="text-slate-400 hover:text-white font-bold text-sm">✕</button>
+              </div>
+
+              <div class="space-y-3 text-slate-300">
+                <div>
+                  <label class="block text-[10px] text-slate-500 uppercase font-bold mb-1">Node Title / Label</label>
+                  <input type="text" id="inspectorNodeLabel" class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-slate-200 text-xs outline-none focus:border-sky-500">
+                </div>
+
+                <div>
+                  <label class="block text-[10px] text-slate-500 uppercase font-bold mb-1">Node Type ID</label>
+                  <input type="text" id="inspectorNodeType" readonly class="w-full bg-slate-950/60 border border-slate-800/80 rounded p-2 text-slate-500 text-[11px]">
+                </div>
+
+                <div>
+                  <label class="block text-[10px] text-slate-500 uppercase font-bold mb-1">Configuration Parameters (JSON)</label>
+                  <textarea id="inspectorNodeConfig" rows="5" class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-sky-300 text-[11px] font-mono outline-none focus:border-sky-500 leading-relaxed"></textarea>
+                </div>
+              </div>
+            </div>
+
+            <div class="pt-3 border-t border-slate-800 flex items-center justify-between space-x-2">
+              <button onclick="deleteSelectedNode()" class="px-3 py-1.5 bg-rose-600/20 hover:bg-rose-600/30 text-rose-400 border border-rose-500/30 rounded font-bold text-[11px] transition">🗑️ Delete</button>
+              <button onclick="saveNodeInspector()" class="px-4 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded font-bold text-[11px] shadow transition">Save Config</button>
+            </div>
           </div>
 
           <!-- Canvas Footer Stats -->
-          <div class="relative z-30 pt-3 border-t border-slate-800/80 flex items-center justify-between text-[11px] font-mono text-slate-500">
+          <div class="relative z-30 p-4 border-t border-slate-800/80 bg-[#0f172a]/90 backdrop-blur flex items-center justify-between text-[11px] font-mono text-slate-500">
             <span>Connected Nodes: <span id="canvasNodeCount" class="text-sky-400 font-bold">6</span></span>
-            <span>Execution Flow: <span class="text-emerald-400 font-bold">Wazuh → Policy → LLM → Firewall → Slack</span></span>
-            <span>n8n SOC Graph Engine v3.1</span>
+            <span>Viewport Pan: <span id="canvasPanText" class="text-slate-300 font-bold">(0, 0)</span></span>
+            <span>n8n SOC Graph Engine v3.2</span>
           </div>
         </div>
       </div>
@@ -1025,75 +1083,289 @@
       }
     }
 
+    // ─── WORKFLOW CANVAS INTERACTIVE PAN, ZOOM & DRAG ENGINE ───────────────────────
+
+    window.canvasState = {
+      panX: 0,
+      panY: 0,
+      zoom: 1.0,
+      isPanning: false,
+      startMouseX: 0,
+      startMouseY: 0,
+      startPanX: 0,
+      startPanY: 0,
+      draggingNodeId: null,
+      nodeDragOffsetX: 0,
+      nodeDragOffsetY: 0,
+      selectedNodeId: null
+    };
+
+    function updateViewportTransform() {
+      const vp = document.getElementById('canvasViewport');
+      const zoomText = document.getElementById('canvasZoomText');
+      const panText = document.getElementById('canvasPanText');
+      const gridBg = document.getElementById('canvasGridBg');
+      
+      if (!vp) return;
+      
+      vp.style.transform = `translate(${window.canvasState.panX}px, ${window.canvasState.panY}px) scale(${window.canvasState.zoom})`;
+      if (zoomText) zoomText.textContent = Math.round(window.canvasState.zoom * 100) + '%';
+      if (panText) panText.textContent = `(${Math.round(window.canvasState.panX)}, ${Math.round(window.canvasState.panY)})`;
+      
+      if (gridBg) {
+        gridBg.style.backgroundPosition = `${window.canvasState.panX}px ${window.canvasState.panY}px`;
+        gridBg.style.backgroundSize = `${20 * window.canvasState.zoom}px ${20 * window.canvasState.zoom}px`;
+      }
+    }
+
+    function zoomCanvas(delta) {
+      let newZoom = window.canvasState.zoom + delta;
+      if (newZoom < 0.3) newZoom = 0.3;
+      if (newZoom > 2.0) newZoom = 2.0;
+      window.canvasState.zoom = Math.round(newZoom * 100) / 100;
+      updateViewportTransform();
+    }
+
+    function resetCanvasView() {
+      window.canvasState.panX = 0;
+      window.canvasState.panY = 0;
+      window.canvasState.zoom = 1.0;
+      updateViewportTransform();
+    }
+
+    function fitCanvasView() {
+      const wf = window.workflows.find(w => w.id === window.activeWorkflowId);
+      if (!wf || !wf.nodes.length) { resetCanvasView(); return; }
+      
+      let minX = Infinity, minY = Infinity;
+      wf.nodes.forEach(n => {
+        minX = Math.min(minX, n.x);
+        minY = Math.min(minY, n.y);
+      });
+      
+      window.canvasState.panX = 50 - minX;
+      window.canvasState.panY = 50 - minY;
+      window.canvasState.zoom = 0.9;
+      updateViewportTransform();
+    }
+
+    function initCanvasInteractivity() {
+      const container = document.getElementById('canvasContainer');
+      if (!container || container.dataset.initialized) return;
+      container.dataset.initialized = 'true';
+
+      // Mouse Wheel Zoom
+      container.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const delta = e.deltaY < 0 ? 0.08 : -0.08;
+        zoomCanvas(delta);
+      }, { passive: false });
+
+      // Mouse Down (Background Pan vs Node Drag)
+      container.addEventListener('mousedown', (e) => {
+        // If clicking inside a node card, handle node drag
+        const nodeEl = e.target.closest('[id^="node-"]');
+        if (nodeEl) {
+          const nodeId = nodeEl.id.replace('node-', '');
+          window.canvasState.draggingNodeId = nodeId;
+          const wf = window.workflows.find(w => w.id === window.activeWorkflowId);
+          const nodeObj = wf ? wf.nodes.find(n => n.id === nodeId) : null;
+          if (nodeObj) {
+            window.canvasState.nodeDragOffsetX = (e.clientX / window.canvasState.zoom) - nodeObj.x;
+            window.canvasState.nodeDragOffsetY = (e.clientY / window.canvasState.zoom) - nodeObj.y;
+          }
+          openNodeInspector(nodeId);
+          return;
+        }
+
+        // Ignore pan if clicking inside interactive buttons, controls, or inspector drawer
+        if (e.target.closest('button, input, textarea, select, #nodeInspectorDrawer')) return;
+
+        // Click-and-Hold to Pan Viewport smoothly across entire background
+        window.canvasState.isPanning = true;
+        window.canvasState.startMouseX = e.clientX;
+        window.canvasState.startMouseY = e.clientY;
+        window.canvasState.startPanX = window.canvasState.panX;
+        window.canvasState.startPanY = window.canvasState.panY;
+        container.style.cursor = 'grabbing';
+      });
+
+      // Global Mouse Move
+      window.addEventListener('mousemove', (e) => {
+        if (window.canvasState.isPanning) {
+          const dx = e.clientX - window.canvasState.startMouseX;
+          const dy = e.clientY - window.canvasState.startMouseY;
+          window.canvasState.panX = window.canvasState.startPanX + dx;
+          window.canvasState.panY = window.canvasState.startPanY + dy;
+          updateViewportTransform();
+          return;
+        }
+
+        if (window.canvasState.draggingNodeId) {
+          const wf = window.workflows.find(w => w.id === window.activeWorkflowId);
+          if (!wf) return;
+          const nodeObj = wf.nodes.find(n => n.id === window.canvasState.draggingNodeId);
+          if (nodeObj) {
+            nodeObj.x = Math.round((e.clientX / window.canvasState.zoom) - window.canvasState.nodeDragOffsetX);
+            nodeObj.y = Math.round((e.clientY / window.canvasState.zoom) - window.canvasState.nodeDragOffsetY);
+            
+            const nodeEl = document.getElementById('node-' + nodeObj.id);
+            if (nodeEl) {
+              nodeEl.style.left = nodeObj.x + 'px';
+              nodeEl.style.top = nodeObj.y + 'px';
+            }
+            drawCanvasWires(wf);
+          }
+        }
+      });
+
+      // Global Mouse Up
+      window.addEventListener('mouseup', () => {
+        window.canvasState.isPanning = false;
+        window.canvasState.draggingNodeId = null;
+        const container = document.getElementById('canvasContainer');
+        if (container) container.style.cursor = 'grab';
+      });
+    }
+
     function renderWorkflowCanvas(wfId) {
+      initCanvasInteractivity();
       const wf = window.workflows.find(w => w.id === wfId);
       if (!wf) return;
 
       const nodesContainer = document.getElementById('canvasNodes');
-      const svg = document.getElementById('canvasSvg');
       document.getElementById('canvasNodeCount').textContent = wf.nodes.length;
 
       // Render Nodes
       nodesContainer.innerHTML = wf.nodes.map(n => {
-        let typeBadge = 'bg-sky-500/10 text-sky-400 border-sky-500/30';
         let icon = '⚡';
-        if (n.type.includes('agent')) { typeBadge = 'bg-purple-500/10 text-purple-400 border-purple-500/30'; icon = '🧠'; }
-        else if (n.type.includes('tool')) { typeBadge = 'bg-rose-500/10 text-rose-400 border-rose-500/30'; icon = '🛡️'; }
-        else if (n.type.includes('condition') || n.type.includes('loop')) { typeBadge = 'bg-amber-500/10 text-amber-400 border-amber-500/30'; icon = '🔀'; }
+        let borderColor = 'border-slate-700 hover:border-sky-400';
+        if (n.type.includes('agent')) { icon = '🧠'; borderColor = 'border-purple-800/80 hover:border-purple-400'; }
+        else if (n.type.includes('tool')) { icon = '🛡️'; borderColor = 'border-rose-800/80 hover:border-rose-400'; }
+        else if (n.type.includes('condition') || n.type.includes('loop')) { icon = '🔀'; borderColor = 'border-amber-800/80 hover:border-amber-400'; }
 
         return `
-          <div id="node-${n.id}" style="left: ${n.x}px; top: ${n.y}px;" class="absolute w-56 bg-[#0f172a] border border-slate-700 hover:border-sky-400 rounded-xl p-3 shadow-2xl space-y-2 font-mono text-xs cursor-pointer transition group">
+          <div id="node-${n.id}" style="left: ${n.x}px; top: ${n.y}px;" class="absolute w-60 bg-[#0f172a] ${borderColor} rounded-xl p-3.5 shadow-2xl space-y-2.5 font-mono text-xs cursor-grab active:cursor-grabbing transition-shadow group z-20">
             <div class="flex items-center justify-between border-b border-slate-800 pb-2">
               <div class="flex items-center space-x-2">
-                <span class="text-sm">${icon}</span>
-                <span class="font-bold text-white text-[11px] truncate max-w-[120px]">${n.label}</span>
+                <span class="text-base">${icon}</span>
+                <span class="font-bold text-white text-[11px] truncate max-w-[130px]">${n.label}</span>
               </div>
               <span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
             </div>
 
             <div class="text-[10px] text-slate-400 font-sans truncate">
-              Type: <span class="font-mono text-slate-300 font-semibold">${n.type}</span>
+              Type: <span class="font-mono text-sky-400 font-semibold">${n.type}</span>
             </div>
 
             ${n.config && Object.keys(n.config).length ? `
-              <div class="bg-slate-950 p-1.5 rounded border border-slate-800 text-[9px] text-slate-400 truncate">
-                Config: ${JSON.stringify(n.config)}
+              <div class="bg-slate-950 p-2 rounded border border-slate-800/80 text-[9px] text-slate-300 font-mono truncate leading-relaxed">
+                ${JSON.stringify(n.config)}
               </div>
             ` : ''}
 
             <!-- Node Ports -->
-            <div class="flex justify-between items-center text-[9px] text-slate-500 pt-1 border-t border-slate-800/60">
-              <span class="hover:text-sky-400">In ●</span>
-              <span class="hover:text-emerald-400">● Out</span>
+            <div class="flex justify-between items-center text-[9px] font-bold text-slate-500 pt-1.5 border-t border-slate-800/80">
+              <span class="text-sky-400">In ●</span>
+              <span class="text-emerald-400">● Out</span>
             </div>
           </div>
         `;
       }).join('');
 
-      // Draw SVG Connection Wires
-      let svgLines = '';
+      drawCanvasWires(wf);
+      updateViewportTransform();
+    }
+
+    function drawCanvasWires(wf) {
+      const svg = document.getElementById('canvasSvg');
+      if (!svg) return;
+
+      let svgLines = `
+        <defs>
+          <marker id="arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#38bdf8" />
+          </marker>
+        </defs>
+      `;
+
       wf.edges.forEach(e => {
         const sourceNode = wf.nodes.find(n => n.id === e.source);
         const targetNode = wf.nodes.find(n => n.id === e.target);
         if (sourceNode && targetNode) {
-          const x1 = sourceNode.x + 220;
+          const x1 = sourceNode.x + 240;
           const y1 = sourceNode.y + 40;
           const x2 = targetNode.x;
           const y2 = targetNode.y + 40;
 
-          const cx1 = x1 + 60;
+          const cx1 = x1 + 80;
           const cy1 = y1;
-          const cx2 = x2 - 60;
+          const cx2 = x2 - 80;
           const cy2 = y2;
 
           svgLines += `
             <path d="M ${x1} ${y1} C ${cx1} ${cy1}, ${cx2} ${cy2}, ${x2} ${y2}" 
-                  stroke="#38bdf8" stroke-width="2" stroke-dasharray="4 4" fill="none" class="animate-pulse" opacity="0.8"/>
+                  stroke="#38bdf8" stroke-width="2.5" fill="none" marker-end="url(#arrow)" opacity="0.85"/>
           `;
         }
       });
 
       svg.innerHTML = svgLines;
+    }
+
+    function openNodeInspector(nodeId) {
+      window.canvasState.selectedNodeId = nodeId;
+      const wf = window.workflows.find(w => w.id === window.activeWorkflowId);
+      if (!wf) return;
+      const n = wf.nodes.find(item => item.id === nodeId);
+      if (!n) return;
+
+      document.getElementById('inspectorNodeLabel').value = n.label;
+      document.getElementById('inspectorNodeType').value = n.type + ` (${n.id})`;
+      document.getElementById('inspectorNodeConfig').value = JSON.stringify(n.config || {}, null, 2);
+      
+      const drawer = document.getElementById('nodeInspectorDrawer');
+      if (drawer) drawer.classList.remove('translate-x-full');
+    }
+
+    function closeNodeInspector() {
+      const drawer = document.getElementById('nodeInspectorDrawer');
+      if (drawer) drawer.classList.add('translate-x-full');
+    }
+
+    function saveNodeInspector() {
+      const nodeId = window.canvasState.selectedNodeId;
+      if (!nodeId) return;
+      const wf = window.workflows.find(w => w.id === window.activeWorkflowId);
+      if (!wf) return;
+      const n = wf.nodes.find(item => item.id === nodeId);
+      if (!n) return;
+
+      n.label = document.getElementById('inspectorNodeLabel').value;
+      try {
+        n.config = JSON.parse(document.getElementById('inspectorNodeConfig').value);
+      } catch(e) {
+        showToast('Invalid JSON in config field', 'error');
+        return;
+      }
+
+      renderWorkflowCanvas(window.activeWorkflowId);
+      showToast(`Node '${n.label}' updated!`);
+      closeNodeInspector();
+    }
+
+    function deleteSelectedNode() {
+      const nodeId = window.canvasState.selectedNodeId;
+      if (!nodeId) return;
+      const wf = window.workflows.find(w => w.id === window.activeWorkflowId);
+      if (!wf) return;
+
+      wf.nodes = wf.nodes.filter(n => n.id !== nodeId);
+      wf.edges = wf.edges.filter(e => e.source !== nodeId && e.target !== nodeId);
+      
+      closeNodeInspector();
+      renderWorkflowCanvas(window.activeWorkflowId);
+      showToast('Node removed from graph');
     }
 
     function addNodeToCanvas(nodeType) {
