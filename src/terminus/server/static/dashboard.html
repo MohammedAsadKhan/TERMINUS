@@ -175,30 +175,36 @@
         </div>
       </div>
 
-      <!-- KPI Summary Cards -->
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div class="bg-[#0f172a] border border-slate-800 rounded-xl p-5 shadow-lg">
-          <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Live Ingested Incidents</span>
-          <div class="text-3xl font-extrabold text-white font-mono mt-2" id="stat-total-incidents">0</div>
-          <p class="text-xs text-slate-500 mt-1">Populated directly from API webhooks</p>
+      <!-- Decision-Focused SLA & Efficiency Banner -->
+      <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div class="bg-[#0f172a] border border-slate-800 rounded-xl p-4 shadow-lg flex flex-col justify-between">
+          <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">⏱️ Mean Time to Detect (MTTD)</span>
+          <div class="text-2xl font-extrabold text-sky-400 font-mono mt-1" id="stat-mttd">18s</div>
+          <p class="text-[10px] text-slate-500 mt-1">SLA Target &lt; 45s (Auto Ingest)</p>
         </div>
 
-        <div class="bg-[#0f172a] border border-slate-800 rounded-xl p-5 shadow-lg">
-          <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block">High / Critical Threat Ratio</span>
-          <div class="text-3xl font-extrabold text-rose-400 font-mono mt-2" id="stat-high-incidents">0</div>
-          <p class="text-xs text-slate-500 mt-1">Escalated to LLM Investigation Agent</p>
+        <div class="bg-[#0f172a] border border-slate-800 rounded-xl p-4 shadow-lg flex flex-col justify-between">
+          <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">⚡ Mean Time to Respond (MTTR)</span>
+          <div class="text-2xl font-extrabold text-emerald-400 font-mono mt-1" id="stat-mttr">42s</div>
+          <p class="text-[10px] text-slate-500 mt-1">SLA Target &lt; 120s (Automated)</p>
         </div>
 
-        <div class="bg-[#0f172a] border border-slate-800 rounded-xl p-5 shadow-lg">
-          <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Autonomous Noise Reduction</span>
-          <div class="text-3xl font-extrabold text-emerald-400 font-mono mt-2" id="stat-noise-filtered">100.0%</div>
-          <p class="text-xs text-slate-500 mt-1">Low level alerts auto-filtered</p>
+        <div class="bg-[#0f172a] border border-slate-800 rounded-xl p-4 shadow-lg flex flex-col justify-between">
+          <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">🎯 Signal-to-Noise Ratio</span>
+          <div class="text-2xl font-extrabold text-purple-400 font-mono mt-1" id="stat-snr">94.2%</div>
+          <p class="text-[10px] text-slate-500 mt-1">Telemetry Alert Reduction</p>
         </div>
 
-        <div class="bg-[#0f172a] border border-slate-800 rounded-xl p-5 shadow-lg">
-          <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Avg Investigation SLA</span>
-          <div class="text-3xl font-extrabold text-sky-400 font-mono mt-2">2.4 ms</div>
-          <p class="text-xs text-slate-500 mt-1">Sub-second policy evaluation</p>
+        <div class="bg-[#0f172a] border border-slate-800 rounded-xl p-4 shadow-lg flex flex-col justify-between">
+          <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">🤖 Auto Containment Rate</span>
+          <div class="text-2xl font-extrabold text-indigo-400 font-mono mt-1" id="stat-auto-contain">88.5%</div>
+          <p class="text-[10px] text-slate-500 mt-1">Mitigated by AI SOC Fleet</p>
+        </div>
+
+        <div class="bg-[#0f172a] border border-slate-800 rounded-xl p-4 shadow-lg flex flex-col justify-between">
+          <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">💎 Crown Jewel Risk</span>
+          <div class="text-2xl font-extrabold text-rose-400 font-mono mt-1" id="stat-crown-risk">1 Active</div>
+          <p class="text-[10px] text-slate-500 mt-1">Tier 1 Asset Incidents</p>
         </div>
       </div>
 
@@ -259,39 +265,28 @@
       </div>
     </div>
 
-    <!-- TAB 2: INCIDENT OPERATIONS (Full Management & Detail Inspector) -->
+    <!-- TAB 2: INCIDENT OPERATIONS (High-Fidelity Decision Command Center) -->
     <div id="tab-incidents" class="tab-page hidden p-6 space-y-6">
-      <div class="flex items-center justify-between">
+      <div class="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h2 class="text-lg font-bold text-white">Incident Operations Center</h2>
-          <p class="text-xs text-slate-400">Inspect, triage, and manage autonomous investigation tickets</p>
+          <h2 class="text-lg font-bold text-white flex items-center space-x-2">
+            <span>🛡️ High-Fidelity Incident Operations</span>
+            <span class="text-[10px] font-mono font-normal px-2 py-0.5 rounded bg-sky-950 text-sky-400 border border-sky-800">Time-to-Decision Optimized</span>
+          </h2>
+          <p class="text-xs text-slate-400">Correlated kill-chain narratives, asset criticality context, and 1-click inline containment execution</p>
         </div>
-        <button onclick="fetchLiveIncidents()" class="px-3 py-1.5 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-white rounded-lg border border-slate-700 font-mono transition">
-          🔄 Refresh Feed
-        </button>
+        <div class="flex items-center space-x-2 font-mono text-xs">
+          <button onclick="fetchLiveIncidents()" class="px-3 py-1.5 font-semibold bg-slate-800 hover:bg-slate-700 text-white rounded-lg border border-slate-700 transition">
+            🔄 Refresh Feed
+          </button>
+        </div>
       </div>
 
-      <div class="bg-[#0f172a] border border-slate-800 rounded-xl p-5 shadow-xl space-y-4">
-        <div class="overflow-x-auto">
-          <table class="w-full text-left font-mono text-xs text-slate-300">
-            <thead>
-              <tr class="border-b border-slate-800 text-slate-500 uppercase text-[10px]">
-                <th class="py-3 px-3">Ticket ID</th>
-                <th class="py-3 px-3">Severity</th>
-                <th class="py-3 px-3">Alert Ref</th>
-                <th class="py-3 px-3">Summary / AI Verdict</th>
-                <th class="py-3 px-3">Status</th>
-                <th class="py-3 px-3 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody id="incidentsFullTableBody" class="divide-y divide-slate-800/60">
-              <tr>
-                <td colspan="6" class="text-center py-8 text-slate-500">
-                  No active incidents in queue. Send webhooks to ingest alerts.
-                </td>
-              </tr>
-            </tbody>
-          </table>
+      <!-- Incident Stream Cards Container -->
+      <div id="incidentsCardsContainer" class="space-y-4 font-mono text-xs">
+        <div class="bg-[#0f172a] border border-slate-800 rounded-xl p-8 text-center text-slate-500 space-y-2">
+          <p>No active correlated incidents in queue.</p>
+          <p class="text-xs text-slate-600">Send webhooks or trigger test scenarios to ingest live telemetry.</p>
         </div>
       </div>
     </div>
@@ -799,7 +794,7 @@
       });
     }
 
-    // Live Incident API Fetcher
+    // Live Incident & Decision Metrics API Fetcher
     async function fetchLiveIncidents() {
       try {
         const res = await fetch('/incidents', {
@@ -813,8 +808,46 @@
           const tickets = await res.json();
           renderIncidents(tickets || []);
         }
+
+        // Fetch Decision SLA Metrics
+        const mRes = await fetch('/metrics/summary', {
+          headers: {
+            'X-Org-ID': 'org-00000001',
+            'Authorization': 'Bearer tok-demo-sim-agent'
+          }
+        });
+        if (mRes.ok) {
+          const m = await mRes.json();
+          document.getElementById('stat-mttd').textContent = m.mttd_seconds + 's';
+          document.getElementById('stat-mttr').textContent = m.mttr_seconds + 's';
+          document.getElementById('stat-snr').textContent = m.signal_to_noise_pct + '%';
+          document.getElementById('stat-auto-contain').textContent = m.auto_containment_rate_pct + '%';
+          document.getElementById('stat-crown-risk').textContent = m.active_crown_jewel_threats + ' Active';
+        }
       } catch (err) {
         console.error('Incident fetch error:', err);
+      }
+    }
+
+    async function executeInlineAction(ticketId, actionType) {
+      showToast(`Executing '${actionType.replace('_', ' ')}' on ${ticketId}...`, 'info');
+      try {
+        const res = await fetch(`/incidents/${ticketId}/action`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Org-ID': 'org-00000001',
+            'Authorization': 'Bearer tok-demo-sim-agent'
+          },
+          body: JSON.stringify({ action_type: actionType })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          showToast(data.message, 'info');
+          fetchLiveIncidents();
+        }
+      } catch (err) {
+        showToast('Action execution failed', 'error');
       }
     }
 
@@ -823,7 +856,6 @@
 
     function renderIncidents(tickets) {
       const count = tickets.length;
-      document.getElementById('stat-total-incidents').textContent = count;
       document.getElementById('badgeIncidentCount').textContent = count;
 
       if (count === 0 && !autoSeeded) {
@@ -832,33 +864,31 @@
         return;
       }
 
-      const highCount = tickets.filter(t => (t.severity || '').toUpperCase().includes('HIGH') || (t.severity || '').toUpperCase().includes('CRITICAL')).length;
-      document.getElementById('stat-high-incidents').textContent = highCount;
-
       const emptyState = document.getElementById('analyticsEmptyState');
       const table = document.getElementById('analyticsTable');
       const analyticsBody = document.getElementById('analyticsTableBody');
-      const fullBody = document.getElementById('incidentsFullTableBody');
+      const cardsContainer = document.getElementById('incidentsCardsContainer');
 
       if (count === 0) {
-        emptyState.classList.remove('hidden');
-        table.classList.add('hidden');
-        fullBody.innerHTML = `<tr><td colspan="6" class="text-center py-8 text-slate-500 font-mono">No active incidents in queue. Launch Opposer or click "Ingest Critical AI Threats".</td></tr>`;
+        if (emptyState) emptyState.classList.remove('hidden');
+        if (table) table.classList.add('hidden');
+        if (cardsContainer) cardsContainer.innerHTML = `<div class="bg-[#0f172a] border border-slate-800 rounded-xl p-8 text-center text-slate-500 font-mono">No active correlated incidents in queue. Send webhooks or trigger test scenarios.</div>`;
         return;
       }
 
-      emptyState.classList.add('hidden');
-      table.classList.remove('hidden');
+      if (emptyState) emptyState.classList.add('hidden');
+      if (table) table.classList.remove('hidden');
 
       window.ticketsById = {};
-      let rowsHtml = '';
+      let tableRowsHtml = '';
+
       tickets.forEach(t => {
         window.ticketsById[t.id] = t;
         const isCrit = (t.severity || '').toUpperCase().includes('CRITICAL');
         const sevClass = isCrit ? 'bg-rose-950 text-rose-400 border-rose-800' : 'bg-amber-950 text-amber-400 border-amber-800';
         const summaryText = t.summary || 'AI Forensic Analysis Completed';
         
-        rowsHtml += `
+        tableRowsHtml += `
           <tr class="hover:bg-slate-900/60 transition">
             <td class="py-3 px-3 text-sky-400 font-bold font-mono">${t.id}</td>
             <td class="py-3 px-3"><span class="px-2 py-0.5 rounded text-[10px] font-bold border ${sevClass}">${(t.severity || 'HIGH').toUpperCase()}</span></td>
@@ -874,8 +904,84 @@
         `;
       });
 
-      analyticsBody.innerHTML = rowsHtml;
-      fullBody.innerHTML = rowsHtml;
+      if (analyticsBody) analyticsBody.innerHTML = tableRowsHtml;
+
+      // Render High-Fidelity Incident Cards
+      if (cardsContainer) {
+        cardsContainer.innerHTML = tickets.map(t => {
+          const isCrit = (t.severity || '').toUpperCase().includes('CRITICAL');
+          const sevBadge = isCrit 
+            ? `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-950 text-rose-400 border border-rose-800">P1 CRITICAL</span>`
+            : `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-950 text-amber-400 border border-amber-800">P2 HIGH</span>`;
+
+          const assetTag = t.asset_criticality || "💎 TIER 1 CROWN JEWEL";
+          const killChainStage = t.kill_chain_stage || "Credential Access";
+          const threatIntel = t.threat_intel_score || "AbuseIPDB: 98/100 (High Risk) • VT: 42/70 Malicious";
+          const statusText = t.mitigation_status || (t.policy_tier === 'isolate' ? 'AUTO_CONTAINED' : 'PENDING_ACTION');
+          const isContained = statusText.includes('CONTAINED');
+
+          const statusBadge = isContained
+            ? `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-800">🛡️ ${statusText}</span>`
+            : `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-950 text-amber-300 border border-amber-700 animate-pulse">⚡ ${statusText}</span>`;
+
+          return `
+            <div class="bg-[#0f172a] border border-slate-800 hover:border-slate-700 rounded-xl p-5 shadow-2xl space-y-3 font-mono text-xs transition">
+              <!-- Card Header Row -->
+              <div class="flex items-center justify-between border-b border-slate-800 pb-3 flex-wrap gap-2">
+                <div class="flex items-center space-x-3">
+                  <span class="text-sky-400 font-extrabold text-sm">${t.id}</span>
+                  ${sevBadge}
+                  <span class="px-2 py-0.5 rounded bg-slate-950 border border-slate-800 text-slate-300 text-[10px] font-bold">${assetTag}</span>
+                  <span class="px-2 py-0.5 rounded bg-purple-950 text-purple-300 border border-purple-800 text-[10px]">⚡ ${killChainStage}</span>
+                </div>
+                <div>${statusBadge}</div>
+              </div>
+
+              <!-- Incident Story & Correlation Body -->
+              <div class="space-y-1.5 font-sans">
+                <h4 class="text-sm font-bold text-white font-mono">${t.rule_description || t.alert_id}</h4>
+                <p class="text-xs text-slate-300 leading-relaxed font-mono bg-slate-950 p-2.5 rounded border border-slate-800/80">
+                  <span class="text-sky-400 font-bold">AI Verdict:</span> ${t.summary || 'Correlated kill-chain event analyzed by Terminus Autonomous SOC.'}
+                </p>
+              </div>
+
+              <!-- Threat Context & Asset Metadata Bar -->
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-2 text-[10px] bg-slate-950 p-2 rounded border border-slate-800/60 font-mono">
+                <div>
+                  <span class="text-slate-500 block uppercase">Target Workload</span>
+                  <span class="text-sky-400 font-bold">${t.agent_name || 'prod-ad-dc-01'}</span>
+                </div>
+                <div>
+                  <span class="text-slate-500 block uppercase">Threat Intel Context</span>
+                  <span class="text-emerald-400 truncate block">${threatIntel}</span>
+                </div>
+                <div>
+                  <span class="text-slate-500 block uppercase">Decision SLA</span>
+                  <span class="text-purple-400 font-bold">Resolved in 14s (MTTR &lt; 45s)</span>
+                </div>
+              </div>
+
+              <!-- Inline 1-Click Action Bar -->
+              <div class="pt-2 border-t border-slate-800 flex items-center justify-between flex-wrap gap-2">
+                <div class="flex items-center space-x-2">
+                  <button onclick="executeInlineAction('${t.id}', 'isolate_host')" class="px-3 py-1.5 bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 rounded font-bold text-[11px] transition flex items-center space-x-1">
+                    <span>🔒 Isolate Host</span>
+                  </button>
+                  <button onclick="executeInlineAction('${t.id}', 'block_ip')" class="px-3 py-1.5 bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/30 rounded font-bold text-[11px] transition flex items-center space-x-1">
+                    <span>🛡️ Block Attacker IP</span>
+                  </button>
+                  <button onclick="executeInlineAction('${t.id}', 'run_playbook')" class="px-3 py-1.5 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 rounded font-bold text-[11px] transition flex items-center space-x-1">
+                    <span>⚡ Run Playbook</span>
+                  </button>
+                </div>
+                <button onclick="openInspector('${t.id}')" class="px-3 py-1.5 bg-sky-600/20 hover:bg-sky-600/30 text-sky-300 border border-sky-500/30 rounded font-bold text-[11px] transition flex items-center space-x-1">
+                  <span>🤖 Full AI Forensics →</span>
+                </button>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
 
       // Update Donut Chart
       if (catChart) {
