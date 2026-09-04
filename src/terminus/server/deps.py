@@ -45,8 +45,8 @@ _agents_store: dict[str, SocAgent] = {
         role_description="Sub-millisecond alert filtering, MITRE tag correlation, and noise suppression.",
         master_prompt="You are the Triage Sentinel AI Agent. Your primary role is to inspect incoming raw SIEM telemetry from Wazuh, evaluate alert severity levels against organizational policy rules, and filter out low-level operational noise (levels 1-4) without consuming unnecessary LLM token quota.",
         status=AgentStatus.ACTIVE,
-        incidents_processed=1248,
-        avg_sla_ms=1.2,
+        incidents_processed=0,
+        avg_sla_ms=0.0,
         created_at="2026-09-01T00:00:00Z",
     ),
     "agent-forensic": SocAgent(
@@ -55,8 +55,8 @@ _agents_store: dict[str, SocAgent] = {
         role_description="Deep LLM evidence collection, threat intel enrichment, payload breakdown, and root cause reasoning.",
         master_prompt="You are the Forensic Investigator AI Agent. Your role is to perform deep-dive analysis on high-severity security incidents (levels 10-15). You gather process execution trees, inspect network payload strings, correlate IOCs against threat intelligence feeds, and render structured JSON verdicts with high-confidence root cause explanations.",
         status=AgentStatus.ACTIVE,
-        incidents_processed=482,
-        avg_sla_ms=4.8,
+        incidents_processed=0,
+        avg_sla_ms=0.0,
         created_at="2026-09-01T00:00:00Z",
     ),
     "agent-containment": SocAgent(
@@ -65,8 +65,8 @@ _agents_store: dict[str, SocAgent] = {
         role_description="Executes network boundary firewall blocks, host workstation isolations, and service credential revocations.",
         master_prompt="You are the Containment Operator AI Agent. Your role is to execute automated remediation playbooks when critical threats (e.g. Ransomware, LSASS Dumping, Log4Shell RCE) are identified by the Forensic Investigator. You dispatch API calls to boundary firewalls, isolate compromised endpoints, and trigger account lockouts.",
         status=AgentStatus.ACTIVE,
-        incidents_processed=194,
-        avg_sla_ms=3.1,
+        incidents_processed=0,
+        avg_sla_ms=0.0,
         created_at="2026-09-01T00:00:00Z",
     ),
     "agent-threat-hunter": SocAgent(
@@ -75,8 +75,8 @@ _agents_store: dict[str, SocAgent] = {
         role_description="Iteratively polls endpoints every 5 minutes for anomalous memory execution and persistence mechanisms.",
         master_prompt="You are the Proactive Threat Hunter AI Agent. You operate on a recurring scheduled loop, polling active Windows and Linux workloads for stealthy persistence mechanisms, unauthorized LSASS memory handles, and anomalous Kerberos TGS ticket requests.",
         status=AgentStatus.ACTIVE,
-        incidents_processed=315,
-        avg_sla_ms=6.5,
+        incidents_processed=0,
+        avg_sla_ms=0.0,
         created_at="2026-09-01T00:00:00Z",
     ),
 }

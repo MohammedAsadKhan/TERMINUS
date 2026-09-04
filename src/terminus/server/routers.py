@@ -239,7 +239,21 @@ async def wazuh_webhook(
     pipeline_runner: Annotated[PipelineRunner, Depends(get_pipeline_runner)],
 ) -> InvestigationReport:
     """Ingest Wazuh alert, execute pipeline investigation, create ticket, notify."""
-    return await pipeline_runner.process_alert(alert, org_id)
+    report = await pipeline_runner.process_alert(alert, org_id)
+    agents_store = get_agents_store()
+    for agent_id, agent in list(agents_store.items()):
+        if agent.status == AgentStatus.ACTIVE:
+            agents_store[agent_id] = SocAgent(
+                id=agent.id,
+                name=agent.name,
+                role_description=agent.role_description,
+                master_prompt=agent.master_prompt,
+                status=agent.status,
+                incidents_processed=agent.incidents_processed + 1,
+                avg_sla_ms=agent.avg_sla_ms,
+                created_at=agent.created_at,
+            )
+    return report
 
 
 @webhook_router.get("/incidents")
@@ -414,11 +428,25 @@ async def update_workflow(
 async def execute_test_workflow(
     workflow_id: str,
     workflows_store: Annotated[dict[str, Workflow], Depends(get_workflows_store)],
+    agents_store: Annotated[dict[str, SocAgent], Depends(get_agents_store)],
 ) -> dict[str, Any]:
     """Simulate a test execution run of a node workflow."""
     wf = workflows_store.get(workflow_id)
     if not wf:
         raise HTTPException(status_code=404, detail=f"Workflow '{workflow_id}' not found")
+
+    if wf.agent_id and wf.agent_id in agents_store:
+        agent = agents_store[wf.agent_id]
+        agents_store[wf.agent_id] = SocAgent(
+            id=agent.id,
+            name=agent.name,
+            role_description=agent.role_description,
+            master_prompt=agent.master_prompt,
+            status=agent.status,
+            incidents_processed=agent.incidents_processed + 1,
+            avg_sla_ms=agent.avg_sla_ms,
+            created_at=agent.created_at,
+        )
 
     return {
         "status": "success",
