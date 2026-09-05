@@ -46,6 +46,38 @@ _ticket_store = MemoryTickets()
 _auth_service = AuthService(_user_store)
 _reports_store: dict[str, dict[str, DailyIncidentReport]] = {}
 
+
+def bootstrap_default_admin() -> None:
+    """Bootstrap default admin user and organization so login always works out-of-the-box."""
+    admin_email = "admin@terminus.local"
+    admin_pass = "Password123!"
+    user = _user_store.get_by_email(admin_email)
+    if not user:
+        try:
+            user = _auth_service.register(
+                admin_email, admin_pass, display_name="Terminus Administrator"
+            )
+        except Exception:
+            user = _user_store.get_by_email(admin_email)
+    if user:
+        settings = get_settings()
+        license_svc = LicenseService(secret=settings.license_secret)
+        org_service = OrganizationService(
+            org_store=_org_store,
+            membership_store=_membership_store,
+            license_service=license_svc,
+        )
+        if not org_service.list_for_user(user.user_id):
+            try:
+                org_service.create_org(
+                    "Terminus Security Operations", creator=user.user_id
+                )
+            except Exception:
+                pass
+
+
+bootstrap_default_admin()
+
 _agents_store: dict[str, SocAgent] = {
     "agent-triage": SocAgent(
         id="agent-triage",

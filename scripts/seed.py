@@ -18,11 +18,16 @@ login_res = client.post("/auth/login", json={
 print("Login status:", login_res.status_code)
 token = login_res.json()["session_token"]
 
-# 3. Create Default Org
+# 3. Get or Create Default Org
 headers = {"Authorization": f"Bearer {token}"}
-org_res = client.post("/orgs", headers=headers, json={"name": "Terminus Security Operations"})
-print("Create Org status:", org_res.status_code)
-org_id = org_res.json()["org_id"]
+orgs_res = client.get("/orgs", headers=headers)
+if orgs_res.status_code == 200 and len(orgs_res.json()) > 0:
+    org_id = orgs_res.json()[0]["org_id"]
+    print(f"Using existing Org: {org_id}")
+else:
+    org_res = client.post("/orgs", headers=headers, json={"name": "Terminus Security Operations"})
+    print("Create Org status:", org_res.status_code)
+    org_id = org_res.json()["org_id"]
 headers["X-Org-ID"] = org_id
 
 # 4. Ingest an alert
