@@ -1,15 +1,17 @@
 import { useState } from 'react';
 import { Alert, App, Avatar, Button, Descriptions, Form, Input, Modal, Progress, Select, Space, Table, Tag, Typography } from 'antd';
-import { ApiOutlined, ArrowRightOutlined, CheckCircleOutlined, CopyOutlined, DeleteOutlined, ExperimentOutlined, KeyOutlined, PlusOutlined, TeamOutlined } from '@ant-design/icons';
+import { ApiOutlined, ArrowRightOutlined, BgColorsOutlined, CheckCircleOutlined, CopyOutlined, DeleteOutlined, ExperimentOutlined, KeyOutlined, PlusOutlined, TeamOutlined } from '@ant-design/icons';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, body } from '../api';
 import { useSession } from '../context';
+import { useTheme } from '../theme';
 import { Code, date, PageTitle, Stat } from '../components';
 import { IngestModal } from './operations';
 import type { Integration, Membership } from '../types';
 
 export default function Settings({ section }: { section: 'integrations' | 'organization' | 'settings' }) {
   const { user, orgId, detail, system } = useSession(); const query = useQueryClient(); const { message, modal } = App.useApp();
+  const { themeId, activeTheme, setThemeId, availableThemes } = useTheme();
   const [ingest, setIngest] = useState(false); const [connection, setConnection] = useState<Integration | null>(null); const [addOpen, setAddOpen] = useState(false); const [form] = Form.useForm();
   const canWrite = detail?.role === 'admin';
   const add = useMutation({ mutationFn: (values: { user_id: string; role: string }) => api(`/orgs/${orgId}/members`, orgId, body('POST', values)), onSuccess: () => { query.invalidateQueries({ queryKey: ['org', orgId] }); setAddOpen(false); form.resetFields(); message.success('Member added'); } });
@@ -33,6 +35,49 @@ export default function Settings({ section }: { section: 'integrations' | 'organ
 
   return <><PageTitle eyebrow="GOVERN / SETTINGS" title="Platform Configuration" description="Review runtime environment, cryptographic license entitlements, and active SOC triage policies." />
     <div className="stats-grid"><Stat label="STORAGE ENGINE" value="In-Memory" note="Ultra-low latency synchronous write-through" /><Stat label="AI ENGINE" value="Autonomous" note={system?.llm_model || 'TERMINUS AI Engine'} /><Stat label="TELEMETRY BUS" value="HTTPS" note="Encrypted real-time state synchronization" /><Stat label="LICENSE TIER" value={detail?.license?.tier.toUpperCase() || '—'} note={detail?.license ? `Expires ${date(detail.license.expires_at)}` : 'No valid license'} /></div>
+    <section className="panel">
+      <div className="eyebrow">WORKSPACE APPEARANCE &amp; HUD THEMES</div>
+      <div className="panel-heading" style={{ marginBottom: 4 }}>
+        <div>
+          <h2>Color Scheme &amp; Theme Palette</h2>
+          <p className="muted" style={{ margin: '4px 0 0', fontSize: 12 }}>
+            Switch between specialized operations center color palettes. Themes apply dynamically across telemetry charts, navigation panels, and action buttons, with profile persistence.
+          </p>
+        </div>
+        <Tag icon={<BgColorsOutlined />} color="cyan" style={{ fontSize: 11, padding: '2px 10px' }}>CURRENT: {activeTheme.name.toUpperCase()}</Tag>
+      </div>
+      <div className="theme-selector-grid">
+        {availableThemes.map(t => {
+          const isSelected = t.id === themeId;
+          return (
+            <div
+              key={t.id}
+              className={`theme-card ${isSelected ? 'active' : ''}`}
+              onClick={() => {
+                setThemeId(t.id);
+                message.success(`Applied ${t.name} color scheme`);
+              }}
+            >
+              <div>
+                <div className="theme-card-header">
+                  <h3>{t.name}</h3>
+                  {isSelected ? <Tag color="success">ACTIVE</Tag> : <Tag>{t.category}</Tag>}
+                </div>
+                <p>{t.description}</p>
+              </div>
+              <div className="theme-swatches">
+                <div className="theme-swatch-pill" style={{ background: t.swatches[0] }} title={`Primary: ${t.swatches[0]}`} />
+                <div className="theme-swatch-pill" style={{ background: t.swatches[1] }} title={`Surface: ${t.swatches[1]}`} />
+                <div className="theme-swatch-pill" style={{ background: t.swatches[2] }} title={`Base: ${t.swatches[2]}`} />
+                <span style={{ fontSize: 10, color: 'var(--text-muted)', marginLeft: 6 }}>
+                  {isSelected ? 'Active Palette' : 'Click to activate'}
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
     <div className="settings-grid"><section className="panel"><div className="eyebrow">LICENSE MANAGEMENT</div><h2>Enterprise Entitlement</h2>{detail?.license_error && <Alert type="error" title={detail.license_error} />}<p className="muted">Cryptographically signed HMAC license tokens unlock tiered capacity, concurrent analyst seats, and advanced autonomous response capabilities.</p><Space wrap>{detail?.license?.features.map(feature => <Tag key={feature} icon={<CheckCircleOutlined />}>{feature.replaceAll('_', ' ')}</Tag>)}</Space><Form layout="vertical" onFinish={values => license.mutate(values)}><Form.Item name="token" label="Signed license token" rules={[{ required: true }]}><Input.TextArea rows={3} disabled={!canWrite} placeholder="Paste the license token for this organization" /></Form.Item><Button type="primary" htmlType="submit" icon={<KeyOutlined />} disabled={!canWrite} loading={license.isPending}>Activate license</Button></Form></section>
       <section className="panel"><div className="eyebrow">TRIAGE POLICY</div><h2>Signal Prioritization Rules</h2><div className="policy-row"><Tag color="blue">IGNORE</Tag><span>Severity below 5, without a MITRE ATT&amp;CK override</span></div><div className="policy-row"><Tag color="gold">TRIAGE</Tag><span>Severity 5–9, without a MITRE ATT&amp;CK override</span></div><div className="policy-row"><Tag color="red">ESCALATE</Tag><span>Severity 10+ or any verified MITRE technique (Txxxx)</span></div><p className="muted">Autonomous triage rules evaluate incoming signals deterministically before dispatching multi-agent investigation workflows.</p></section></div>
     <section className="panel"><div className="eyebrow">ACTIVE ACCOUNT</div><h2>{user.display_name}</h2><Descriptions column={{ xs: 1, md: 3 }} items={[{ key: 'email', label: 'Email', children: user.email }, { key: 'id', label: 'User ID', children: <Button type="text" icon={<CopyOutlined />} onClick={() => { void navigator.clipboard.writeText(user.user_id); message.success('User ID copied'); }}>{user.user_id}</Button> }, { key: 'session', label: 'Session', children: 'Encrypted bearer token session' }]} /></section>
