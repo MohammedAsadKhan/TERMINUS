@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from terminus.models import DailyIncidentReport, DailyReportMetrics, ReportType
@@ -24,9 +24,9 @@ async def generate_daily_report(
     Returns:
         Structured DailyIncidentReport domain object.
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     if report_type == ReportType.QUICK:
-        period_start_dt = datetime(now.year, now.month, now.day, 0, 0, 0, tzinfo=timezone.utc)
+        period_start_dt = datetime(now.year, now.month, now.day, 0, 0, 0, tzinfo=UTC)
         title_tag = "Quick Report"
     else:
         period_start_dt = now - timedelta(hours=24)
@@ -37,6 +37,19 @@ async def generate_daily_report(
 
     tickets = await ticket_store.list_tickets(org_id)
 
+    def in_window(ticket: dict) -> bool:
+        timestamp = ticket.get("created_at") or ticket.get("timestamp")
+        if not timestamp:
+            return False
+        try:
+            received = datetime.fromisoformat(str(timestamp).replace("Z", "+00:00"))
+            if received.tzinfo is None:
+                return False
+            return period_start_dt <= received < now
+        except ValueError:
+            return False
+
+    tickets = [ticket for ticket in tickets if in_window(ticket)]
     total = len(tickets)
     critical = 0
     high = 0
@@ -64,7 +77,7 @@ async def generate_daily_report(
         if status_str == "RESOLVED":
             resolved += 1
 
-        agent_name = t.get("agent_name") or "prod-workload-01"
+        agent_name = t.get("agent_name") or "Unknown host"
         host_counts[agent_name] = host_counts.get(agent_name, 0) + 1
 
     top_hosts = [
@@ -80,8 +93,8 @@ async def generate_daily_report(
         low_incidents=low,
         contained_incidents=contained,
         resolved_incidents=resolved,
-        avg_mttd_sec=18.0 if total > 0 else 0.0,
-        avg_mttr_sec=42.0 if total > 0 else 0.0,
+        avg_mttd_sec=None,
+        avg_mttr_sec=None,
     )
 
     report_id = f"rep-{secrets.token_hex(4)}"
@@ -92,7 +105,7 @@ async def generate_daily_report(
         narrative = (
             f"During the report window ({time_range_fmt}), "
             "the TERMINUS AI SOC platform monitored tenant workloads with zero active security policy violations. "
-            "All endpoint security agents are healthy and security posture remains 100% nominal."
+            "No incident records were created in this period; endpoint health is not inferred from incident counts."
         )
         recommendations = [
             "Maintain active Wazuh SIEM telemetry ingestion feeds and policy engines.",
@@ -100,11 +113,10 @@ async def generate_daily_report(
             "Verify backup posture for crown jewel database servers.",
         ]
     else:
-        contained_pct = round((contained / total) * 100, 1) if total > 0 else 100.0
         narrative = (
             f"Between {time_range_fmt}, the TERMINUS platform processed {total} security incident log(s) "
             f"({critical} Critical, {high} High, {medium} Medium, {low} Low). "
-            f"Automated containment playbooks achieved a {contained_pct}% mitigation rate with an average MTTR of 42.0 seconds. "
+            f"{resolved} incident(s) were marked resolved as of report generation. "
             f"Primary impacted workloads: {', '.join([h['host'] for h in top_hosts])}."
         )
         recommendations = [

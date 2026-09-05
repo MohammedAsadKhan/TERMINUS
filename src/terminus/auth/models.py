@@ -25,3 +25,13 @@ class User(BaseModel):
         if "@" not in v or "." not in v:
             raise ValueError("Invalid email format")
         return v
+
+
+class PublicUser(BaseModel):
+    """Safe user representation for API responses."""
+
+    model_config = ConfigDict(from_attributes=True)
+    user_id: UserId
+    email: str
+    display_name: str
+    created_at: datetime

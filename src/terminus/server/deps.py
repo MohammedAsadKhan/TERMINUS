@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Cookie, Depends, Header, HTTPException, status
 
 from terminus.agent.investigator import InvestigationAgent
 from terminus.agent.tools import InvestigationTools
@@ -14,6 +14,14 @@ from terminus.config import Settings, get_settings
 from terminus.core.ids import OrgId, SessionToken
 from terminus.licensing.service import LicenseService
 from terminus.llm.client import OpenAiCompatibleLlm, ScriptedLlm
+from terminus.models import (
+    AgentStatus,
+    DailyIncidentReport,
+    SocAgent,
+    Workflow,
+    WorkflowEdge,
+    WorkflowNode,
+)
 from terminus.notifiers.builder import CompositeNotifier
 from terminus.notifiers.log import LogNotifier
 from terminus.notifiers.slack import SlackNotifier
@@ -27,16 +35,6 @@ from terminus.policies.engine import PolicyEngine
 from terminus.siem.static import StaticSiemClient
 from terminus.siem.wazuh import WazuhClient
 from terminus.ticketing.jira import JiraTickets
-from terminus.models import (
-    AgentStatus,
-    DailyIncidentReport,
-    DailyReportMetrics,
-    ReportType,
-    SocAgent,
-    Workflow,
-    WorkflowEdge,
-    WorkflowNode,
-)
 from terminus.ticketing.memory import MemoryTickets
 
 # ─── Global State Container (In-Memory for MVP-1) ──────────────────────────────────
@@ -251,6 +249,7 @@ def get_current_user(
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
     authorization: Annotated[str | None, Header()] = None,
     x_session_token: Annotated[str | None, Header(alias="X-Session-Token")] = None,
+    terminus_session: Annotated[str | None, Cookie()] = None,
 ) -> User:
     """Verify session token and return authenticated user."""
     token_str = x_session_token
@@ -259,6 +258,9 @@ def get_current_user(
             token_str = authorization[7:]
         else:
             token_str = authorization
+
+    if not token_str:
+        token_str = terminus_session
 
     if not token_str:
         raise HTTPException(
@@ -298,33 +300,10 @@ def get_current_org(
 
 
 def get_webhook_org(
-    auth_service: Annotated[AuthService, Depends(get_auth_service)],
-    membership_store: Annotated[MembershipStore, Depends(get_membership_store)],
-    authorization: Annotated[str | None, Header()] = None,
-    x_session_token: Annotated[str | None, Header(alias="X-Session-Token")] = None,
-    x_org_id: Annotated[str | None, Header(alias="X-Org-ID")] = None,
+    org_id: Annotated[OrgId, Depends(get_current_org)],
 ) -> OrgId:
-    """Resolve target tenant for webhooks and incident feed with optional session validation."""
-    target_org = OrgId(x_org_id) if x_org_id else OrgId("org-00000001")
-    token_str = x_session_token
-    if not token_str and authorization:
-        if authorization.startswith("Bearer "):
-            token_str = authorization[7:]
-        else:
-            token_str = authorization
-
-    if token_str:
-        try:
-            user = auth_service.verify(SessionToken(token_str))
-            role = membership_store.role_of(target_org, user.user_id)
-            if role is None:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail=f"User is not a member of organization '{target_org}'",
-                )
-        except ValueError:
-            pass
-    return target_org
+    """Authenticate and authorize ingestion; invalid credentials never fall through."""
+    return org_id
 
 
 def require_admin(
@@ -345,3 +324,37 @@ def get_reports_store() -> dict[str, dict[str, DailyIncidentReport]]:
     """Return in-memory daily incident reports store singleton."""
     return _reports_store
 
+
+
+def require_operator(
+    user: Annotated[User, Depends(get_current_user)],
+    org_id: Annotated[OrgId, Depends(get_current_org)],
+    members: Annotated[MembershipStore, Depends(get_membership_store)],
+) -> None:
+    """Members may investigate and manage incidents; viewers cannot mutate."""
+    if members.role_of(org_id, user.user_id) not in (
+        OrganizationRole.ADMIN, OrganizationRole.MEMBER
+    ):
+        raise HTTPException(status_code=403, detail="Operation requires a member or admin role")
+
+
+_tenant_agents: dict[str, dict[str, SocAgent]] = {}
+_tenant_workflows: dict[str, dict[str, Workflow]] = {}
+
+
+def get_tenant_agents(
+    org_id: Annotated[OrgId, Depends(get_current_org)],
+) -> dict[str, SocAgent]:
+    """Isolated configuration templates; these are not separate running workers."""
+    if org_id not in _tenant_agents:
+        _tenant_agents[org_id] = {key: value.model_copy(deep=True) for key, value in _agents_store.items()}
+    return _tenant_agents[org_id]
+
+
+def get_tenant_workflows(
+    org_id: Annotated[OrgId, Depends(get_current_org)],
+) -> dict[str, Workflow]:
+    """Isolate saved workflow definitions by authorized tenant."""
+    if org_id not in _tenant_workflows:
+        _tenant_workflows[org_id] = {key: value.model_copy(deep=True) for key, value in _workflows_store.items()}
+    return _tenant_workflows[org_id]

@@ -39,3 +39,10 @@ data/tickets.json
 *.log
 .omo/
 .codegraph/
+
+# Frontend dependencies and reproducible build output
+node_modules/
+*.tsbuildinfo
+src/terminus/server/static/console/
+web/playwright-report/
+web/test-results/

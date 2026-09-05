@@ -35,33 +35,62 @@ def test_reports_api_lifecycle() -> None:
     app = create_app()
     client = TestClient(app)
 
-    # 1. GET /reports initializes quick report if empty
-    res = client.get("/reports")
+    # Register & Login User -> Create Org
+    client.post(
+        "/auth/register",
+        json={
+            "email": "reports-admin@acme-corp.com",
+            "password": "SecurePassword123!",
+            "display_name": "Reports Admin",
+        },
+    )
+    res_login = client.post(
+        "/auth/login",
+        json={
+            "email": "reports-admin@acme-corp.com",
+            "password": "SecurePassword123!",
+        },
+    )
+    assert res_login.status_code == 200
+    token = res_login.json()["session_token"]
+    res_org = client.post(
+        "/orgs",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"name": "Reports Testing Org"},
+    )
+    assert res_org.status_code == 201
+    org_id = res_org.json()["org_id"]
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "X-Org-ID": org_id,
+    }
+
+    # 1. GET /reports empty initially
+    res = client.get("/reports", headers=headers)
     assert res.status_code == 200
-    reports = res.json()
-    assert len(reports) >= 1
-    first_report_id = reports[0]["id"]
+    assert res.json() == []
 
     # 2. POST /reports/quick generates new quick report based on logs from start of day to now
-    res_quick = client.post("/reports/quick")
+    res_quick = client.post("/reports/quick", headers=headers)
     assert res_quick.status_code == 201
     quick_data = res_quick.json()
     assert quick_data["report_type"] == "quick"
     assert quick_data["id"].startswith("rep-")
+    first_report_id = quick_data["id"]
 
     # 3. POST /reports/daily generates new 24h daily summary report
-    res_daily = client.post("/reports/daily")
+    res_daily = client.post("/reports/daily", headers=headers)
     assert res_daily.status_code == 201
     daily_data = res_daily.json()
     assert daily_data["report_type"] == "daily_24h"
 
     # 4. GET /reports list contains all created reports
-    res_list = client.get("/reports")
+    res_list = client.get("/reports", headers=headers)
     assert res_list.status_code == 200
     all_reports = res_list.json()
-    assert len(all_reports) >= 3
+    assert len(all_reports) == 2
 
     # 5. GET /reports/{report_id} fetches specific report
-    res_single = client.get(f"/reports/{first_report_id}")
+    res_single = client.get(f"/reports/{first_report_id}", headers=headers)
     assert res_single.status_code == 200
     assert res_single.json()["id"] == first_report_id

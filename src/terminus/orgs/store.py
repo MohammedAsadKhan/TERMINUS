@@ -15,6 +15,11 @@ class OrganizationStore(MemoryRepository[Organization]):
     def _record_id(self, record: Organization) -> str:
         return record.org_id
 
+    def list_all(self) -> list[Organization]:
+        """Internal scheduler enumeration; never exposed without authorization."""
+        with self._lock:
+            return list(self._store.values())
+
 
 class MembershipStore:
     """Thread-safe in-memory store for org memberships.

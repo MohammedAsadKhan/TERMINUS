@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import StrEnum
+from typing import Any
 
 from pydantic import AliasChoices, AliasPath, BaseModel, ConfigDict, Field
 
@@ -177,9 +178,6 @@ class SocAgent(BaseModel):
     created_at: str = ""
 
 
-from typing import Any
-
-
 class WorkflowNode(BaseModel):
     """A node inside the visual SOC workflow canvas (n8n style)."""
 
@@ -238,8 +236,8 @@ class DailyReportMetrics(BaseModel):
     low_incidents: int = 0
     contained_incidents: int = 0
     resolved_incidents: int = 0
-    avg_mttd_sec: float = 18.0
-    avg_mttr_sec: float = 42.0
+    avg_mttd_sec: float | None = None
+    avg_mttr_sec: float | None = None
 
 
 class DailyIncidentReport(BaseModel):

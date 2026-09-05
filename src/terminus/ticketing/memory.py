@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import secrets
 import threading
+from datetime import UTC, datetime
 
 from terminus.core.base import NotFoundError
 from terminus.core.ids import OrgId, TicketId
@@ -30,14 +31,6 @@ class MemoryTickets(TicketStore):
         alert = report.evidence.alert
         # Determine asset criticality, kill chain stage, threat intel score, and decision SLA
         rule_desc = (alert.rule_description or "").lower()
-        sev = report.verdict.severity.value
-
-        if sev in ("critical", "high") or "lsass" in rule_desc or "log4j" in rule_desc:
-            asset_criticality = "💎 TIER 1 CROWN JEWEL"
-        elif "db" in rule_desc or "sql" in rule_desc or "prod" in (alert.agent_name or "").lower():
-            asset_criticality = "🛡️ PRODUCTION SERVER"
-        else:
-            asset_criticality = "💻 ENTERPRISE WORKSTATION"
 
         if "lsass" in rule_desc or "credential" in rule_desc or "kerberos" in rule_desc:
             kill_chain_stage = "Credential Access"
@@ -50,7 +43,7 @@ class MemoryTickets(TicketStore):
         else:
             kill_chain_stage = "Execution"
 
-        threat_intel_score = "AbuseIPDB: 98/100 (High Risk) • VT: 42/70 Malicious" if alert.src_ip or "exploit" in rule_desc else "Internal Network Asset (Medium Risk)"
+        threat_intel_score = "Not verified"
 
         ticket_data = {
             "id": ticket_id,
@@ -61,19 +54,21 @@ class MemoryTickets(TicketStore):
             "confidence": report.verdict.confidence.value,
             "summary": report.verdict.summary,
             "recommended_actions": report.verdict.recommended_actions,
-            "agent_name": report.evidence.agent_name or alert.agent_name or "prod-workload-01",
+            "agent_name": report.evidence.agent_name or alert.agent_name or "Unknown host",
             "threat_intel": report.evidence.threat_intel,
             "context_notes": report.evidence.context_notes,
             "full_log": alert.full_log,
             "policy_tier": report.policy.tier.value,
             "policy_reason": report.policy.reason,
             "status": "OPEN",
-            "asset_criticality": asset_criticality,
+            "asset_criticality": "Not classified",
             "kill_chain_stage": kill_chain_stage,
             "threat_intel_score": threat_intel_score,
-            "time_to_decision_sec": 14,
-            "mitigation_status": "AUTO_CONTAINED" if report.policy.tier.value == "isolate" else "PENDING_ACTION",
+            "time_to_decision_sec": None,
+            "mitigation_status": "NOT_EXECUTED",
             "timestamp": alert.timestamp,
+            "created_at": datetime.now(UTC).isoformat(),
+            "resolved_at": "",
         }
         with self._lock:
             self._tickets[(org_id, ticket_id)] = ticket_data

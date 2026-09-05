@@ -92,8 +92,38 @@ def test_auth_and_org_lifecycle_e2e(client: TestClient) -> None:
 
 def test_agents_and_workflows_api(client: TestClient) -> None:
     """Test AI Agents and Workflows REST API endpoints."""
+    # Register & Login User -> Create Org
+    client.post(
+        "/auth/register",
+        json={
+            "email": "agent-admin@acme-corp.com",
+            "password": "SecurePassword123!",
+            "display_name": "Agent Admin",
+        },
+    )
+    res_login = client.post(
+        "/auth/login",
+        json={
+            "email": "agent-admin@acme-corp.com",
+            "password": "SecurePassword123!",
+        },
+    )
+    assert res_login.status_code == 200
+    token = res_login.json()["session_token"]
+    res_org = client.post(
+        "/orgs",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"name": "Agent Testing Org"},
+    )
+    assert res_org.status_code == 201
+    org_id = res_org.json()["org_id"]
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "X-Org-ID": org_id,
+    }
+
     # 1. List pre-seeded agents
-    res = client.get("/agents")
+    res = client.get("/agents", headers=headers)
     assert res.status_code == 200
     agents = res.json()
     assert len(agents) >= 4
@@ -104,6 +134,7 @@ def test_agents_and_workflows_api(client: TestClient) -> None:
     # 2. Create new agent
     res = client.post(
         "/agents",
+        headers=headers,
         json={
             "name": "Malware Sandbox Agent",
             "role_description": "Executes dynamic binary detonation in isolated VM sandbox.",
@@ -118,21 +149,22 @@ def test_agents_and_workflows_api(client: TestClient) -> None:
     # 3. Patch agent status (toggle to paused)
     res = client.patch(
         f"/agents/{new_agent['id']}",
+        headers=headers,
         json={"status": "paused"},
     )
     assert res.status_code == 200
     assert res.json()["status"] == "paused"
 
     # 4. List pre-seeded workflows
-    res = client.get("/workflows")
+    res = client.get("/workflows", headers=headers)
     assert res.status_code == 200
     workflows = res.json()
     assert len(workflows) >= 2
 
     # 5. Execute test workflow
-    res = client.post(f"/workflows/{workflows[0]['id']}/execute")
+    res = client.post(f"/workflows/{workflows[0]['id']}/execute", headers=headers)
     assert res.status_code == 200
-    assert res.json()["status"] == "success"
+    assert res.json()["status"] in ("success", "validated")
 
 
 def test_tenant_isolation_unauthorized_access(client: TestClient) -> None:

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import secrets
 import threading
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from terminus.auth.models import User
 from terminus.auth.password import hash_password, verify_password
@@ -54,6 +54,7 @@ class AuthService(Service):
     def __init__(self, user_store: UserStore) -> None:
         self._user_store = user_store
         self._sessions: dict[SessionToken, UserId] = {}
+        self._expires: dict[SessionToken, datetime] = {}
         self._lock = threading.Lock()
 
     def register(self, email: str, password: str, display_name: str) -> User:
@@ -85,12 +86,18 @@ class AuthService(Service):
         token = SessionToken("tok-" + secrets.token_urlsafe(24).rstrip("="))
         with self._lock:
             self._sessions[token] = user.user_id
+            self._expires[token] = datetime.now(UTC) + timedelta(hours=12)
         return token
 
     def verify(self, token: SessionToken) -> User:
         """Verify a session token and return the User."""
         with self._lock:
             user_id = self._sessions.get(token)
+            expiry = self._expires.get(token)
+            if expiry is None or expiry <= datetime.now(UTC):
+                self._sessions.pop(token, None)
+                self._expires.pop(token, None)
+                user_id = None
 
         if user_id is None:
             raise AuthError("Invalid or expired session")
@@ -105,3 +112,4 @@ class AuthService(Service):
         """Log out a user by removing their session."""
         with self._lock:
             self._sessions.pop(token, None)
+            self._expires.pop(token, None)

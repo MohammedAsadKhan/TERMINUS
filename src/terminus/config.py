@@ -20,6 +20,10 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(env_prefix="TERMINUS_", env_file=".env")
 
+    host: str = "127.0.0.1"
+    port: int = 8000
+    cookie_secure: bool = False
+
     # ── LLM ────────────────────────────────────────────────────────────────────
     llm_base_url: str = "https://api.groq.com/openai/v1"
     llm_api_key: str = ""

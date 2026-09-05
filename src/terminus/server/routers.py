@@ -2,27 +2,43 @@
 
 from __future__ import annotations
 
-from typing import Annotated
+from datetime import UTC
+from pathlib import Path
+from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response, status
+from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import BaseModel, ConfigDict, Field
 
-from terminus.auth.models import User
+from terminus.auth.models import PublicUser, User
 from terminus.auth.service import AuthService, DuplicateEmailError
 from terminus.core.ids import OrgId, SessionToken, UserId
 from terminus.licensing.crypto import LicenseError
-from terminus.models import InvestigationReport, SiemAlert
+from terminus.models import (
+    AgentStatus,
+    DailyIncidentReport,
+    InvestigationReport,
+    ReportType,
+    SiemAlert,
+    SocAgent,
+    Workflow,
+)
 from terminus.orgs.models import Membership, Organization, OrganizationRole
 from terminus.orgs.service import ForbiddenError, OrganizationService, SeatLimitError
 from terminus.pipeline.runner import PipelineRunner
+from terminus.reports.service import generate_daily_report
 from terminus.server.deps import (
     get_auth_service,
     get_current_org,
     get_current_user,
     get_org_service,
     get_pipeline_runner,
+    get_reports_store,
+    get_tenant_agents,
+    get_tenant_workflows,
     get_webhook_org,
     require_admin,
+    require_operator,
 )
 
 # ─── Request & Response Models ─────────────────────────────────────────────────────
@@ -44,7 +60,7 @@ class LoginRequest(BaseModel):
 class LoginResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
     session_token: str
-    user: User
+    user: PublicUser
 
 
 class CreateOrgRequest(BaseModel):
@@ -71,20 +87,25 @@ org_router = APIRouter(prefix="/orgs", tags=["Organizations"])
 webhook_router = APIRouter(tags=["Webhooks"])
 
 
-from pathlib import Path
-from fastapi.responses import HTMLResponse
 
-@health_router.get("/", response_class=HTMLResponse)
-@health_router.get("/dashboard", response_class=HTMLResponse)
-async def dashboard() -> HTMLResponse:
-    """Serve the interactive Terminus Analyst Command Center Dashboard."""
-    dash_path = Path(__file__).parent / "static" / "dashboard.html"
-    if dash_path.exists():
-        content = dash_path.read_text(encoding="utf-8")
-        return HTMLResponse(content=content)
-    return HTMLResponse("<h1>Terminus Server Online</h1><p>Visit <a href='/docs'>/docs</a></p>")
+@health_router.get("/", include_in_schema=False)
+@health_router.get("/dashboard", include_in_schema=False)
+async def dashboard() -> RedirectResponse:
+    return RedirectResponse("/console/")
 
 
+@health_router.get("/console", include_in_schema=False)
+async def console_redirect() -> RedirectResponse:
+    return RedirectResponse("/console/")
+
+
+@health_router.get("/console/", response_class=HTMLResponse, include_in_schema=False)
+@health_router.get("/console/{path:path}", response_class=HTMLResponse, include_in_schema=False)
+async def console_entry(path: str = "") -> HTMLResponse:
+    entry = Path(__file__).parent / "static" / "console" / "index.html"
+    if not entry.exists():
+        return HTMLResponse("<h1>Build the Terminus console</h1><p>Run <code>cd web &amp;&amp; npm ci &amp;&amp; npm run build</code>, then refresh.</p>", status_code=503)
+    return HTMLResponse(entry.read_text(encoding="utf-8"), headers={"Cache-Control": "no-cache"})
 
 
 @health_router.get("/health")
@@ -93,7 +114,7 @@ async def health_check() -> dict[str, str]:
     return {"status": "ok", "service": "terminus"}
 
 
-@auth_router.post("/register", status_code=status.HTTP_201_CREATED)
+@auth_router.post("/register", status_code=status.HTTP_201_CREATED, response_model=PublicUser)
 async def register(
     req: RegisterRequest,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
@@ -115,13 +136,16 @@ async def register(
 @auth_router.post("/login")
 async def login(
     req: LoginRequest,
+    response: Response,
+    request: Request,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
 ) -> LoginResponse:
     """Authenticate with email and password to receive a session token."""
     try:
         token = auth_service.login(email=req.email, password=req.password)
         user = auth_service.verify(token)
-        return LoginResponse(session_token=token, user=user)
+        response.set_cookie("terminus_session", token, httponly=True, secure=request.url.scheme == "https", samesite="strict", max_age=43200)
+        return LoginResponse(session_token=token, user=PublicUser.model_validate(user))
     except ValueError as err:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -131,6 +155,8 @@ async def login(
 
 @auth_router.post("/logout")
 async def logout(
+    request: Request,
+    response: Response,
     user: Annotated[User, Depends(get_current_user)],
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
     x_session_token: Annotated[str | None, Header(alias="X-Session-Token")] = None,
@@ -142,6 +168,10 @@ async def logout(
         token_str = authorization.removeprefix("Bearer ")
     if token_str:
         auth_service.logout(SessionToken(token_str))
+    cookie = request.cookies.get("terminus_session")
+    if cookie:
+        auth_service.logout(SessionToken(cookie))
+    response.delete_cookie("terminus_session")
     return {"status": "logged_out"}
 
 
@@ -206,7 +236,7 @@ async def activate_license(
     user: Annotated[User, Depends(get_current_user)],
     org_service: Annotated[OrganizationService, Depends(get_org_service)],
     _: Annotated[None, Depends(require_admin)] = None,
-) -> Organization:
+) -> Any:
     """Activate or upgrade software license token (requires Admin role)."""
     if target_org_id != current_org_id:
         raise HTTPException(
@@ -232,7 +262,7 @@ async def wazuh_webhook_options() -> dict[str, str]:
     return {"status": "ok"}
 
 
-@webhook_router.post("/wazuh")
+@webhook_router.post("/wazuh", dependencies=[Depends(require_operator)])
 async def wazuh_webhook(
     alert: SiemAlert,
     org_id: Annotated[OrgId, Depends(get_webhook_org)],
@@ -240,19 +270,6 @@ async def wazuh_webhook(
 ) -> InvestigationReport:
     """Ingest Wazuh alert, execute pipeline investigation, create ticket, notify."""
     report = await pipeline_runner.process_alert(alert, org_id)
-    agents_store = get_agents_store()
-    for agent_id, agent in list(agents_store.items()):
-        if agent.status == AgentStatus.ACTIVE:
-            agents_store[agent_id] = SocAgent(
-                id=agent.id,
-                name=agent.name,
-                role_description=agent.role_description,
-                master_prompt=agent.master_prompt,
-                status=agent.status,
-                incidents_processed=agent.incidents_processed + 1,
-                avg_sla_ms=agent.avg_sla_ms,
-                created_at=agent.created_at,
-            )
     return report
 
 
@@ -266,10 +283,10 @@ async def list_incidents(
 
 
 class IncidentActionRequest(BaseModel):
-    action_type: str = Field(description="Action to execute: isolate_host, block_ip, run_playbook, close_ticket")
+    action_type: Literal["close_ticket", "reopen_ticket", "start_investigation", "isolate_host", "block_ip", "run_playbook"] = Field(description="Action to execute: isolate_host, block_ip, run_playbook, close_ticket")
 
 
-@webhook_router.post("/incidents/{ticket_id}/action")
+@webhook_router.post("/incidents/{ticket_id}/action", dependencies=[Depends(require_operator)])
 async def execute_incident_action(
     ticket_id: str,
     req: IncidentActionRequest,
@@ -280,18 +297,14 @@ async def execute_incident_action(
     ticket_store = pipeline_runner.deployment.ticket_store
     ticket = await ticket_store.get_ticket(ticket_id, org_id)
 
-    action_label = req.action_type.replace("_", " ").title()
-    ticket["mitigation_status"] = f"CONTAINED ({action_label})"
-    if req.action_type == "close_ticket":
-        ticket["status"] = "RESOLVED"
-
-    return {
-        "status": "success",
-        "ticket_id": ticket_id,
-        "action_executed": req.action_type,
-        "message": f"Successfully executed '{action_label}' containment for ticket {ticket_id}.",
-        "ticket": ticket,
-    }
+    from datetime import UTC, datetime
+    statuses = {"close_ticket": "RESOLVED", "reopen_ticket": "OPEN", "start_investigation": "INVESTIGATING"}
+    if req.action_type not in statuses:
+        raise HTTPException(501, "Live containment requires a verified response connector. No external action was executed.")
+    ticket["status"] = statuses[req.action_type]
+    ticket["updated_at"] = datetime.now(UTC).isoformat()
+    ticket["resolved_at"] = ticket["updated_at"] if req.action_type == "close_ticket" else ""
+    return {"status": "success", "ticket": ticket, "message": f"Incident marked {ticket['status'].lower()}"}
 
 
 @webhook_router.get("/metrics/summary")
@@ -301,16 +314,13 @@ async def get_metrics_summary(
 ) -> dict[str, Any]:
     """Fetch decision-reduction SLA metrics (MTTD, MTTR, Signal-to-Noise Ratio)."""
     tickets = await pipeline_runner.deployment.ticket_store.list_tickets(org_id)
-    total_tickets = len(tickets)
-    crown_jewel_threats = len([t for t in tickets if "CROWN JEWEL" in t.get("asset_criticality", "") and t.get("status") != "RESOLVED"])
-
     return {
-        "mttd_seconds": 18,
-        "mttr_seconds": 42,
-        "signal_to_noise_pct": 94.2,
-        "auto_containment_rate_pct": 88.5,
-        "active_crown_jewel_threats": crown_jewel_threats if total_tickets > 0 else 0,
-        "total_incidents_processed": total_tickets,
+        "total_incidents_processed": len(tickets),
+        "open_incidents": sum(t.get("status") != "RESOLVED" for t in tickets),
+        "resolved_incidents": sum(t.get("status") == "RESOLVED" for t in tickets),
+        "critical_incidents": sum(t.get("severity") == "critical" and t.get("status") != "RESOLVED" for t in tickets),
+        "mttd_seconds": None, "mttr_seconds": None, "signal_to_noise_pct": None,
+        "auto_containment_rate_pct": None,
     }
 
 
@@ -320,8 +330,6 @@ agent_router = APIRouter(prefix="/agents", tags=["Agents"])
 workflow_router = APIRouter(prefix="/workflows", tags=["Workflows"])
 
 
-from terminus.models import AgentStatus, SocAgent, Workflow
-from terminus.server.deps import get_agents_store, get_workflows_store
 
 
 class CreateAgentRequest(BaseModel):
@@ -339,20 +347,20 @@ class UpdateAgentRequest(BaseModel):
 
 @agent_router.get("")
 async def list_agents(
-    agents_store: Annotated[dict[str, SocAgent], Depends(get_agents_store)],
+    agents_store: Annotated[dict[str, SocAgent], Depends(get_tenant_agents)],
 ) -> list[SocAgent]:
     """List all AI SOC agents in the active fleet."""
     return list(agents_store.values())
 
 
-@agent_router.post("", status_code=status.HTTP_201_CREATED)
+@agent_router.post("", status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_admin)])
 async def create_agent(
     req: CreateAgentRequest,
-    agents_store: Annotated[dict[str, SocAgent], Depends(get_agents_store)],
+    agents_store: Annotated[dict[str, SocAgent], Depends(get_tenant_agents)],
 ) -> SocAgent:
     """Deploy a new AI SOC agent with custom master system prompt."""
     import secrets
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     agent_id = f"agent-{secrets.token_hex(4)}"
     new_agent = SocAgent(
@@ -362,18 +370,18 @@ async def create_agent(
         master_prompt=req.master_prompt,
         status=AgentStatus.ACTIVE,
         incidents_processed=0,
-        avg_sla_ms=2.4,
-        created_at=datetime.now(timezone.utc).isoformat(),
+        avg_sla_ms=0.0,
+        created_at=datetime.now(UTC).isoformat(),
     )
     agents_store[agent_id] = new_agent
     return new_agent
 
 
-@agent_router.patch("/{agent_id}")
+@agent_router.patch("/{agent_id}", dependencies=[Depends(require_admin)])
 async def update_agent(
     agent_id: str,
     req: UpdateAgentRequest,
-    agents_store: Annotated[dict[str, SocAgent], Depends(get_agents_store)],
+    agents_store: Annotated[dict[str, SocAgent], Depends(get_tenant_agents)],
 ) -> SocAgent:
     """Update agent status (ON/OFF toggle) or master system prompt."""
     agent = agents_store.get(agent_id)
@@ -397,62 +405,65 @@ async def update_agent(
 
 @workflow_router.get("")
 async def list_workflows(
-    workflows_store: Annotated[dict[str, Workflow], Depends(get_workflows_store)],
+    workflows_store: Annotated[dict[str, Workflow], Depends(get_tenant_workflows)],
 ) -> list[Workflow]:
     """List all n8n-style visual SOC workflows."""
     return list(workflows_store.values())
 
 
-@workflow_router.post("", status_code=status.HTTP_201_CREATED)
+@workflow_router.post("", status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_admin)])
 async def create_workflow(
     workflow: Workflow,
-    workflows_store: Annotated[dict[str, Workflow], Depends(get_workflows_store)],
+    workflows_store: Annotated[dict[str, Workflow], Depends(get_tenant_workflows)],
 ) -> Workflow:
     """Create a new visual node workflow."""
+    from terminus.server.console_api import workflow_errors
+    if workflow.id in workflows_store:
+        raise HTTPException(409, "Workflow ID already exists")
+    errors = workflow_errors(workflow)
+    if errors:
+        raise HTTPException(422, "; ".join(errors))
     workflows_store[workflow.id] = workflow
     return workflow
 
 
-@workflow_router.put("/{workflow_id}")
+@workflow_router.put("/{workflow_id}", dependencies=[Depends(require_admin)])
 async def update_workflow(
     workflow_id: str,
     workflow: Workflow,
-    workflows_store: Annotated[dict[str, Workflow], Depends(get_workflows_store)],
+    workflows_store: Annotated[dict[str, Workflow], Depends(get_tenant_workflows)],
 ) -> Workflow:
     """Save/update node layout, connections, and node configs for a workflow."""
+    from terminus.server.console_api import workflow_errors
+    if workflow_id not in workflows_store:
+        raise HTTPException(404, "Workflow not found")
+    if workflow.id != workflow_id:
+        raise HTTPException(422, "Workflow IDs must match")
+    errors = workflow_errors(workflow)
+    if errors:
+        raise HTTPException(422, "; ".join(errors))
     workflows_store[workflow_id] = workflow
     return workflow
 
 
-@workflow_router.post("/{workflow_id}/execute")
+@workflow_router.post("/{workflow_id}/execute", dependencies=[Depends(require_operator)])
 async def execute_test_workflow(
     workflow_id: str,
-    workflows_store: Annotated[dict[str, Workflow], Depends(get_workflows_store)],
-    agents_store: Annotated[dict[str, SocAgent], Depends(get_agents_store)],
+    workflows_store: Annotated[dict[str, Workflow], Depends(get_tenant_workflows)],
+    agents_store: Annotated[dict[str, SocAgent], Depends(get_tenant_agents)],
 ) -> dict[str, Any]:
     """Simulate a test execution run of a node workflow."""
     wf = workflows_store.get(workflow_id)
     if not wf:
         raise HTTPException(status_code=404, detail=f"Workflow '{workflow_id}' not found")
 
-    if wf.agent_id and wf.agent_id in agents_store:
-        agent = agents_store[wf.agent_id]
-        agents_store[wf.agent_id] = SocAgent(
-            id=agent.id,
-            name=agent.name,
-            role_description=agent.role_description,
-            master_prompt=agent.master_prompt,
-            status=agent.status,
-            incidents_processed=agent.incidents_processed + 1,
-            avg_sla_ms=agent.avg_sla_ms,
-            created_at=agent.created_at,
-        )
-
+    from terminus.server.console_api import workflow_errors
+    errors = workflow_errors(wf)
     return {
-        "status": "success",
-        "workflow_id": workflow_id,
-        "nodes_executed": len(wf.nodes),
-        "summary": f"Simulated execution of '{wf.name}' finished with 0 errors across {len(wf.nodes)} nodes.",
+        "status": "invalid" if errors else "validated", "mode": "validation_only",
+        "workflow_id": workflow_id, "nodes_validated": len(wf.nodes), "nodes_executed": 0,
+        "errors": errors,
+        "summary": "Definition validation only. No nodes or external actions were executed.",
     }
 
 
@@ -460,12 +471,9 @@ async def execute_test_workflow(
 
 report_router = APIRouter(prefix="/reports", tags=["Reports"])
 
-from terminus.models import DailyIncidentReport, ReportType
-from terminus.reports.service import generate_daily_report
-from terminus.server.deps import get_reports_store
 
 
-@report_router.post("/quick", status_code=status.HTTP_201_CREATED)
+@report_router.post("/quick", status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_operator)])
 async def generate_quick_report(
     org_id: Annotated[OrgId, Depends(get_webhook_org)],
     reports_store: Annotated[dict[str, dict[str, DailyIncidentReport]], Depends(get_reports_store)],
@@ -480,7 +488,7 @@ async def generate_quick_report(
     return report
 
 
-@report_router.post("/daily", status_code=status.HTTP_201_CREATED)
+@report_router.post("/daily", status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_operator)])
 async def generate_24h_report(
     org_id: Annotated[OrgId, Depends(get_webhook_org)],
     reports_store: Annotated[dict[str, dict[str, DailyIncidentReport]], Depends(get_reports_store)],
@@ -503,14 +511,6 @@ async def list_reports(
 ) -> list[DailyIncidentReport]:
     """List all daily and quick incident reports for the active tenant."""
     org_reports = reports_store.get(org_id, {})
-    if not org_reports:
-        ticket_store = pipeline_runner.deployment.ticket_store
-        initial_report = await generate_daily_report(org_id, ReportType.QUICK, ticket_store)
-        if org_id not in reports_store:
-            reports_store[org_id] = {}
-        reports_store[org_id][initial_report.id] = initial_report
-        org_reports = reports_store[org_id]
-
     return sorted(org_reports.values(), key=lambda r: r.created_at, reverse=True)
 
 
