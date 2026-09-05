@@ -38,6 +38,14 @@ def _get_target_org_id(request: Request, org_service: OrganizationService) -> Or
     return OrgId("org-default")
 
 
+def _get_request_timestamp(request: Request) -> str:
+    """Retrieve simulated event timestamp from header or default to current UTC time."""
+    sim_time = request.headers.get("X-Simulated-Time")
+    if sim_time:
+        return sim_time
+    return datetime.now(UTC).isoformat()
+
+
 BANK_HTML = """<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -477,7 +485,7 @@ async def bank_api_login(
             agent_id=AgentId("srv-bank-web01"),
             agent_name="bank-web-frontend-01",
             full_log=f"INFO: Customer '{req.username}' logged into retail web portal from {client_ip}. 2FA token verified.",
-            timestamp=datetime.now(UTC).isoformat(),
+            timestamp=_get_request_timestamp(request),
         )
         await pipeline_runner.process_alert(alert, target_org_id)
         return {
@@ -497,7 +505,7 @@ async def bank_api_login(
             agent_id=AgentId("srv-bank-web01"),
             agent_name="bank-web-frontend-01",
             full_log=f"WARNING: Authentication failure for user '{req.username}' from {client_ip}. Invalid password hash.",
-            timestamp=datetime.now(UTC).isoformat(),
+            timestamp=_get_request_timestamp(request),
         )
         await pipeline_runner.process_alert(alert, target_org_id)
         return JSONResponse(
@@ -531,7 +539,7 @@ async def bank_api_transfer(
         agent_id=AgentId("srv-bank-web01"),
         agent_name="bank-web-frontend-01",
         full_log=f"INFO: Internal wire of ${req.amount:.2f} executed to account ...{req.to_account} by customer from {client_ip}.",
-        timestamp=datetime.now(UTC).isoformat(),
+        timestamp=_get_request_timestamp(request),
     )
     await pipeline_runner.process_alert(alert, target_org_id)
     return {
@@ -574,7 +582,7 @@ async def bank_api_search(
             agent_id=AgentId("srv-bank-web01"),
             agent_name="bank-web-frontend-01",
             full_log=f"ALERT: Malicious payload intercepted in HTTP GET /bank/api/search?q={q} from {client_ip}. Vector: T1190 Initial Access exploit attempt.",
-            timestamp=datetime.now(UTC).isoformat(),
+            timestamp=_get_request_timestamp(request),
         )
         report = await pipeline_runner.process_alert(alert, target_org_id)
         return {
@@ -596,7 +604,7 @@ async def bank_api_search(
             agent_id=AgentId("srv-bank-web01"),
             agent_name="bank-web-frontend-01",
             full_log=f"INFO: Benign query '{q}' evaluated for branch locator from {client_ip}.",
-            timestamp=datetime.now(UTC).isoformat(),
+            timestamp=_get_request_timestamp(request),
         )
         await pipeline_runner.process_alert(alert, target_org_id)
         return {
@@ -632,7 +640,7 @@ async def get_bank_treasury_keys(
         agent_id=AgentId("srv-bank-core01"),
         agent_name="bank-core-ledger-01",
         full_log=f"HONEYTOKEN TRIPWIRE: Client {client_ip} fetched fake FedWire secret key FEDWIRE_CANARY_TOKEN_9941 and SWIFT clearing keys from /bank/api/admin/treasury-keys",
-        timestamp=datetime.now(UTC).isoformat(),
+        timestamp=_get_request_timestamp(request),
     )
     await pipeline_runner.process_alert(alert, target_org_id)
 
@@ -671,7 +679,7 @@ async def export_decoy_customers(
         agent_id=AgentId("srv-bank-core01"),
         agent_name="bank-core-ledger-01",
         full_log=f"HONEYTOKEN TRIPWIRE: Client {client_ip} downloaded decoy customer financial table containing 3 synthetic SSNs and account balances from /bank/api/customers/export",
-        timestamp=datetime.now(UTC).isoformat(),
+        timestamp=_get_request_timestamp(request),
     )
     await pipeline_runner.process_alert(alert, target_org_id)
 

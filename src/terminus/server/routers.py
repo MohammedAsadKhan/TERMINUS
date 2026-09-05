@@ -572,7 +572,7 @@ async def get_decoy_vault_secrets(
         agent_id=AgentId("srv-vault-01"),
         agent_name="internal-vault-db01",
         full_log=f"HONEYTOKEN TRIPWIRE: Client {client_ip} fetched fake AWS key AKIA_CANARY_HONEYTOKEN_9941_REDTEAM and postgres connection URI from /decoy/vault-secrets",
-        timestamp=datetime.now(UTC).isoformat(),
+        timestamp=request.headers.get("X-Simulated-Time", datetime.now(UTC).isoformat()),
     )
     await pipeline_runner.process_alert(alert, target_org_id)
 
@@ -621,7 +621,7 @@ async def get_decoy_customer_pii(
         agent_id=AgentId("srv-vault-01"),
         agent_name="internal-vault-db01",
         full_log=f"HONEYTOKEN TRIPWIRE: Client {client_ip} dumped synthetic customer PII table containing 2 decoy customer SSNs and credit card hashes from /decoy/customer-pii",
-        timestamp=datetime.now(UTC).isoformat(),
+        timestamp=request.headers.get("X-Simulated-Time", datetime.now(UTC).isoformat()),
     )
     await pipeline_runner.process_alert(alert, target_org_id)
 

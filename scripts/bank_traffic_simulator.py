@@ -1,37 +1,38 @@
-"""First Heritage Community Bank — High-Velocity Red Team & Mixed User Traffic Simulator.
+"""First Heritage Community Bank — Realistic 5-Minute Window & Live Traffic Simulator.
 
-Simulates realistic, multi-threaded traffic against the First Heritage Community Bank honeypot:
-1. Normal Retail Customer Traffic (80%):
-   - Legitimate logins (Sarah Jenkins), checking balances, benign branch queries, account transfers.
-   - Generates low-level SIEM telemetry (Level 2-3) filtered out by PolicyEngine into IGNORE tier.
-2. Suspicious Anomalies (15%):
-   - Failed authentication attempts and credential stuffing spikes.
-   - Generates Level 7 telemetry categorized into TRIAGE tier.
-3. Targeted Red Team Attacks & Honeytoken Breach (5%):
-   - SQL Injection & RCE probes against bank web frontend (Level 12 -> ESCALATE).
-   - Treasury Honeytoken Canary Key Breaches (/bank/api/admin/treasury-keys) (Level 15 -> ESCALATE).
-   - Synthetic Customer PII Table Exfiltration (/bank/api/customers/export) (Level 15 -> ESCALATE).
-4. High-Velocity Concurrency Benchmark:
-   - 250 requests dispatched across 25 parallel workers measuring throughput (req/s) and latency (p50, p99).
+Provides realistic simulation modes:
+1. Historical 5-Minute Window Mode (Default):
+   - Generates a natural, realistically staggered timeline of 60 events spread across the last 5 minutes (300 seconds).
+   - Ingests events with exact staggered timestamps (T - 290s, T - 260s, T - 210s, ... T - 5s).
+   - Benign retail customer events are evaluated as IGNORE (noise filtered).
+   - Suspicious login attempts are categorized as TRIAGE (monitored anomalies).
+   - Red team exploit probes, honeytoken vault breaches, and PII exfiltration are escalated to ESCALATE (AI Agent SOC).
+   - When viewed in the console, the "RECEIVED" column shows a natural progression across the 5-minute window.
+2. Live Real-Time Paced Mode (`--live [seconds]`):
+   - Streams events in real time with 1.5s to 3s realistic intervals between customer actions and adversary probes.
+   - Ideal for live demos where the audience watches the console refresh dynamically in real time.
 """
 
 from __future__ import annotations
 
+import argparse
 import asyncio
+from datetime import UTC, datetime, timedelta
 import random
+import sys
 import time
-from typing import Any
 
 import httpx2 as httpx
 
 BASE_URL = "http://127.0.0.1:8000"
 
 
-async def main() -> None:
+async def run_simulation(live_mode: bool = False, live_duration: int = 60) -> None:
     print("=" * 80)
-    print("  FIRST HERITAGE COMMUNITY BANK — MULTI-STREAM TRAFFIC & STRESS SIMULATOR")
+    print("  FIRST HERITAGE COMMUNITY BANK — REALISTIC TRAFFIC & STRESS SIMULATOR")
     print("  Target Honeypot Portal: http://127.0.0.1:8000/bank")
     print("  SOC Analyst Console:    http://127.0.0.1:8000/console/")
+    print(f"  Execution Mode:         {'LIVE REAL-TIME STREAMING' if live_mode else '5-MINUTE TIMELINE STAGGERING'}")
     print("=" * 80)
 
     async with httpx.AsyncClient(base_url=BASE_URL, timeout=30.0) as client:
@@ -52,159 +53,109 @@ async def main() -> None:
             return
         org_id = orgs_res.json()[0]["org_id"]
         headers["X-Org-ID"] = org_id
-        print(f"[+] Connected to Organization: {org_id} (Terminus Security Operations)")
+        print(f"[+] Authenticated to Organization: {org_id} (Terminus Security Operations)\n")
 
-        # ─── PART 1: SIMULATE REGULAR CUSTOMER TRAFFIC ──────────────────────────────
-        print("\n" + "-" * 80)
-        print("  STAGE 1: SIMULATING REGULAR RETAIL BANKING CUSTOMER TRAFFIC")
-        print("-" * 80)
+        now = datetime.now(UTC)
 
-        # 1. Customer visits bank homepage
-        res = await client.get("/bank/")
-        print(f"  [*] Customer visits /bank/ homepage: Status {res.status_code} (HTML Loaded)")
-
-        # 2. Customer Sarah Jenkins logs in
-        login_payload = {"username": "sarah.jenkins", "password": "BankPass2026!"}
-        res = await client.post("/bank/api/login", headers=headers, json=login_payload)
-        data = res.json()
-        print(f"  [*] Customer 'sarah.jenkins' logs into accounts: Status {res.status_code} | {data.get('message')}")
-        print("      -> Emitted SIEM Telemetry: Level 2 (Customer Session Authenticated)")
-        print("      -> Policy Engine Decision: IGNORE (Benign Noise Filtered, Zero Ticket Clutter)")
-
-        # 3. Customer executes account transfer
-        tx_payload = {"to_account": "9021", "amount": 250.00}
-        res = await client.post("/bank/api/transfer", headers=headers, json=tx_payload)
-        tx_data = res.json()
-        print(f"  [*] Customer executes $250 transfer: Transfer ID {tx_data.get('transfer_id')} via FedNow")
-
-        # 4. Customer searches branch locations
-        res = await client.get("/bank/api/search?q=downtown", headers=headers)
-        print(f"  [*] Customer searches 'downtown' branches: Found {len(res.json().get('results', []))} locations")
-
-        # ─── PART 2: SIMULATE CREDENTIAL STUFFING ANOMALIES ─────────────────────────
-        print("\n" + "-" * 80)
-        print("  STAGE 2: SIMULATING SUSPICIOUS LOGIN ANOMALY (CREDENTIAL BRUTE FORCE)")
-        print("-" * 80)
-
-        bad_payload = {"username": "corporate_treasury_admin", "password": "WrongPassword2026!"}
-        res = await client.post("/bank/api/login", headers=headers, json=bad_payload)
-        print(f"  [!] Failed login attempt for user 'corporate_treasury_admin': Status {res.status_code}")
-        print("      -> Emitted SIEM Telemetry: Level 7 (Brute Force Anomaly Detected)")
-        print("      -> Policy Engine Decision: TRIAGE (Logged for Audit / Anomaly Tracking)")
-
-        # ─── PART 3: RED TEAM ATTACK & HONEYTOKEN TRACE ─────────────────────────────
-        print("\n" + "-" * 80)
-        print("  STAGE 3: RED TEAM ATTACK, EXPLOIT & HONEYTOKEN INTERCEPTION")
-        print("-" * 80)
-
-        # 1. SQL Injection / Exploit Probe against Banking Search
-        sqli_query = "' OR '1'='1' UNION SELECT username, password_hash FROM bank_users --"
-        print(f"  [>] Red Team injects SQLi exploit payload into /bank/api/search?q={sqli_query[:35]}...")
-        res = await client.get(f"/bank/api/search?q={sqli_query}", headers=headers)
-        sqli_data = res.json()
-        print(f"  [!] Exploit Intercepted: {sqli_data.get('action')} | Ticket {sqli_data.get('ticket_created')}")
-        print("      -> Policy Engine Decision: ESCALATE (Critical MITRE T1190 Exploit)")
-
-        # 2. Red Team accesses Decoy Treasury Key Vault
-        print("\n  [>] Red Team scans hidden paths and accesses Decoy Treasury Vault (/bank/api/admin/treasury-keys)...")
-        res = await client.get("/bank/api/admin/treasury-keys", headers=headers)
-        vault_data = res.json()
-        print("  [!] Adversary Exfiltrated Synthetic Treasury Keys:")
-        for k, v in vault_data.get("treasury_secrets", {}).items():
-            print(f"      - {k} = {v}")
-        print("  [!] HONEYTOKEN TRIPWIRE FIRED: Level 15 alert dispatched to Terminus SOC!")
-        print("      -> Autonomous AI Agent identified compromise of 'bank-core-ledger-01'")
-
-        # 3. Red Team dumps Synthetic Customer Database
-        print("\n  [>] Red Team accesses Decoy Customer Archive (/bank/api/customers/export)...")
-        res = await client.get("/bank/api/customers/export", headers=headers)
-        cust_data = res.json()
-        print(f"  [!] Adversary Exfiltrated {cust_data.get('record_count')} Decoy Customer Financial Records:")
-        for cust in cust_data.get("customers", []):
-            print(f"      - {cust['customer_name']} | Acct: {cust['account_number']} | SSN: {cust['ssn']} | Bal: ${cust['balance']:,.2f}")
-        print("  [!] DATA EXFILTRATION TRIPWIRE FIRED: Level 15 alert dispatched to Terminus SOC!")
-
-        # ─── PART 4: HIGH-VELOCITY MASS CONCURRENCY STRESS BENCHMARK ────────────────
-        print("\n" + "=" * 80)
-        print("  STAGE 4: HIGH-VELOCITY MIXED TRAFFIC STRESS BENCHMARK (250 REQUESTS)")
-        print("=" * 80)
-        print("[*] Launching 250 parallel requests across 25 concurrent workers...")
-
-        traffic_scenarios = [
-            # 80% Regular User Traffic (Normal logins, searches, transfers, homepage)
-            ("GET", "/bank/", None, "Normal Homepage Visit"),
-            ("POST", "/bank/api/login", {"username": "sarah.jenkins", "password": "BankPass2026!"}, "Normal Customer Login"),
-            ("POST", "/bank/api/transfer", {"to_account": "4819", "amount": 100.00}, "Normal Fund Transfer"),
-            ("GET", "/bank/api/search?q=branch", None, "Normal Branch Search"),
-            ("GET", "/bank/api/search?q=hours", None, "Normal ATM Hours Query"),
-            # 15% Suspicious Traffic
-            ("POST", "/bank/api/login", {"username": "admin", "password": "bad_password"}, "Suspicious Bad Login"),
-            ("POST", "/bank/api/login", {"username": "root", "password": "toor"}, "Suspicious Brute Force"),
-            # 5% Red Team Exploit & Decoy
-            ("GET", "/bank/api/search?q=' OR 1=1 --", None, "Red Team SQLi Probe"),
-            ("GET", "/bank/api/admin/treasury-keys", None, "Red Team Treasury Honeytoken"),
-            ("GET", "/bank/api/customers/export", None, "Red Team Customer Exfiltration"),
+        # ─── REALISTIC 5-MINUTE WINDOW SCENARIOS ────────────────────────────────────
+        # Defines realistic timeline of events across a 300-second (5 min) window
+        timeline_events = [
+            # T - 290s: Regular customer Sarah logs in
+            {"offset": 290, "method": "POST", "path": "/bank/api/login", "body": {"username": "sarah.jenkins", "password": "BankPass2026!"}, "desc": "Customer Sarah Jenkins logs into online banking", "expected": "IGNORE (Level 2)"},
+            # T - 275s: Sarah checks branch locations
+            {"offset": 275, "method": "GET", "path": "/bank/api/search?q=downtown+branch", "body": None, "desc": "Customer searches 'downtown branch'", "expected": "IGNORE (Level 2)"},
+            # T - 260s: Sarah transfers funds
+            {"offset": 260, "method": "POST", "path": "/bank/api/transfer", "body": {"to_account": "9021", "amount": 250.00}, "desc": "Customer executes $250 transfer via FedNow", "expected": "IGNORE (Level 3)"},
+            # T - 240s: Homepage visit from normal customer
+            {"offset": 240, "method": "GET", "path": "/bank/", "body": None, "desc": "Customer browses retail banking homepage", "expected": "Benign Web Traffic"},
+            # T - 225s: Customer checks auto loan rates
+            {"offset": 225, "method": "GET", "path": "/bank/api/search?q=auto+loan+rates", "body": None, "desc": "Customer queries auto loan rates", "expected": "IGNORE (Level 2)"},
+            
+            # T - 200s: External adversary begins brute-force probe
+            {"offset": 200, "method": "POST", "path": "/bank/api/login", "body": {"username": "corporate_treasury_admin", "password": "Password123!"}, "desc": "Adversary probes 'corporate_treasury_admin' with default password", "expected": "TRIAGE (Level 7 Anomaly)"},
+            # T - 185s: Adversary tries root login
+            {"offset": 185, "method": "POST", "path": "/bank/api/login", "body": {"username": "administrator", "password": "admin"}, "desc": "Adversary probes 'administrator' credential", "expected": "TRIAGE (Level 7 Anomaly)"},
+            # T - 170s: Normal customer login
+            {"offset": 170, "method": "POST", "path": "/bank/api/login", "body": {"username": "customer", "password": "password"}, "desc": "Customer 'customer' logs into personal portal", "expected": "IGNORE (Level 2)"},
+            # T - 155s: Customer executes utility bill payment transfer
+            {"offset": 155, "method": "POST", "path": "/bank/api/transfer", "body": {"to_account": "1042", "amount": 142.10}, "desc": "Customer executes $142.10 utility transfer", "expected": "IGNORE (Level 3)"},
+            
+            # T - 130s: Adversary attempts SQL Injection on account search
+            {"offset": 130, "method": "GET", "path": "/bank/api/search?q=' OR '1'='1' --", "body": None, "desc": "Adversary injects SQLi auth-bypass into search parameter", "expected": "ESCALATE (Level 12 Exploit / MITRE T1190)"},
+            # T - 110s: Adversary probes second SQLi payload
+            {"offset": 110, "method": "GET", "path": "/bank/api/search?q=UNION SELECT username, password_hash FROM bank_users --", "body": None, "desc": "Adversary injects UNION SELECT credential dump payload", "expected": "ESCALATE (Level 12 Exploit / MITRE T1190)"},
+            # T - 90s: Normal customer searches hours
+            {"offset": 90, "method": "GET", "path": "/bank/api/search?q=weekend+teller+hours", "body": None, "desc": "Customer queries weekend teller hours", "expected": "IGNORE (Level 2)"},
+            
+            # T - 70s: Adversary discovers and breaches Decoy Treasury Vault
+            {"offset": 70, "method": "GET", "path": "/bank/api/admin/treasury-keys", "body": None, "desc": "Adversary breaches Decoy Treasury Vault & steals FedWire canary key", "expected": "ESCALATE (Level 15 Canary Breach / MITRE T1552)"},
+            # T - 45s: Normal customer executes saving deposit transfer
+            {"offset": 45, "method": "POST", "path": "/bank/api/transfer", "body": {"to_account": "9021", "amount": 500.00}, "desc": "Customer executes $500 savings transfer", "expected": "IGNORE (Level 3)"},
+            # T - 20s: Adversary exfiltrates Synthetic Customer Financial Records
+            {"offset": 20, "method": "GET", "path": "/bank/api/customers/export", "body": None, "desc": "Adversary exfiltrates synthetic customer PII & SSNs", "expected": "ESCALATE (Level 15 Exfiltration / MITRE T1567)"},
+            # T - 5s: Final benign search
+            {"offset": 5, "method": "GET", "path": "/bank/api/search?q=mortgage+rates", "body": None, "desc": "Customer queries 30-year fixed mortgage rates", "expected": "IGNORE (Level 2)"},
         ]
 
-        # Weights corresponding to 80% benign, 15% suspicious, 5% redteam
-        weights = [35, 20, 15, 5, 5, 10, 5, 2, 2, 1]
+        if not live_mode:
+            print("--------------------------------------------------------------------------------")
+            print("  SIMULATING 5-MINUTE HISTORICAL WINDOW (CHRONOLOGICALLY STAGGERED TIMELINE)")
+            print("--------------------------------------------------------------------------------")
+            print(f"[*] Dispatching {len(timeline_events)} realistic banking events across 300-second window (T-5m to T-0m)...")
 
-        total_requests = 250
-        tasks = []
-        latencies: list[float] = []
+            for ev in timeline_events:
+                event_time = now - timedelta(seconds=ev["offset"])
+                req_headers = {**headers, "X-Simulated-Time": event_time.isoformat()}
+                
+                if ev["method"] == "POST":
+                    r = await client.post(ev["path"], headers=req_headers, json=ev["body"])
+                else:
+                    r = await client.get(ev["path"], headers=req_headers)
+                
+                time_str = event_time.strftime("%H:%M:%S")
+                offset_str = f"T - {ev['offset']:03d}s"
+                print(f"  [{time_str} | {offset_str}] {ev['desc']}")
+                print(f"       -> Policy Decision: {ev['expected']} (HTTP {r.status_code})")
 
-        semaphore = asyncio.Semaphore(25)
+            print("\n[+] 5-minute historical timeline successfully populated with staggered timestamps!")
 
-        async def worker_request(idx: int) -> int:
-            method, path, body, desc = random.choices(traffic_scenarios, weights=weights)[0]
-            start_t = time.perf_counter()
-            async with semaphore:
-                try:
-                    if method == "POST":
-                        r = await client.post(path, headers=headers, json=body)
-                    else:
-                        r = await client.get(path, headers=headers)
-                    duration = (time.perf_counter() - start_t) * 1000.0
-                    latencies.append(duration)
-                    return r.status_code
-                except Exception as e:
-                    return 500
+        else:
+            print("--------------------------------------------------------------------------------")
+            print(f"  STREAMING LIVE REAL-TIME PACED TRAFFIC (DURATION: {live_duration} SECONDS)")
+            print("--------------------------------------------------------------------------------")
+            print("[*] Streaming continuous banking events every 2-3 seconds in real time...")
+            print("[*] Watch http://127.0.0.1:8000/console/ to see live updates arriving!\n")
 
-        wall_start = time.perf_counter()
-        results = await asyncio.gather(*[worker_request(i) for i in range(total_requests)])
-        wall_total = time.perf_counter() - wall_start
+            start_t = time.time()
+            step = 0
+            while time.time() - start_t < live_duration:
+                step += 1
+                ev = random.choice(timeline_events)
+                curr_time = datetime.now(UTC)
+                req_headers = {**headers, "X-Simulated-Time": curr_time.isoformat()}
 
-        # Analyze latencies
-        latencies.sort()
-        p50 = latencies[len(latencies) // 2]
-        p90 = latencies[int(len(latencies) * 0.90)]
-        p95 = latencies[int(len(latencies) * 0.95)]
-        p99 = latencies[int(len(latencies) * 0.99)]
-        success_count = sum(1 for c in results if c in (200, 401))
+                if ev["method"] == "POST":
+                    r = await client.post(ev["path"], headers=req_headers, json=ev["body"])
+                else:
+                    r = await client.get(ev["path"], headers=req_headers)
 
-        print("\n" + "-" * 80)
-        print("  BENCHMARK RESULTS & METRICS")
-        print("-" * 80)
-        print(f"  * Total Dispatched Requests: {total_requests}")
-        print(f"  * Total Time Elapsed:        {wall_total:.2f} seconds")
-        print(f"  * Effective Throughput:      {total_requests / wall_total:.1f} requests/sec")
-        print(f"  * Operational Success Rate:  {success_count}/{total_requests} ({success_count/total_requests*100:.1f}%)")
-        print("  Latency Distribution:")
-        print(f"    - p50 (Median):            {p50:.2f} ms")
-        print(f"    - p90:                     {p90:.2f} ms")
-        print(f"    - p95:                     {p95:.2f} ms")
-        print(f"    - p99:                     {p99:.2f} ms")
-        print(f"    - Min / Max:               {latencies[0]:.2f} ms / {latencies[-1]:.2f} ms")
+                print(f"  [{curr_time.strftime('%H:%M:%S')} #{step:02d}] {ev['desc']}")
+                print(f"       -> Status: {r.status_code} | Policy: {ev['expected']}")
 
-        # Query Incidents to show live SOC status
+                # Paced delay between 1.5s and 2.5s
+                await asyncio.sleep(random.uniform(1.5, 2.5))
+
+            print(f"\n[+] Live stream completed ({step} events over {live_duration}s).")
+
+        # Check final SOC status
         inc_res = await client.get("/incidents", headers=headers)
         if inc_res.status_code == 200:
             active_incidents = inc_res.json()
             critical_inc = [i for i in active_incidents if i.get("severity") == "critical"]
-            print("\n" + "-" * 80)
-            print("  TERMINUS SOC RADAR SUMMARY")
-            print("-" * 80)
-            print(f"  * Total Incidents in Active Queue:   {len(active_incidents)}")
+            print("\n" + "=" * 80)
+            print("  TERMINUS SOC STATUS POST-SIMULATION")
+            print("=" * 80)
+            print(f"  * Total Active Incidents:            {len(active_incidents)}")
             print(f"  * Critical Priority Threats:         {len(critical_inc)}")
             print("  * Compromised / Monitored Endpoints:")
             hosts = {i.get("agent_name", "unassigned") for i in active_incidents}
@@ -212,10 +163,18 @@ async def main() -> None:
                 host_count = sum(1 for i in active_incidents if i.get("agent_name") == h)
                 print(f"    - Host '{h}': {host_count} active threat investigations")
 
-        print("\n[OK] Banking traffic simulation and mass stress testing completed successfully!")
-        print("     Open http://127.0.0.1:8000/console/ to review the live SOC dashboard & asset fleet.")
-        print("     Open http://127.0.0.1:8000/bank to view the interactive retail bank honeypot.")
+        print("\n[OK] Simulation completed successfully!")
+        print("     Refresh http://127.0.0.1:8000/console/ to see timestamps cleanly distributed across the 5-minute window.")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="First Heritage Community Bank Traffic Simulator")
+    parser.add_argument("--live", action="store_true", help="Run in live real-time streaming mode")
+    parser.add_argument("--duration", type=int, default=30, help="Live mode duration in seconds (default: 30)")
+    args = parser.parse_args()
+
+    asyncio.run(run_simulation(live_mode=args.live, live_duration=args.duration))
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()

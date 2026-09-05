@@ -67,7 +67,7 @@ class MemoryTickets(TicketStore):
             "time_to_decision_sec": None,
             "mitigation_status": "NOT_EXECUTED",
             "timestamp": alert.timestamp,
-            "created_at": datetime.now(UTC).isoformat(),
+            "created_at": alert.timestamp or datetime.now(UTC).isoformat(),
             "resolved_at": "",
         }
         with self._lock:
