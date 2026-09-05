@@ -17,6 +17,7 @@ from terminus.config import get_settings
 from terminus.core.base import NotFoundError
 from terminus.models import ReportType
 from terminus.reports.service import generate_daily_report
+from terminus.server.bank_router import bank_router
 from terminus.server.console_api import router as console_router
 from terminus.server.deps import get_org_store, get_pipeline_runner, get_reports_store
 from terminus.server.routers import (
@@ -108,6 +109,7 @@ def create_app() -> FastAPI:
                 return JSONResponse({"detail": "Cross-origin writes are not allowed"}, status_code=403)
             if (
                 request.url.path not in {"/auth/login", "/auth/register"}
+                and not request.url.path.startswith("/bank")
                 and request.cookies.get("terminus_session")
                 and not request.headers.get("Authorization")
                 and not request.headers.get("X-Session-Token")
@@ -131,6 +133,7 @@ def create_app() -> FastAPI:
     app.include_router(workflow_router)
     app.include_router(report_router)
     app.include_router(decoy_router)
+    app.include_router(bank_router)
 
     return app
 
