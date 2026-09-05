@@ -38,7 +38,7 @@ class MemoryTickets(TicketStore):
             kill_chain_stage = "Initial Access"
         elif "root" in rule_desc or "privilege" in rule_desc or "bypass" in rule_desc:
             kill_chain_stage = "Privilege Escalation"
-        elif "ransomware" in rule_desc or "exfil" in rule_desc or "honeypot" in rule_desc:
+        elif "ransomware" in rule_desc or "exfil" in rule_desc or "honeypot" in rule_desc or "canary" in rule_desc:
             kill_chain_stage = "Exfiltration & Impact"
         else:
             kill_chain_stage = "Execution"

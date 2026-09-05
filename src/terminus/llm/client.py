@@ -107,6 +107,27 @@ class ScriptedLlm(LlmClient):
                     "Verify root login is disabled in sshd_config"
                 ],
             }
+        elif (
+            "CANARY" in user_upper
+            or "HONEYTOKEN" in user_upper
+            or "EXFILTRAT" in user_upper
+            or "AWS_KEY" in user_upper
+            or "VAULT" in user_upper
+            or "PII" in user_upper
+            or "T1567" in user_upper
+            or "T1552" in user_upper
+        ):
+            return {
+                "severity": "critical",
+                "confidence": "high",
+                "summary": "AI AGENT INTERCEPTION: Honeytoken / Canary credential trigger detected (MITRE ATT&CK T1552 / T1567). Unauthorized actor accessed decoy credentials 'AKIA_CANARY_HONEYTOKEN_9941_REDTEAM' and attempted exfiltration of synthetic vault secrets.",
+                "recommended_actions": [
+                    "Isolate compromised endpoint immediately via boundary firewall",
+                    "Invalidate exposed AWS session token and revoke canary credentials",
+                    "Block attacker C2 egress IP at border gateway",
+                    "Execute forensic memory capture on targeted decoy container",
+                ],
+            }
         else:
             return {
                 "severity": "medium",

@@ -534,3 +534,116 @@ async def get_report(
         raise HTTPException(status_code=404, detail=f"Report '{report_id}' not found")
     return report
 
+
+# ─── Decoy & Red Team Honeytoken Router ──────────────────────────────────────────
+
+decoy_router = APIRouter(prefix="/decoy", tags=["Deception & Red Team Canary"])
+
+
+@decoy_router.get("/vault-secrets")
+async def get_decoy_vault_secrets(
+    request: Request,
+    pipeline_runner: Annotated[PipelineRunner, Depends(get_pipeline_runner)],
+    org_service: Annotated[OrganizationService, Depends(get_org_service)],
+) -> dict[str, Any]:
+    """Simulated vulnerable endpoint exposing fake cloud & database credentials.
+
+    Accessing this endpoint triggers a critical Canary Token alert in the Terminus pipeline.
+    """
+    from datetime import datetime, UTC
+    from uuid import uuid4
+    from terminus.core.ids import AgentId, OrgId, RuleId
+    from terminus.models import SiemAlert
+
+    org_id_header = request.headers.get("X-Org-ID")
+    target_org_id = OrgId(org_id_header) if org_id_header else OrgId("org-default")
+    if not org_id_header:
+        all_orgs = org_service.org_store.list_all()
+        if all_orgs:
+            target_org_id = all_orgs[0].org_id
+
+    client_ip = request.client.host if request.client else "unknown-client"
+    alert = SiemAlert(
+        id=f"canary-vault-{uuid4().hex[:8]}",
+        rule_id=RuleId(100099),
+        level=15,
+        description="Canary Token Accessed: Decoy Cloud Vault Credentials Retrieved (T1552)",
+        mitre="T1552",
+        agent_id=AgentId("srv-vault-01"),
+        agent_name="internal-vault-db01",
+        full_log=f"HONEYTOKEN TRIPWIRE: Client {client_ip} fetched fake AWS key AKIA_CANARY_HONEYTOKEN_9941_REDTEAM and postgres connection URI from /decoy/vault-secrets",
+        timestamp=datetime.now(UTC).isoformat(),
+    )
+    await pipeline_runner.process_alert(alert, target_org_id)
+
+    return {
+        "status": "warning",
+        "service": "decoy-vault-internal",
+        "disclaimer": "SYNTHETIC DECOY DATA FOR RED TEAM INTERCEPTION DEMONSTRATION",
+        "secrets": {
+            "aws_access_key_id": "AKIA_CANARY_HONEYTOKEN_9941_REDTEAM",
+            "aws_secret_access_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY_CANARY",
+            "db_connection_uri": "postgres://prod_admin:FakeSecretPassword2026!@internal-db:5432/customer_pii",
+            "stripe_api_key": "sk_live_canary_honeytoken_synthetic_secret",
+        },
+    }
+
+
+@decoy_router.get("/customer-pii")
+async def get_decoy_customer_pii(
+    request: Request,
+    pipeline_runner: Annotated[PipelineRunner, Depends(get_pipeline_runner)],
+    org_service: Annotated[OrganizationService, Depends(get_org_service)],
+) -> dict[str, Any]:
+    """Simulated sensitive database endpoint exposing synthetic customer PII.
+
+    Accessing this endpoint triggers a critical Exfiltration alert in the Terminus pipeline.
+    """
+    from datetime import datetime, UTC
+    from uuid import uuid4
+    from terminus.core.ids import AgentId, OrgId, RuleId
+    from terminus.models import SiemAlert
+
+    org_id_header = request.headers.get("X-Org-ID")
+    target_org_id = OrgId(org_id_header) if org_id_header else OrgId("org-default")
+    if not org_id_header:
+        all_orgs = org_service.org_store.list_all()
+        if all_orgs:
+            target_org_id = all_orgs[0].org_id
+
+    client_ip = request.client.host if request.client else "unknown-client"
+    alert = SiemAlert(
+        id=f"canary-pii-{uuid4().hex[:8]}",
+        rule_id=RuleId(100100),
+        level=15,
+        description="Canary Table Read: Synthetic Customer PII Decoy Exfiltrated (T1567)",
+        mitre="T1567",
+        agent_id=AgentId("srv-vault-01"),
+        agent_name="internal-vault-db01",
+        full_log=f"HONEYTOKEN TRIPWIRE: Client {client_ip} dumped synthetic customer PII table containing 2 decoy customer SSNs and credit card hashes from /decoy/customer-pii",
+        timestamp=datetime.now(UTC).isoformat(),
+    )
+    await pipeline_runner.process_alert(alert, target_org_id)
+
+    return {
+        "status": "warning",
+        "record_count": 2,
+        "disclaimer": "SYNTHETIC DECOY PII FOR RED TEAM INTERCEPTION DEMONSTRATION",
+        "records": [
+            {
+                "id": "usr-fake-01",
+                "name": "Jane Doe",
+                "ssn": "987-65-4321",
+                "email": "jdoe@synthetic.corp",
+                "card_token": "tok_visa_4242",
+            },
+            {
+                "id": "usr-fake-02",
+                "name": "John Smith",
+                "ssn": "987-12-3456",
+                "email": "jsmith@synthetic.corp",
+                "card_token": "tok_mc_5555",
+            },
+        ],
+    }
+

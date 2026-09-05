@@ -22,6 +22,7 @@ from terminus.server.deps import get_org_store, get_pipeline_runner, get_reports
 from terminus.server.routers import (
     agent_router,
     auth_router,
+    decoy_router,
     health_router,
     org_router,
     report_router,
@@ -129,6 +130,7 @@ def create_app() -> FastAPI:
     app.include_router(agent_router)
     app.include_router(workflow_router)
     app.include_router(report_router)
+    app.include_router(decoy_router)
 
     return app
 
