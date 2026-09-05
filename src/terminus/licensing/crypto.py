@@ -11,7 +11,7 @@ from terminus.licensing.models import License
 class LicenseError(ValueError):
     """Error raised when license validation fails."""
 
-    def __init__(self, message: str, reason: str) -> None:
+    def __init__(self, message: str, reason: str = "invalid") -> None:
         super().__init__(message)
         self.reason = reason
 

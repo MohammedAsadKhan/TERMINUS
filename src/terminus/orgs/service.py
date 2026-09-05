@@ -222,7 +222,7 @@ class OrganizationService(Service):
             from terminus.licensing.crypto import LicenseError
 
             msg = "License does not belong to this organization"
-            raise LicenseError(msg)
+            raise LicenseError(msg, reason="org_mismatch")
 
         # Update org with new license ref.
         org = self._orgs.get(org_id, org_id)

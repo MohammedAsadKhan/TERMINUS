@@ -11,9 +11,10 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from terminus.auth.models import PublicUser, User
-from terminus.auth.service import AuthService, DuplicateEmailError
+from terminus.auth.service import AuthService, DuplicateEmailError, UserStore
 from terminus.core.ids import OrgId, SessionToken, UserId
 from terminus.licensing.crypto import LicenseError
+from terminus.licensing.models import License
 from terminus.models import (
     AgentStatus,
     DailyIncidentReport,
@@ -36,6 +37,7 @@ from terminus.server.deps import (
     get_reports_store,
     get_tenant_agents,
     get_tenant_workflows,
+    get_user_store,
     get_webhook_org,
     require_admin,
     require_operator,
@@ -201,6 +203,7 @@ async def add_member(
     current_org_id: Annotated[OrgId, Depends(get_current_org)],
     user: Annotated[User, Depends(get_current_user)],
     org_service: Annotated[OrganizationService, Depends(get_org_service)],
+    user_store: Annotated[UserStore, Depends(get_user_store)],
     _: Annotated[None, Depends(require_admin)] = None,
 ) -> Membership:
     """Add a new member to the organization (requires Admin role)."""
@@ -208,6 +211,11 @@ async def add_member(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Cannot manage members across organizations",
+        )
+    if user_store.get(req.user_id) is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"User '{req.user_id}' does not exist",
         )
     try:
         return org_service.add_member(
@@ -236,7 +244,7 @@ async def activate_license(
     user: Annotated[User, Depends(get_current_user)],
     org_service: Annotated[OrganizationService, Depends(get_org_service)],
     _: Annotated[None, Depends(require_admin)] = None,
-) -> Any:
+) -> License:
     """Activate or upgrade software license token (requires Admin role)."""
     if target_org_id != current_org_id:
         raise HTTPException(
@@ -269,8 +277,7 @@ async def wazuh_webhook(
     pipeline_runner: Annotated[PipelineRunner, Depends(get_pipeline_runner)],
 ) -> InvestigationReport:
     """Ingest Wazuh alert, execute pipeline investigation, create ticket, notify."""
-    report = await pipeline_runner.process_alert(alert, org_id)
-    return report
+    return await pipeline_runner.process_alert(alert, org_id)
 
 
 @webhook_router.get("/incidents")

@@ -109,6 +109,7 @@ unfixable = []
     "B017",
     "PT011",
     "I001",
+    "PLR0915",
 ]
 "src/terminus/simulate.py" = [
     "T201",
