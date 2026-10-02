@@ -23,7 +23,6 @@ import {
 } from 'antd';
 import {
   ApiOutlined,
-  ArrowRightOutlined,
   CheckCircleOutlined,
   CopyOutlined,
   DeleteOutlined,
@@ -43,16 +42,15 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, body } from '../api';
 import { useSession } from '../context';
-import { Code, date, ErrorPanel, Loading, PageTitle, Stat } from '../components';
+import { Code, date, ErrorPanel, Loading, PageTitle } from '../components';
 import { IngestModal } from './ingest-modal';
-import type { Integration, Membership } from '../types';
+import type { Membership } from '../types';
 
-export default function Settings({ section }: { section: 'integrations' | 'organization' | 'settings' }) {
-  const { user, orgId, detail, system } = useSession();
+export default function Settings({ section = 'settings' }: { section?: 'organization' | 'settings' }) {
+  const { user, orgId, detail } = useSession();
   const query = useQueryClient();
   const { message, modal } = App.useApp();
   const [ingest, setIngest] = useState(false);
-  const [connection, setConnection] = useState<Integration | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('ai');
   const [form] = Form.useForm();
@@ -182,91 +180,6 @@ export default function Settings({ section }: { section: 'integrations' | 'organ
         }
       },
     });
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────────
-  // INTEGRATIONS VIEW
-  // ─────────────────────────────────────────────────────────────────────────────
-  if (section === 'integrations') {
-    return (
-      <>
-        <PageTitle
-          eyebrow="CONFIGURE / SOURCES &amp; INTEGRATIONS"
-          title="Telemetry &amp; Integrations"
-          description="Inspect security event sources, SIEM connectors, and notification endpoints configured for your SOC."
-          actions={
-            <Button type="primary" icon={<ExperimentOutlined />} disabled={!detail || detail.role === 'viewer'} onClick={() => setIngest(true)}>
-              Simulate Event
-            </Button>
-          }
-        />
-        <section className="panel source-banner">
-          <span className="source-icon"><ApiOutlined /></span>
-          <div>
-            <div className="eyebrow">AUTHENTICATED INGESTION</div>
-            <h2>Automated Ingestion Pipeline</h2>
-            <p>Submit Wazuh-compatible JSON alerts for policy evaluation and investigation.</p>
-          </div>
-          <Tag color="green">POST /wazuh</Tag>
-        </section>
-        <div className="integration-grid">
-          {system?.integrations.map(item => (
-            <article className="panel integration-card" key={item.id}>
-              <div className="integration-top">
-                <Avatar shape="square" size={44} className={`provider-icon ${item.id}`}>
-                  {item.name.slice(0, 1)}
-                </Avatar>
-                <Tag color={item.configured ? 'green' : 'default'}>{item.configured ? 'CONFIGURED' : 'NOT CONFIGURED'}</Tag>
-              </div>
-              <div className="eyebrow">{item.category}</div>
-              <h2>{item.name}</h2>
-              <p>{item.description}</p>
-              <Button block onClick={() => setConnection(item)}>
-                Configuration details <ArrowRightOutlined />
-              </Button>
-            </article>
-          ))}
-        </div>
-        <div className="settings-grid">
-          <section className="panel">
-            <div className="eyebrow">INGESTION PIPELINE API</div>
-            <h2>Direct Alert Dispatch</h2>
-            <p className="muted">
-              Authorize inbound alerts via Bearer session tokens with tenant organization headers. Payloads are validated against standard SOC telemetry schemas.
-            </p>
-            <Code>{`curl -X POST '${window.location.origin}/wazuh' \\\n  -H 'Authorization: Bearer <SESSION_TOKEN>' \\\n  -H 'X-Org-ID: ${orgId}' \\\n  -H 'Content-Type: application/json' \\\n  -d '{"id":"source-event-001","rule_id":5710,"level":8,"description":"SSH failures","full_log":"sshd: failed password"}'`}</Code>
-          </section>
-          <section className="panel">
-            <div className="eyebrow">INTEGRATION ARCHITECTURE</div>
-            <h2>Security Connectors</h2>
-            <p className="muted">
-              Configure credentials in Platform Settings. Connectors automatically bridge live alerts into the ReAct triage engine.
-            </p>
-            <Alert
-              type="info"
-              title="Centralized Management"
-              description="Configure API keys, SIEM webhooks, and ticketing tokens under the Settings tab."
-              showIcon
-            />
-          </section>
-        </div>
-        <Modal
-          open={!!connection}
-          title={connection?.name + ' configuration'}
-          onCancel={() => setConnection(null)}
-          footer={<Button onClick={() => setConnection(null)}>Close</Button>}
-        >
-          <p>{connection?.description}</p>
-          <p className="muted">Configure these credentials directly in Platform Settings.</p>
-          <Code>{`${connection?.setting}=<configured>`}</Code>
-          <Alert
-            type={connection?.configured ? 'success' : 'info'}
-            title={connection?.configured ? 'Settings active' : 'Connector awaiting credentials in Settings'}
-          />
-        </Modal>
-        <IngestModal open={ingest} close={() => setIngest(false)} />
-      </>
-    );
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -439,30 +352,6 @@ export default function Settings({ section }: { section: 'integrations' | 'organ
         }
       />
 
-      {/* SYSTEM DIAGNOSTICS HUD METRICS */}
-      <div className="stats-grid">
-        <Stat
-          label="AI ENGINE"
-          value={system?.llm_mode === 'remote' ? 'Active Remote' : 'Scripted Demo'}
-          note={system?.llm_model || 'Groq / OpenAI Engine'}
-        />
-        <Stat
-          label="STORAGE BACKEND"
-          value={system?.storage === 'memory' ? 'In-Memory WAL' : system?.storage || 'SQLite WAL'}
-          note="Session state &amp; audit ledger"
-        />
-        <Stat
-          label="TELEMETRY SYNC"
-          value={cfg?.siem?.polling_interval_sec ? `${cfg.siem.polling_interval_sec}s Sync` : '30s Polling'}
-          note="Live telemetry ingestion"
-        />
-        <Stat
-          label="LICENSE TIER"
-          value={detail?.license?.tier.toUpperCase() || 'COMMERCIAL'}
-          note={detail?.license ? `Expires ${date(detail.license.expires_at)}` : 'Full SOC Capabilities'}
-        />
-      </div>
-
       {configQuery.isPending ? (
         <Loading />
       ) : configQuery.error ? (
@@ -596,19 +485,27 @@ export default function Settings({ section }: { section: 'integrations' | 'organ
                         <h3>Wazuh SIEM Manager &amp; Ingestion Pipeline</h3>
                         <p className="muted">Connect your Wazuh manager API for live host inventory, agent statuses, and real-time rule telemetry.</p>
                       </div>
-                      <Button
-                        icon={<ExperimentOutlined />}
-                        loading={testConn.isPending}
-                        onClick={() => {
-                          const values = configForm.getFieldsValue();
-                          testConn.mutate({
-                            service: 'wazuh',
-                            target_url: values.wazuh_url,
-                          });
-                        }}
-                      >
-                        Test Wazuh Connection
-                      </Button>
+                      <Space>
+                        <Button
+                          icon={<SendOutlined />}
+                          onClick={() => setIngest(true)}
+                        >
+                          Simulate Alert
+                        </Button>
+                        <Button
+                          icon={<ExperimentOutlined />}
+                          loading={testConn.isPending}
+                          onClick={() => {
+                            const values = configForm.getFieldsValue();
+                            testConn.mutate({
+                              service: 'wazuh',
+                              target_url: values.wazuh_url,
+                            });
+                          }}
+                        >
+                          Test Wazuh Connection
+                        </Button>
+                      </Space>
                     </div>
 
                     <div className="settings-form-grid">
@@ -915,6 +812,7 @@ export default function Settings({ section }: { section: 'integrations' | 'organ
           />
         </Form>
       )}
+      <IngestModal open={ingest} close={() => setIngest(false)} />
     </>
   );
 }

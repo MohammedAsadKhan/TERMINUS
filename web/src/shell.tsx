@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { App, Alert, Avatar, Button, Dropdown, Form, Input, Modal, Select, Spin, Tag } from 'antd';
-import { ApartmentOutlined, ArrowRightOutlined, DashboardOutlined, DeploymentUnitOutlined, FileTextOutlined, LogoutOutlined, MessageOutlined, PlusOutlined, SafetyCertificateOutlined, SettingOutlined, ThunderboltOutlined, UserOutlined } from '@ant-design/icons';
+import { ApartmentOutlined, ArrowRightOutlined, DashboardOutlined, FileTextOutlined, LogoutOutlined, MessageOutlined, PlusOutlined, SafetyCertificateOutlined, SettingOutlined, ThunderboltOutlined, UserOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { api, body } from './api';
@@ -130,7 +130,6 @@ export function ConsoleApp() {
       { key: '/workflows', label: 'Workflows', icon: <ApartmentOutlined /> },
     ] },
     { label: 'WORKSPACE', items: [
-      { key: '/integrations', label: 'Integrations', icon: <DeploymentUnitOutlined /> },
       { key: '/organization', label: 'Organization', icon: <UserOutlined /> },
       { key: '/settings', label: 'Settings', icon: <SettingOutlined /> },
     ] },
@@ -193,7 +192,7 @@ export function ConsoleApp() {
                 <Route path="/reports" element={<Reports />} />
                 <Route path="/agents" element={<Agents />} />
                 <Route path="/workflows" element={<Workflows />} />
-                <Route path="/integrations" element={<Settings section="integrations" />} />
+                <Route path="/integrations" element={<Navigate to="/settings" replace />} />
                 <Route path="/organization" element={<Settings section="organization" />} />
                 <Route path="/settings" element={<Settings section="settings" />} />
                 <Route path="*" element={<Navigate to="/" replace />} />

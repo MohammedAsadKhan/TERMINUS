@@ -55,9 +55,9 @@
 .login-copy h1 { font-size: clamp(40px, 4vw, 62px); }
 
 .brand-logo-img {
-  height: 22px;
+  height: 28px;
   width: auto;
-  max-width: 140px;
+  max-width: 170px;
   object-fit: contain;
   display: block;
 }
