@@ -9,6 +9,11 @@ export interface Incident {
   policy_tier: string; policy_reason: string; status: string; timestamp: string; created_at: string;
   updated_at?: string; resolved_at?: string; threat_intel: string; context_notes: string;
   mitigation_status: string; kill_chain_stage: string;
+  external_export_status?: string; external_ticket_id?: string;
+  evidence_citations?: Array<Record<string, unknown>>;
+  rule_id?: string | number; mitre?: string | string[] | null; agent_id?: string | null;
+  source_ip?: string | null; source_location?: string | null;
+  resolution_category?: string | null; resolution_notes?: string;
 }
 export interface Agent { id: string; name: string; role_description: string; master_prompt: string; status: 'active' | 'paused' | 'maintenance'; incidents_processed: number; created_at: string }
 export interface WorkflowNode { id: string; type: string; label: string; x: number; y: number; config: Record<string, unknown> }

@@ -7,12 +7,15 @@ import { ConsoleApp } from './shell';
 import { THEMES, ThemeContext, applyThemeVariables } from './theme';
 import 'antd/dist/reset.css';
 import './styles.css';
+import './design.css';
+import './workbench.css';
+import './investigation-graph.css';
 
 const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: 15000 }, mutations: { retry: false } } });
 
 function Root() {
-  const [themeId, setThemeIdState] = useState<string>(() => localStorage.getItem('terminus_theme_id') || 'emerald');
-  const activeTheme = THEMES[themeId] || THEMES.emerald;
+  const [themeId, setThemeIdState] = useState<string>(() => localStorage.getItem('terminus_theme_id') || 'carbon');
+  const activeTheme = THEMES[themeId] || THEMES.carbon;
 
   const setThemeId = (id: string) => {
     if (THEMES[id]) {
@@ -38,10 +41,10 @@ function Root() {
           colorBorder: activeTheme.borderColor,
           colorText: activeTheme.textMain,
           colorTextSecondary: activeTheme.textMuted,
-          borderRadius: 7,
-          fontFamily: "'Segoe UI', system-ui, sans-serif",
+          borderRadius: 10,
+          fontFamily: "Inter, 'Segoe UI', system-ui, sans-serif",
           fontSize: 13,
-          controlHeight: 36,
+          controlHeight: 38,
         },
         components: {
           Table: { headerBg: activeTheme.tableHeaderBg, rowHoverBg: activeTheme.tableHoverBg },

@@ -105,6 +105,10 @@ class SiemAlert(BaseModel):
         validation_alias=AliasChoices(AliasPath("data", "srcip"), "src_ip"),
         default=None,
     )
+    full_log: str = Field(
+        validation_alias=AliasChoices("full_log", "raw", "log"),
+        default="",
+    )
 
 
 class Verdict(BaseModel):
@@ -150,6 +154,8 @@ class InvestigationReport:
     policy: PolicyResult
     verdict: Verdict
     evidence: Evidence
+    campaign_id: str | None = None
+    campaign_alert_count: int = 0
 
 
 # ─── SOC Agent & Workflow Automation Models ───────────────────────────────────────

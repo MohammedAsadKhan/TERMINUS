@@ -1,0 +1,36 @@
+{
+  "scope": "Local bundled bank decoy; no external target or real Wazuh manager",
+  "model_mode": "Scripted/offline for load phase",
+  "raw_requests": 450,
+  "hostile_requests": 400,
+  "benign_controls": 50,
+  "categories": {
+    "password_guess": 150,
+    "jndi": 60,
+    "benign": 50,
+    "canary": 25,
+    "sqli": 150,
+    "decoy_export": 15
+  },
+  "expected_http_responses": 450,
+  "transport_or_server_failures": 0,
+  "search_exploits_blocked": 210,
+  "search_exploits_total": 210,
+  "new_incidents": 400,
+  "incident_tiers": {
+    "escalate": 400
+  },
+  "distinct_campaign_ids": 2,
+  "max_recorded_campaign_alert_count": 410,
+  "recorded_mitigation_statuses": {
+    "NOT_EXECUTED": 400
+  },
+  "elapsed_seconds": 0.93,
+  "requests_per_second": 481.8,
+  "latency_ms": {
+    "p50": 29.6,
+    "p95": 48.0,
+    "p99": 98.0
+  },
+  "comparison_note": "Raw stream size is the input count. Wazuh filtering, detection accuracy, and performance were not measured."
+}

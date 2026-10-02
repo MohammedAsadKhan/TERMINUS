@@ -486,6 +486,7 @@ async def bank_api_login(
             agent_name="bank-web-frontend-01",
             full_log=f"INFO: Customer '{req.username}' logged into retail web portal from {client_ip}. 2FA token verified.",
             timestamp=_get_request_timestamp(request),
+            src_ip=client_ip,
         )
         await pipeline_runner.process_alert(alert, target_org_id)
         return {
@@ -494,24 +495,24 @@ async def bank_api_login(
             "session_id": f"bank-sess-{uuid4().hex[:12]}",
             "user": {"name": "Sarah Jenkins", "customer_id": "CUST-98214-FH"},
         }
-    else:
-        # Failed login anomaly -> Level 7 -> TRIAGE policy tier
-        alert = SiemAlert(
-            id=f"bank-auth-fail-{uuid4().hex[:8]}",
-            rule_id=RuleId(100015),
-            level=7,
-            description="Online Banking: Consecutive Failed Authentication Attempts (Brute Force Anomaly)",
-            mitre="T1110",
-            agent_id=AgentId("srv-bank-web01"),
-            agent_name="bank-web-frontend-01",
-            full_log=f"WARNING: Authentication failure for user '{req.username}' from {client_ip}. Invalid password hash.",
-            timestamp=_get_request_timestamp(request),
-        )
-        await pipeline_runner.process_alert(alert, target_org_id)
-        return JSONResponse(
-            status_code=401,
-            content={"status": "error", "detail": "Invalid username or password."},
-        )
+    # Failed login anomaly -> Level 7 -> TRIAGE policy tier
+    alert = SiemAlert(
+        id=f"bank-auth-fail-{uuid4().hex[:8]}",
+        rule_id=RuleId(100015),
+        level=7,
+        description="Online Banking: Consecutive Failed Authentication Attempts (Brute Force Anomaly)",
+        mitre="T1110",
+        agent_id=AgentId("srv-bank-web01"),
+        agent_name="bank-web-frontend-01",
+        full_log=f"WARNING: Authentication failure for user '{req.username}' from {client_ip}. Invalid password hash.",
+        timestamp=_get_request_timestamp(request),
+        src_ip=client_ip,
+    )
+    await pipeline_runner.process_alert(alert, target_org_id)
+    return JSONResponse(
+        status_code=401,
+        content={"status": "error", "detail": "Invalid username or password."},
+    )
 
 
 class BankTransferRequest(BaseModel):
@@ -540,6 +541,7 @@ async def bank_api_transfer(
         agent_name="bank-web-frontend-01",
         full_log=f"INFO: Internal wire of ${req.amount:.2f} executed to account ...{req.to_account} by customer from {client_ip}.",
         timestamp=_get_request_timestamp(request),
+        src_ip=client_ip,
     )
     await pipeline_runner.process_alert(alert, target_org_id)
     return {
@@ -583,6 +585,7 @@ async def bank_api_search(
             agent_name="bank-web-frontend-01",
             full_log=f"ALERT: Malicious payload intercepted in HTTP GET /bank/api/search?q={q} from {client_ip}. Vector: T1190 Initial Access exploit attempt.",
             timestamp=_get_request_timestamp(request),
+            src_ip=client_ip,
         )
         report = await pipeline_runner.process_alert(alert, target_org_id)
         return {
@@ -593,28 +596,28 @@ async def bank_api_search(
             "ticket_created": report.alert_id,
             "message": "Potential SQL Injection / Remote Code Execution attempt detected and intercepted.",
         }
-    else:
-        # Benign search query -> Level 2 -> IGNORE policy tier
-        alert = SiemAlert(
-            id=f"bank-search-{uuid4().hex[:8]}",
-            rule_id=RuleId(100012),
-            level=2,
-            description="Online Banking: Standard Branch & Transaction Search Query",
-            mitre=None,
-            agent_id=AgentId("srv-bank-web01"),
-            agent_name="bank-web-frontend-01",
-            full_log=f"INFO: Benign query '{q}' evaluated for branch locator from {client_ip}.",
-            timestamp=_get_request_timestamp(request),
-        )
-        await pipeline_runner.process_alert(alert, target_org_id)
-        return {
-            "status": "success",
-            "query": q,
-            "results": [
-                {"branch": "Downtown Flagship Branch", "address": "100 Financial Plaza, Suite 100", "distance": "0.4 mi"},
-                {"branch": "Westside Community Office", "address": "842 Valley Blvd", "distance": "2.1 mi"},
-            ],
-        }
+    # Benign search query -> Level 2 -> IGNORE policy tier
+    alert = SiemAlert(
+        id=f"bank-search-{uuid4().hex[:8]}",
+        rule_id=RuleId(100012),
+        level=2,
+        description="Online Banking: Standard Branch & Transaction Search Query",
+        mitre=None,
+        agent_id=AgentId("srv-bank-web01"),
+        agent_name="bank-web-frontend-01",
+        full_log=f"INFO: Benign query '{q}' evaluated for branch locator from {client_ip}.",
+        timestamp=_get_request_timestamp(request),
+        src_ip=client_ip,
+    )
+    await pipeline_runner.process_alert(alert, target_org_id)
+    return {
+        "status": "success",
+        "query": q,
+        "results": [
+            {"branch": "Downtown Flagship Branch", "address": "100 Financial Plaza, Suite 100", "distance": "0.4 mi"},
+            {"branch": "Westside Community Office", "address": "842 Valley Blvd", "distance": "2.1 mi"},
+        ],
+    }
 
 
 @bank_router.get("/api/admin/treasury-keys")
@@ -641,6 +644,7 @@ async def get_bank_treasury_keys(
         agent_name="bank-core-ledger-01",
         full_log=f"HONEYTOKEN TRIPWIRE: Client {client_ip} fetched fake FedWire secret key FEDWIRE_CANARY_TOKEN_9941 and SWIFT clearing keys from /bank/api/admin/treasury-keys",
         timestamp=_get_request_timestamp(request),
+        src_ip=client_ip,
     )
     await pipeline_runner.process_alert(alert, target_org_id)
 
@@ -680,6 +684,7 @@ async def export_decoy_customers(
         agent_name="bank-core-ledger-01",
         full_log=f"HONEYTOKEN TRIPWIRE: Client {client_ip} downloaded decoy customer financial table containing 3 synthetic SSNs and account balances from /bank/api/customers/export",
         timestamp=_get_request_timestamp(request),
+        src_ip=client_ip,
     )
     await pipeline_runner.process_alert(alert, target_org_id)
 

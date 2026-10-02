@@ -4,9 +4,9 @@ Runs independently on port 8080 to host the Opposer Red Team Dashboard.
 Does not import or touch any product code in terminus.
 """
 
-from pathlib import Path
-from http.server import HTTPServer, SimpleHTTPRequestHandler
 import sys
+from http.server import HTTPServer, SimpleHTTPRequestHandler
+from pathlib import Path
 
 
 class OpposerHandler(SimpleHTTPRequestHandler):
@@ -27,7 +27,7 @@ def main():
     server_address = ("0.0.0.0", port)
     httpd = HTTPServer(server_address, OpposerHandler)
     print(f"[+] Terminus Opposer Standalone Suite listening at http://localhost:{port}")
-    print(f"[+] Point your target URL to your Ngrok tunnel or honeypot endpoint.")
+    print("[+] Point your target URL to your Ngrok tunnel or honeypot endpoint.")
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import sys
 import time
+
 import httpx2
 
 if sys.platform == "win32":

@@ -291,6 +291,8 @@ async def list_incidents(
 
 class IncidentActionRequest(BaseModel):
     action_type: Literal["close_ticket", "reopen_ticket", "start_investigation", "isolate_host", "block_ip", "run_playbook"] = Field(description="Action to execute: isolate_host, block_ip, run_playbook, close_ticket")
+    resolution_category: Literal["true_positive", "false_positive", "benign_activity", "inconclusive"] | None = None
+    resolution_notes: str | None = Field(default=None, max_length=4000)
 
 
 @webhook_router.post("/incidents/{ticket_id}/action", dependencies=[Depends(require_operator)])
@@ -311,6 +313,9 @@ async def execute_incident_action(
     ticket["status"] = statuses[req.action_type]
     ticket["updated_at"] = datetime.now(UTC).isoformat()
     ticket["resolved_at"] = ticket["updated_at"] if req.action_type == "close_ticket" else ""
+    if req.action_type == "close_ticket":
+        ticket["resolution_category"] = req.resolution_category or "inconclusive"
+        ticket["resolution_notes"] = (req.resolution_notes or "").strip()
     return {"status": "success", "ticket": ticket, "message": f"Incident marked {ticket['status'].lower()}"}
 
 
@@ -550,8 +555,9 @@ async def get_decoy_vault_secrets(
 
     Accessing this endpoint triggers a critical Canary Token alert in the Terminus pipeline.
     """
-    from datetime import datetime, UTC
+    from datetime import UTC, datetime
     from uuid import uuid4
+
     from terminus.core.ids import AgentId, OrgId, RuleId
     from terminus.models import SiemAlert
 
@@ -573,6 +579,7 @@ async def get_decoy_vault_secrets(
         agent_name="internal-vault-db01",
         full_log=f"HONEYTOKEN TRIPWIRE: Client {client_ip} fetched fake AWS key AKIA_CANARY_HONEYTOKEN_9941_REDTEAM and postgres connection URI from /decoy/vault-secrets",
         timestamp=request.headers.get("X-Simulated-Time", datetime.now(UTC).isoformat()),
+        src_ip=client_ip,
     )
     await pipeline_runner.process_alert(alert, target_org_id)
 
@@ -599,8 +606,9 @@ async def get_decoy_customer_pii(
 
     Accessing this endpoint triggers a critical Exfiltration alert in the Terminus pipeline.
     """
-    from datetime import datetime, UTC
+    from datetime import UTC, datetime
     from uuid import uuid4
+
     from terminus.core.ids import AgentId, OrgId, RuleId
     from terminus.models import SiemAlert
 
@@ -622,6 +630,7 @@ async def get_decoy_customer_pii(
         agent_name="internal-vault-db01",
         full_log=f"HONEYTOKEN TRIPWIRE: Client {client_ip} dumped synthetic customer PII table containing 2 decoy customer SSNs and credit card hashes from /decoy/customer-pii",
         timestamp=request.headers.get("X-Simulated-Time", datetime.now(UTC).isoformat()),
+        src_ip=client_ip,
     )
     await pipeline_runner.process_alert(alert, target_org_id)
 

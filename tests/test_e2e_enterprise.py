@@ -338,10 +338,16 @@ def test_threat_ingestion_and_incident_actions(client: TestClient) -> None:
     assert r_inv.json()["ticket"]["status"] == "INVESTIGATING"
 
     # Close Ticket (Resolved)
-    r_close = client.post(f"/incidents/{ticket_id}/action", headers=headers, json={"action_type": "close_ticket"})
+    r_close = client.post(f"/incidents/{ticket_id}/action", headers=headers, json={
+        "action_type": "close_ticket", "resolution_category": "true_positive",
+        "resolution_notes": "Confirmed malicious lookup in application logs.",
+    })
     assert r_close.status_code == 200
     assert r_close.json()["ticket"]["status"] == "RESOLVED"
     assert r_close.json()["ticket"]["resolved_at"] != ""
+    assert r_close.json()["ticket"]["resolution_category"] == "true_positive"
+    assert r_close.json()["ticket"]["resolution_notes"] == "Confirmed malicious lookup in application logs."
+    assert client.get(f"/incidents/{ticket_id}", headers=headers).json()["resolution_notes"] == "Confirmed malicious lookup in application logs."
 
     # Reopen Ticket
     r_reopen = client.post(f"/incidents/{ticket_id}/action", headers=headers, json={"action_type": "reopen_ticket"})

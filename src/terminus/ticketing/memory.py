@@ -49,6 +49,11 @@ class MemoryTickets(TicketStore):
             "id": ticket_id,
             "org_id": org_id,
             "alert_id": alert.id,
+            "rule_id": alert.rule_id,
+            "mitre": alert.mitre,
+            "agent_id": alert.agent_id,
+            "source_ip": alert.src_ip,
+            "source_location": alert.location,
             "rule_description": alert.rule_description,
             "severity": report.verdict.severity.value,
             "confidence": report.verdict.confidence.value,
@@ -66,9 +71,13 @@ class MemoryTickets(TicketStore):
             "threat_intel_score": threat_intel_score,
             "time_to_decision_sec": None,
             "mitigation_status": "NOT_EXECUTED",
+            "campaign_id": report.campaign_id,
+            "campaign_alert_count": report.campaign_alert_count,
             "timestamp": alert.timestamp,
             "created_at": alert.timestamp or datetime.now(UTC).isoformat(),
             "resolved_at": "",
+            "resolution_category": None,
+            "resolution_notes": "",
         }
         with self._lock:
             self._tickets[(org_id, ticket_id)] = ticket_data

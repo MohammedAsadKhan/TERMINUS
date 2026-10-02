@@ -1,9 +1,9 @@
 """Red Team Adversary Emulation & High-Velocity Stress Testing Suite for TERMINUS.
 
 This tool demonstrates:
-1. High-throughput volumetric stress testing (evaluating sub-millisecond deterministic policy filtering).
+1. High-throughput volumetric stress testing of the local HTTP pipeline.
 2. Multi-stage APT campaign emulation targeting decoy sensitive assets (honeytokens, canary AWS keys, synthetic PII).
-3. Autonomous multi-agent interception and forensic verdict verification.
+3. Inspection of generated incidents and forensic verdicts.
 
 Usage:
     uv run python scripts/redteam_stress.py --mode campaign
@@ -165,7 +165,7 @@ class RedTeamRunner:
                 print(f"    Total Incidents: {rep.get('metrics', {}).get('total_incidents')}")
                 print(f"    Critical Incidents: {rep.get('metrics', {}).get('critical_incidents')}")
 
-        print("\n[OK] Adversary campaign emulation completed successfully. All threats intercepted!")
+        print("\n[OK] Adversary campaign emulation completed. Review incident evidence and mitigation status before claiming interception.")
 
     async def run_stress_test(self, total_requests: int = 200, concurrency: int = 20) -> None:
         """Stress test the pipeline with high-throughput concurrent alert streams."""
@@ -188,7 +188,7 @@ class RedTeamRunner:
                     "full_log": f"ICMP echo request from 10.0.0.{idx % 255}",
                     "timestamp": datetime.now(UTC).isoformat(),
                 }
-            elif mod < 9:
+            if mod < 9:
                 # Medium triage
                 return {
                     "id": f"stress-triage-{idx}-{uuid4().hex[:4]}",
@@ -197,15 +197,14 @@ class RedTeamRunner:
                     "full_log": f"sshd: Failed password for root from 192.0.2.{idx % 255}",
                     "timestamp": datetime.now(UTC).isoformat(),
                 }
-            else:
-                # High / Critical attack
-                return {
-                    "id": f"stress-crit-{idx}-{uuid4().hex[:4]}",
-                    "rule": {"id": 100099, "level": 15, "description": "Honeytoken / Canary Credential Access (T1552)", "mitre": {"id": "T1552"}},
-                    "agent": {"id": f"agent-{host}", "name": host},
-                    "full_log": f"Canary token AKIA_CANARY_HONEYTOKEN_9941_REDTEAM triggered by source 203.0.113.{idx % 255}",
-                    "timestamp": datetime.now(UTC).isoformat(),
-                }
+            # High / Critical attack
+            return {
+                "id": f"stress-crit-{idx}-{uuid4().hex[:4]}",
+                "rule": {"id": 100099, "level": 15, "description": "Honeytoken / Canary Credential Access (T1552)", "mitre": {"id": "T1552"}},
+                "agent": {"id": f"agent-{host}", "name": host},
+                "full_log": f"Canary token AKIA_CANARY_HONEYTOKEN_9941_REDTEAM triggered by source 203.0.113.{idx % 255}",
+                "timestamp": datetime.now(UTC).isoformat(),
+            }
 
         alerts = [generate_alert(i) for i in range(total_requests)]
         latencies: list[float] = []
@@ -265,7 +264,7 @@ class RedTeamRunner:
         print(f"  * IGNORE (Filtered Noise): {policies.get('ignore', 0)} ({policies.get('ignore', 0)/total_requests*100:.1f}%)")
         print(f"  * TRIAGE (Logged Threat):  {policies.get('triage', 0)} ({policies.get('triage', 0)/total_requests*100:.1f}%)")
         print(f"  * ESCALATE (AI Agent SOC): {policies.get('escalate', 0)} ({policies.get('escalate', 0)/total_requests*100:.1f}%)")
-        print("[OK] Stress test completed with 100% thread safety and zero queue drops!")
+        print(f"[OK] Stress dispatch completed: {success_count}/{total_requests} HTTP 200 responses. Compare incident records to submitted alerts to assess queue completeness.")
 
 
 def main() -> None:

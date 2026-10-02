@@ -17,10 +17,9 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-from datetime import UTC, datetime, timedelta
 import random
-import sys
 import time
+from datetime import UTC, datetime, timedelta
 
 import httpx2 as httpx
 
@@ -70,7 +69,7 @@ async def run_simulation(live_mode: bool = False, live_duration: int = 60) -> No
             {"offset": 240, "method": "GET", "path": "/bank/", "body": None, "desc": "Customer browses retail banking homepage", "expected": "Benign Web Traffic"},
             # T - 225s: Customer checks auto loan rates
             {"offset": 225, "method": "GET", "path": "/bank/api/search?q=auto+loan+rates", "body": None, "desc": "Customer queries auto loan rates", "expected": "IGNORE (Level 2)"},
-            
+
             # T - 200s: External adversary begins brute-force probe
             {"offset": 200, "method": "POST", "path": "/bank/api/login", "body": {"username": "corporate_treasury_admin", "password": "Password123!"}, "desc": "Adversary probes 'corporate_treasury_admin' with default password", "expected": "TRIAGE (Level 7 Anomaly)"},
             # T - 185s: Adversary tries root login
@@ -79,14 +78,14 @@ async def run_simulation(live_mode: bool = False, live_duration: int = 60) -> No
             {"offset": 170, "method": "POST", "path": "/bank/api/login", "body": {"username": "customer", "password": "password"}, "desc": "Customer 'customer' logs into personal portal", "expected": "IGNORE (Level 2)"},
             # T - 155s: Customer executes utility bill payment transfer
             {"offset": 155, "method": "POST", "path": "/bank/api/transfer", "body": {"to_account": "1042", "amount": 142.10}, "desc": "Customer executes $142.10 utility transfer", "expected": "IGNORE (Level 3)"},
-            
+
             # T - 130s: Adversary attempts SQL Injection on account search
             {"offset": 130, "method": "GET", "path": "/bank/api/search?q=' OR '1'='1' --", "body": None, "desc": "Adversary injects SQLi auth-bypass into search parameter", "expected": "ESCALATE (Level 12 Exploit / MITRE T1190)"},
             # T - 110s: Adversary probes second SQLi payload
             {"offset": 110, "method": "GET", "path": "/bank/api/search?q=UNION SELECT username, password_hash FROM bank_users --", "body": None, "desc": "Adversary injects UNION SELECT credential dump payload", "expected": "ESCALATE (Level 12 Exploit / MITRE T1190)"},
             # T - 90s: Normal customer searches hours
             {"offset": 90, "method": "GET", "path": "/bank/api/search?q=weekend+teller+hours", "body": None, "desc": "Customer queries weekend teller hours", "expected": "IGNORE (Level 2)"},
-            
+
             # T - 70s: Adversary discovers and breaches Decoy Treasury Vault
             {"offset": 70, "method": "GET", "path": "/bank/api/admin/treasury-keys", "body": None, "desc": "Adversary breaches Decoy Treasury Vault & steals FedWire canary key", "expected": "ESCALATE (Level 15 Canary Breach / MITRE T1552)"},
             # T - 45s: Normal customer executes saving deposit transfer
@@ -106,12 +105,12 @@ async def run_simulation(live_mode: bool = False, live_duration: int = 60) -> No
             for ev in timeline_events:
                 event_time = now - timedelta(seconds=ev["offset"])
                 req_headers = {**headers, "X-Simulated-Time": event_time.isoformat()}
-                
+
                 if ev["method"] == "POST":
                     r = await client.post(ev["path"], headers=req_headers, json=ev["body"])
                 else:
                     r = await client.get(ev["path"], headers=req_headers)
-                
+
                 time_str = event_time.strftime("%H:%M:%S")
                 offset_str = f"T - {ev['offset']:03d}s"
                 print(f"  [{time_str} | {offset_str}] {ev['desc']}")

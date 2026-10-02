@@ -1,4 +1,4 @@
-"""FastAPI application factory and server entrypoint."""
+"""FastAPI application factory and server entrypoint for TERMINUS 2.0."""
 
 from __future__ import annotations
 
@@ -19,7 +19,9 @@ from terminus.models import ReportType
 from terminus.reports.service import generate_daily_report
 from terminus.server.bank_router import bank_router
 from terminus.server.console_api import router as console_router
+from terminus.server.copilot import copilot_router, global_copilot_router
 from terminus.server.deps import get_org_store, get_pipeline_runner, get_reports_store
+from terminus.server.graph import graph_router
 from terminus.server.routers import (
     agent_router,
     auth_router,
@@ -30,6 +32,7 @@ from terminus.server.routers import (
     webhook_router,
     workflow_router,
 )
+from terminus.server.streaming import streaming_router
 
 
 async def _daily_report_scheduler_task() -> None:
@@ -51,9 +54,6 @@ async def _daily_report_scheduler_task() -> None:
                 if org.org_id not in reports_store:
                     reports_store[org.org_id] = {}
                 reports_store[org.org_id][report.id] = report
-                print(
-                    f"[Scheduler] Automatically produced 24h Daily Incident Report '{report.id}' for org {org.org_id}"
-                )
         except asyncio.CancelledError:
             break
         except Exception as e:
@@ -70,7 +70,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     task = asyncio.create_task(_daily_report_scheduler_task())
     yield
     task.cancel()
-    await task
+    try:
+        await task
+    except asyncio.CancelledError:
+        pass
     print("Terminus platform shutting down.")
 
 
@@ -79,13 +82,13 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="Terminus — Agentic SOC Platform",
         description="Multi-tenant commercial AI SOC engine for Wazuh SIEM.",
-        version="0.1.0",
+        version="0.2.0",
         lifespan=lifespan,
     )
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[],
+        allow_origins=["*"],
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -110,6 +113,7 @@ def create_app() -> FastAPI:
             if (
                 request.url.path not in {"/auth/login", "/auth/register"}
                 and not request.url.path.startswith("/bank")
+                and not request.url.path.startswith("/stream")
                 and request.cookies.get("terminus_session")
                 and not request.headers.get("Authorization")
                 and not request.headers.get("X-Session-Token")
@@ -134,13 +138,19 @@ def create_app() -> FastAPI:
     app.include_router(report_router)
     app.include_router(decoy_router)
     app.include_router(bank_router)
+    app.include_router(streaming_router)
+    app.include_router(copilot_router)
+    app.include_router(global_copilot_router)
+    app.include_router(graph_router)
 
     return app
 
 
+app = create_app()
+
+
 def main() -> None:
     """CLI entry point for terminus-serve command."""
-    app = create_app()
     settings = get_settings()
     uvicorn.run(app, host=settings.host, port=settings.port)
 

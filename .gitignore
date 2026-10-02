@@ -36,6 +36,7 @@ Thumbs.db
 
 # runtime
 data/tickets.json
+terminus.db*
 *.log
 .omo/
 .codegraph/

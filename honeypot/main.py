@@ -7,12 +7,12 @@ detects threat vectors in real time, and sends actual SIEM alerts to Terminus (p
 
 from __future__ import annotations
 
-from http.server import HTTPServer, BaseHTTPRequestHandler
 import json
 import re
 import sys
 import time
 import urllib.request
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
 AGENT_SOC_WEBHOOK = "http://localhost:8000/wazuh"
 ORG_ID = "org-00000001"

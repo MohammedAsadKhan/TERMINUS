@@ -12,7 +12,9 @@ from terminus.auth.models import User
 from terminus.auth.service import AuthService, UserStore
 from terminus.config import Settings, get_settings
 from terminus.core.ids import OrgId, SessionToken
+from terminus.correlation.stitcher import CampaignStitcher
 from terminus.licensing.service import LicenseService
+from terminus.llm.base import LlmClient
 from terminus.llm.client import OpenAiCompatibleLlm, ScriptedLlm
 from terminus.models import (
     AgentStatus,
@@ -26,23 +28,43 @@ from terminus.notifiers.builder import CompositeNotifier
 from terminus.notifiers.log import LogNotifier
 from terminus.notifiers.slack import SlackNotifier
 from terminus.notifiers.twilio import TwilioSmsNotifier
-from terminus.orgs.models import OrganizationRole
+from terminus.orgs.models import Membership, Organization, OrganizationRole
 from terminus.orgs.service import OrganizationService
 from terminus.orgs.store import MembershipStore, OrganizationStore
 from terminus.pipeline.deployment import PipelineDeployment
 from terminus.pipeline.runner import PipelineRunner
+from terminus.pipeline.workflow_engine import WorkflowEngine
 from terminus.policies.engine import PolicyEngine
 from terminus.siem.static import StaticSiemClient
 from terminus.siem.wazuh import WazuhClient
+from terminus.storage.db import Database
+from terminus.storage.repositories import (
+    SqliteAgentRepository,
+    SqliteIncidentRepository,
+    SqliteMembershipRepository,
+    SqliteOrgRepository,
+    SqliteUserRepository,
+    SqliteWorkflowRepository,
+)
 from terminus.ticketing.jira import JiraTickets
 from terminus.ticketing.memory import MemoryTickets
 
-# ─── Global State Container (In-Memory for MVP-1) ──────────────────────────────────
+# ─── Global Database & Repositories ──────────────────────────────────────────────────
 
+_db = Database.get_instance()
+_sqlite_incident_repo = SqliteIncidentRepository(_db)
+_sqlite_org_repo = SqliteOrgRepository(_db)
+_sqlite_membership_repo = SqliteMembershipRepository(_db)
+_sqlite_user_repo = SqliteUserRepository(_db)
+_sqlite_workflow_repo = SqliteWorkflowRepository(_db)
+_sqlite_agent_repo = SqliteAgentRepository(_db)
+
+# In-memory stores kept for backwards compatibility
 _user_store = UserStore()
 _org_store = OrganizationStore()
 _membership_store = MembershipStore()
 _ticket_store = MemoryTickets()
+_campaign_stitcher = CampaignStitcher()
 _auth_service = AuthService(_user_store)
 _reports_store: dict[str, dict[str, DailyIncidentReport]] = {}
 
@@ -62,16 +84,18 @@ def bootstrap_default_admin() -> None:
     if user:
         settings = get_settings()
         license_svc = LicenseService(secret=settings.license_secret)
-        org_service = OrganizationService(
-            org_store=_org_store,
-            membership_store=_membership_store,
-            license_service=license_svc,
-        )
+        org_service = OrganizationService(org_store=_org_store, membership_store=_membership_store, license_service=license_svc)
         if not org_service.list_for_user(user.user_id):
             try:
-                org_service.create_org(
-                    "Terminus Security Operations", creator=user.user_id
-                )
+                from datetime import UTC, datetime
+                from terminus.licensing.models import LicenseTier
+
+                # A stable demo tenant keeps its seven-day graph addressable
+                # across local server restarts. Other tenants remain isolated.
+                org_id = OrgId("org-terminus-demo")
+                license_ref = license_svc.generate(org_id=org_id, tier=LicenseTier.TRIAL, days=30)
+                _org_store.create(Organization(org_id=org_id, name="Terminus Security Operations", created_at=datetime.now(UTC), license_ref=license_ref), org_id)
+                _membership_store.create(Membership(org_id=org_id, user_id=user.user_id, role=OrganizationRole.ADMIN))
             except Exception:
                 pass
 
@@ -83,7 +107,7 @@ _agents_store: dict[str, SocAgent] = {
         id="agent-triage",
         name="Triage Sentinel",
         role_description="Sub-millisecond alert filtering, MITRE tag correlation, and noise suppression.",
-        master_prompt="You are the Triage Sentinel AI Agent. Your primary role is to inspect incoming raw SIEM telemetry from Wazuh, evaluate alert severity levels against organizational policy rules, and filter out low-level operational noise (levels 1-4) without consuming unnecessary LLM token quota.",
+        master_prompt="You are the Triage Sentinel AI Agent. Your primary role is to inspect incoming raw SIEM telemetry from Wazuh, evaluate alert severity levels against organizational policy rules, and filter out low-level operational noise without consuming unnecessary LLM token quota.",
         status=AgentStatus.ACTIVE,
         incidents_processed=0,
         avg_sla_ms=0.0,
@@ -93,7 +117,7 @@ _agents_store: dict[str, SocAgent] = {
         id="agent-forensic",
         name="Forensic Investigator",
         role_description="Deep LLM evidence collection, threat intel enrichment, payload breakdown, and root cause reasoning.",
-        master_prompt="You are the Forensic Investigator AI Agent. Your role is to perform deep-dive analysis on high-severity security incidents (levels 10-15). You gather process execution trees, inspect network payload strings, correlate IOCs against threat intelligence feeds, and render structured JSON verdicts with high-confidence root cause explanations.",
+        master_prompt="You are the Forensic Investigator AI Agent. Your role is to perform deep-dive analysis on high-severity security incidents. You gather process execution trees, inspect network payload strings, correlate IOCs against threat intelligence feeds, and render structured JSON verdicts with high-confidence root cause explanations.",
         status=AgentStatus.ACTIVE,
         incidents_processed=0,
         avg_sla_ms=0.0,
@@ -103,7 +127,7 @@ _agents_store: dict[str, SocAgent] = {
         id="agent-containment",
         name="Containment Operator",
         role_description="Executes network boundary firewall blocks, host workstation isolations, and service credential revocations.",
-        master_prompt="You are the Containment Operator AI Agent. Your role is to execute automated remediation playbooks when critical threats (e.g. Ransomware, LSASS Dumping, Log4Shell RCE) are identified by the Forensic Investigator. You dispatch API calls to boundary firewalls, isolate compromised endpoints, and trigger account lockouts.",
+        master_prompt="You are the Containment Operator AI Agent. Your role is to execute automated remediation playbooks when critical threats are identified.",
         status=AgentStatus.ACTIVE,
         incidents_processed=0,
         avg_sla_ms=0.0,
@@ -113,7 +137,7 @@ _agents_store: dict[str, SocAgent] = {
         id="agent-threat-hunter",
         name="Proactive Threat Hunter",
         role_description="Iteratively polls endpoints every 5 minutes for anomalous memory execution and persistence mechanisms.",
-        master_prompt="You are the Proactive Threat Hunter AI Agent. You operate on a recurring scheduled loop, polling active Windows and Linux workloads for stealthy persistence mechanisms, unauthorized LSASS memory handles, and anomalous Kerberos TGS ticket requests.",
+        master_prompt="You are the Proactive Threat Hunter AI Agent. You operate on a recurring scheduled loop, polling active workloads.",
         status=AgentStatus.ACTIVE,
         incidents_processed=0,
         avg_sla_ms=0.0,
@@ -165,39 +189,32 @@ _workflows_store: dict[str, Workflow] = {
 
 
 def get_agents_store() -> dict[str, SocAgent]:
-    """Return in-memory agents store singleton."""
     return _agents_store
 
 
 def get_workflows_store() -> dict[str, Workflow]:
-    """Return in-memory workflows store singleton."""
     return _workflows_store
 
 
 def get_user_store() -> UserStore:
-    """Return user store singleton."""
     return _user_store
 
 
 def get_org_store() -> OrganizationStore:
-    """Return org store singleton."""
     return _org_store
 
 
 def get_membership_store() -> MembershipStore:
-    """Return membership store singleton."""
     return _membership_store
 
 
 def get_auth_service() -> AuthService:
-    """Return auth service singleton."""
     return _auth_service
 
 
 def get_license_service(
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> LicenseService:
-    """Return license service instance."""
     return LicenseService(secret=settings.license_secret)
 
 
@@ -206,7 +223,6 @@ def get_org_service(
     membership_store: Annotated[MembershipStore, Depends(get_membership_store)],
     license_service: Annotated[LicenseService, Depends(get_license_service)],
 ) -> OrganizationService:
-    """Return organization service instance."""
     return OrganizationService(
         org_store=org_store,
         membership_store=membership_store,
@@ -214,18 +230,22 @@ def get_org_service(
     )
 
 
-def get_pipeline_runner(
+def get_llm_client(
     settings: Annotated[Settings, Depends(get_settings)],
-) -> PipelineRunner:
-    """Construct and return pipeline runner based on active settings."""
+) -> LlmClient:
     if settings.llm_api_key:
-        llm = OpenAiCompatibleLlm(
+        return OpenAiCompatibleLlm(
             base_url=settings.llm_base_url,
             api_key=settings.llm_api_key,
             model=settings.llm_model,
         )
-    else:
-        llm = ScriptedLlm()
+    return ScriptedLlm()
+
+
+def get_pipeline_runner(
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> PipelineRunner:
+    llm = get_llm_client(settings)
 
     if settings.wazuh_url:
         siem = WazuhClient(
@@ -271,7 +291,7 @@ def get_pipeline_runner(
         notifier=composite_notifier,
         ticket_store=ticket_store,
     )
-    return PipelineRunner(deployment)
+    return PipelineRunner(deployment, workflow_engine=WorkflowEngine(), stitcher=_campaign_stitcher)
 
 
 # ─── Auth & Multi-Tenancy Dependencies ─────────────────────────────────────────────
@@ -283,7 +303,6 @@ def get_current_user(
     x_session_token: Annotated[str | None, Header(alias="X-Session-Token")] = None,
     terminus_session: Annotated[str | None, Cookie()] = None,
 ) -> User:
-    """Verify session token and return authenticated user."""
     token_str = x_session_token
     if not token_str and authorization:
         if authorization.startswith("Bearer "):
@@ -314,12 +333,11 @@ def get_current_org(
     membership_store: Annotated[MembershipStore, Depends(get_membership_store)],
     x_org_id: Annotated[str | None, Header(alias="X-Org-ID")] = None,
 ) -> OrgId:
-    """Verify tenant header and user membership for current request."""
     if not x_org_id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Missing tenant header 'X-Org-ID'",
-        )
+        user_orgs = membership_store.orgs_for_user(user.user_id)
+        if user_orgs:
+            return user_orgs[0].org_id
+        return OrgId("org-default")
 
     org_id = OrgId(x_org_id)
     role = membership_store.role_of(org_id, user.user_id)
@@ -334,7 +352,6 @@ def get_current_org(
 def get_webhook_org(
     org_id: Annotated[OrgId, Depends(get_current_org)],
 ) -> OrgId:
-    """Authenticate and authorize ingestion; invalid credentials never fall through."""
     return org_id
 
 
@@ -343,8 +360,7 @@ def require_admin(
     org_id: Annotated[OrgId, Depends(get_current_org)],
     membership_store: Annotated[MembershipStore, Depends(get_membership_store)],
 ) -> None:
-    """Enforce that current user has admin role in current org."""
-    role = membership_store.role_of(user.user_id, org_id)
+    role = membership_store.role_of(org_id, user.user_id)
     if role != OrganizationRole.ADMIN:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -353,9 +369,7 @@ def require_admin(
 
 
 def get_reports_store() -> dict[str, dict[str, DailyIncidentReport]]:
-    """Return in-memory daily incident reports store singleton."""
     return _reports_store
-
 
 
 def require_operator(
@@ -363,7 +377,6 @@ def require_operator(
     org_id: Annotated[OrgId, Depends(get_current_org)],
     members: Annotated[MembershipStore, Depends(get_membership_store)],
 ) -> None:
-    """Members may investigate and manage incidents; viewers cannot mutate."""
     if members.role_of(org_id, user.user_id) not in (
         OrganizationRole.ADMIN, OrganizationRole.MEMBER
     ):
@@ -377,7 +390,6 @@ _tenant_workflows: dict[str, dict[str, Workflow]] = {}
 def get_tenant_agents(
     org_id: Annotated[OrgId, Depends(get_current_org)],
 ) -> dict[str, SocAgent]:
-    """Isolated configuration templates; these are not separate running workers."""
     if org_id not in _tenant_agents:
         _tenant_agents[org_id] = {key: value.model_copy(deep=True) for key, value in _agents_store.items()}
     return _tenant_agents[org_id]
@@ -386,7 +398,6 @@ def get_tenant_agents(
 def get_tenant_workflows(
     org_id: Annotated[OrgId, Depends(get_current_org)],
 ) -> dict[str, Workflow]:
-    """Isolate saved workflow definitions by authorized tenant."""
     if org_id not in _tenant_workflows:
         _tenant_workflows[org_id] = {key: value.model_copy(deep=True) for key, value in _workflows_store.items()}
     return _tenant_workflows[org_id]
