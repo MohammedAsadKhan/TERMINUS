@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
-import { App, Alert, Avatar, Button, Dropdown, Form, Input, Modal, Select, Spin, Tag } from 'antd';
-import { ApartmentOutlined, ArrowRightOutlined, DashboardOutlined, FileTextOutlined, LogoutOutlined, MessageOutlined, PlusOutlined, SafetyCertificateOutlined, SettingOutlined, ThunderboltOutlined, UserOutlined } from '@ant-design/icons';
+import { App, Alert, Avatar, Button, Dropdown, Form, Input, Modal, Spin, Tag } from 'antd';
+import { ApartmentOutlined, ArrowRightOutlined, CheckOutlined, DashboardOutlined, DownOutlined, FileTextOutlined, LogoutOutlined, MessageOutlined, PlusOutlined, SafetyCertificateOutlined, SettingOutlined, ThunderboltOutlined, UserOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { api, body } from './api';
@@ -136,7 +136,9 @@ export function ConsoleApp() {
   ];
   const topTabs = navigation.flatMap(group => group.items);
 
-  return (
+    const currentOrg = orgs.data?.find(o => o.org_id === orgId)?.name || detail.data?.organization.name || 'Workspace';
+
+    return (
     <SessionContext.Provider value={{ user: user.data, orgId, detail: detail.data, system: system.data }}>
       <CopilotProvider orgId={orgId}>
       <div className="hud-layout top-layout">
@@ -146,45 +148,63 @@ export function ConsoleApp() {
             <button className="topbar-brand" onClick={() => navigate('/')} aria-label="Terminus overview"><Brand /></button>
             <div className="hud-right-stats">
               <span className="header-connection"><i className={`engine-light ${system.data ? 'online' : ''}`} />{system.data ? 'Connected' : 'Checking'}</span>
-              <div className="header-profile-cluster">
-                <Dropdown
-                  menu={{
-                    items: [
-                      { key: 'account', label: `Signed in as ${user.data.display_name}`, disabled: true },
-                      { key: 'switch', label: 'Switch Organization', children: orgs.data?.map(o => ({ key: o.org_id, label: o.name, onClick: () => switchOrg(o.org_id) })) },
-                      { key: 'new_org', label: 'Create organization', icon: <PlusOutlined />, onClick: () => setCreateOpen(true) },
-                      { key: 'settings', label: 'Platform Settings', icon: <SettingOutlined />, onClick: () => navigate('/settings') },
-                      { type: 'divider' },
-                      { key: 'logout', label: 'Sign out', icon: <LogoutOutlined />, onClick: () => void logout() },
-                    ],
-                  }}
-                  trigger={['click']}
-                >
-                  <button className="account-trigger" aria-label="Account menu">
-                    <Avatar shape="square" size={24}>{user.data.display_name[0]?.toUpperCase()}</Avatar>
-                    <span className="account-meta">
-                      <strong>{user.data.display_name}</strong>
-                      <small>{detail.data?.role?.toUpperCase() || 'ADMIN'}</small>
-                    </span>
-                  </button>
-                </Dropdown>
-                <div className="header-org-selector">
-                  <Select
-                    size="small"
-                    aria-label="Active organization"
-                    value={orgId || undefined}
-                    placeholder="Select organization"
-                    options={orgs.data?.map(org => ({ value: org.org_id, label: org.name }))}
-                    onChange={switchOrg}
-                  />
-                  <Button
-                    size="small"
-                    aria-label="Create organization"
-                    icon={<PlusOutlined />}
-                    onClick={() => setCreateOpen(true)}
-                  />
-                </div>
-              </div>
+              <Dropdown
+                menu={{
+                  items: [
+                    {
+                      key: 'profile-header',
+                      label: (
+                        <div style={{ padding: '4px 0' }}>
+                          <div style={{ fontWeight: 600, color: 'var(--ink)', fontSize: 12.5 }}>{user.data.display_name}</div>
+                          <div style={{ fontSize: 10.5, color: 'var(--subtle)' }}>{user.data.email} · {detail.data?.role?.toUpperCase() || 'ANALYST'}</div>
+                        </div>
+                      ),
+                      disabled: true,
+                    },
+                    { type: 'divider' },
+                    {
+                      key: 'active-org-header',
+                      label: (
+                        <div style={{ padding: '2px 0' }}>
+                          <div style={{ fontSize: 9.5, letterSpacing: '0.06em', color: 'var(--subtle)', fontWeight: 600 }}>CURRENT WORKSPACE</div>
+                          <div style={{ fontWeight: 600, color: 'var(--accent)', marginTop: 2, fontSize: 12 }}>{currentOrg}</div>
+                        </div>
+                      ),
+                      disabled: true,
+                    },
+                    {
+                      key: 'switch',
+                      label: 'Switch Organization',
+                      children: orgs.data?.map(o => ({
+                        key: o.org_id,
+                        label: (
+                          <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+                            <span>{o.name}</span>
+                            {o.org_id === orgId && <CheckOutlined style={{ color: 'var(--accent)', fontSize: 11 }} />}
+                          </span>
+                        ),
+                        onClick: () => switchOrg(o.org_id),
+                      })),
+                    },
+                    { key: 'new_org', label: 'Create organization', icon: <PlusOutlined />, onClick: () => setCreateOpen(true) },
+                    { type: 'divider' },
+                    { key: 'org_settings', label: 'Organization & Team', icon: <UserOutlined />, onClick: () => navigate('/organization') },
+                    { key: 'settings', label: 'Platform Settings', icon: <SettingOutlined />, onClick: () => navigate('/settings') },
+                    { type: 'divider' },
+                    { key: 'logout', label: 'Sign out', icon: <LogoutOutlined />, danger: true, onClick: () => void logout() },
+                  ],
+                }}
+                trigger={['click']}
+                placement="bottomRight"
+              >
+                <button className="unified-profile-pill" aria-label="Account and organization menu">
+                  <Avatar shape="square" size={22} className="profile-pill-avatar">{user.data.display_name[0]?.toUpperCase()}</Avatar>
+                  <span className="profile-pill-user">{user.data.display_name}</span>
+                  <span className="profile-pill-divider">/</span>
+                  <span className="profile-pill-org">{currentOrg}</span>
+                  <DownOutlined className="profile-pill-chevron" />
+                </button>
+              </Dropdown>
             </div>
           </div>
           <nav className="top-tabs" aria-label="Main navigation">{topTabs.map(item => <button key={item.key} type="button" className={`top-tab ${currentPath === item.key ? 'active' : ''}`} aria-current={currentPath === item.key ? 'page' : undefined} onClick={() => navigate(item.key)}>{item.icon}<span>{item.label}</span></button>)}</nav>
