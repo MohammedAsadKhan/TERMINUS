@@ -144,25 +144,48 @@ export function ConsoleApp() {
         <header className="console-topbar">
           <div className="console-topbar-main">
             <button className="topbar-brand" onClick={() => navigate('/')} aria-label="Terminus overview"><Brand /></button>
-            <div className="topbar-workspace"><Select aria-label="Active organization" value={orgId || undefined} placeholder="Select organization" options={orgs.data?.map(org => ({ value: org.org_id, label: org.name }))} onChange={switchOrg} /><Button aria-label="Create organization" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)} /></div>
-          <div className="hud-right-stats">
-            <span className="header-connection"><i className={`engine-light ${system.data ? 'online' : ''}`} />{system.data ? 'Connected' : 'Checking'}</span>
-            <Dropdown
-              menu={{
-                items: [
-                  { key: 'account', label: `Signed in as ${user.data.display_name}`, disabled: true },
-                  { key: 'switch', label: 'Switch Organization', children: orgs.data?.map(o => ({ key: o.org_id, label: o.name, onClick: () => switchOrg(o.org_id) })) },
-                  { key: 'new_org', label: 'Create organization', icon: <PlusOutlined />, onClick: () => setCreateOpen(true) },
-                  { key: 'settings', label: 'Platform Settings', icon: <SettingOutlined />, onClick: () => navigate('/settings') },
-                  { type: 'divider' },
-                  { key: 'logout', label: 'Sign out', icon: <LogoutOutlined />, onClick: () => void logout() },
-                ],
-              }}
-              trigger={['click']}
-            >
-              <button className="account-trigger" aria-label="Account menu"><Avatar shape="square" size={32}>{user.data.display_name[0]?.toUpperCase()}</Avatar><span>{user.data.display_name}<small>{detail.data?.role || 'Account'}</small></span></button>
-            </Dropdown>
-          </div>
+            <div className="hud-right-stats">
+              <span className="header-connection"><i className={`engine-light ${system.data ? 'online' : ''}`} />{system.data ? 'Connected' : 'Checking'}</span>
+              <div className="header-profile-cluster">
+                <Dropdown
+                  menu={{
+                    items: [
+                      { key: 'account', label: `Signed in as ${user.data.display_name}`, disabled: true },
+                      { key: 'switch', label: 'Switch Organization', children: orgs.data?.map(o => ({ key: o.org_id, label: o.name, onClick: () => switchOrg(o.org_id) })) },
+                      { key: 'new_org', label: 'Create organization', icon: <PlusOutlined />, onClick: () => setCreateOpen(true) },
+                      { key: 'settings', label: 'Platform Settings', icon: <SettingOutlined />, onClick: () => navigate('/settings') },
+                      { type: 'divider' },
+                      { key: 'logout', label: 'Sign out', icon: <LogoutOutlined />, onClick: () => void logout() },
+                    ],
+                  }}
+                  trigger={['click']}
+                >
+                  <button className="account-trigger" aria-label="Account menu">
+                    <Avatar shape="square" size={24}>{user.data.display_name[0]?.toUpperCase()}</Avatar>
+                    <span className="account-meta">
+                      <strong>{user.data.display_name}</strong>
+                      <small>{detail.data?.role?.toUpperCase() || 'ADMIN'}</small>
+                    </span>
+                  </button>
+                </Dropdown>
+                <div className="header-org-selector">
+                  <Select
+                    size="small"
+                    aria-label="Active organization"
+                    value={orgId || undefined}
+                    placeholder="Select organization"
+                    options={orgs.data?.map(org => ({ value: org.org_id, label: org.name }))}
+                    onChange={switchOrg}
+                  />
+                  <Button
+                    size="small"
+                    aria-label="Create organization"
+                    icon={<PlusOutlined />}
+                    onClick={() => setCreateOpen(true)}
+                  />
+                </div>
+              </div>
+            </div>
           </div>
           <nav className="top-tabs" aria-label="Main navigation">{topTabs.map(item => <button key={item.key} type="button" className={`top-tab ${currentPath === item.key ? 'active' : ''}`} aria-current={currentPath === item.key ? 'page' : undefined} onClick={() => navigate(item.key)}>{item.icon}<span>{item.label}</span></button>)}</nav>
         </header>
