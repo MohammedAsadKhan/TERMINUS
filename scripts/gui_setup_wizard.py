@@ -378,6 +378,9 @@ INITIAL_ADMIN_EMAIL={self.admin_email.get()}
         if self.current_step > 0:
             self._show_step(self.current_step - 1)
 
+    def _next_step(self) -> None:
+        if self.current_step < 5:
+            self._show_step(self.current_step + 1)
         else:
             # Launch Service daemon if selected, then open browser
             try:
