@@ -7,6 +7,7 @@ matching prior to execution and within trigger_wazuh nodes during workflow runs 
 from __future__ import annotations
 
 from typing import Any
+
 from terminus.models import SiemAlert
 from terminus.pipeline.nodes.schemas import TriggerWazuhConfig
 

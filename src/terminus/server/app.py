@@ -66,7 +66,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """App lifespan context manager for startup and shutdown hooks."""
     settings = get_settings()
     # Auto-configure baseline SOC configuration (allowlists, agents, workflows)
-    from terminus.server.deps import _sqlite_agent_repo, _sqlite_allowlist_repo, _sqlite_workflow_repo
+    from terminus.server.deps import (
+        _sqlite_agent_repo,
+        _sqlite_allowlist_repo,
+        _sqlite_workflow_repo,
+    )
     from terminus.service.sensor import service_sensor
 
     for default_org in ["org-default", "org-terminus-demo"]:

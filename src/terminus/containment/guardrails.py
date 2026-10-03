@@ -10,7 +10,6 @@ never invalid targets, protected networks, gateways, or the org allowlist.
 from __future__ import annotations
 
 import ipaddress
-import re
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
@@ -170,15 +169,14 @@ class ContainmentGuardrail:
                     auto_containment_allowed=True,
                     risk_score=0.95,
                 )
-            else:
-                return BlastRadiusAssessment(
-                    allowed=False,
-                    reason=f"Target '{target_str}' matches critical asset infrastructure keyword. Containment blocked.",
-                    target=target_str,
-                    asset_tier=AssetCriticalityTier.TIER_0,
-                    auto_containment_allowed=False,
-                    risk_score=0.95,
-                )
+            return BlastRadiusAssessment(
+                allowed=False,
+                reason=f"Target '{target_str}' matches critical asset infrastructure keyword. Containment blocked.",
+                target=target_str,
+                asset_tier=AssetCriticalityTier.TIER_0,
+                auto_containment_allowed=False,
+                risk_score=0.95,
+            )
 
         # 4. Standard Allowed Target
         return BlastRadiusAssessment(

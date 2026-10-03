@@ -14,14 +14,15 @@ Implements all static workflow checks (D1, D8, D11, D13, D23):
 from __future__ import annotations
 
 from typing import Any
+
 from pydantic import ValidationError
 
-from terminus.models import Workflow, WorkflowNode, WorkflowEdge
+from terminus.models import Workflow, WorkflowEdge, WorkflowNode
 from terminus.pipeline.nodes.schemas import (
-    NodeType,
     TYPE_TO_SCHEMA,
     VALID_OUTPUT_HANDLES,
     ConditionSeverityConfig,
+    NodeType,
 )
 
 MAX_NODES = 50

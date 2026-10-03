@@ -6,7 +6,6 @@ D11, D14, D15, D16, D17, D18, D19, D20, D21).
 
 from __future__ import annotations
 
-import anyio
 import dataclasses
 import json
 import logging
@@ -14,6 +13,8 @@ import secrets
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any
+
+import anyio
 
 from terminus.agent.investigator import InvestigationAgent
 from terminus.containment.guardrails import ContainmentGuardrail
@@ -270,9 +271,7 @@ class WorkflowEngine:
         for nid, in_list in incoming_edges.items():
             if nid in ctx.executed_nodes:
                 continue
-            if len(in_list) == 0:
-                queue.append(nid)
-            elif all(ctx.edge_states.get(e.id, "PENDING") != "PENDING" for e in in_list):
+            if len(in_list) == 0 or all(ctx.edge_states.get(e.id, "PENDING") != "PENDING" for e in in_list):
                 queue.append(nid)
 
         while queue:
@@ -363,11 +362,10 @@ class WorkflowEngine:
                 matches = trigger_matches(cfg, ctx.alert)
                 if matches:
                     return "SUCCESS", {"triggered": True, "alert_id": ctx.alert.id}, "default", False
-                else:
-                    return "SUCCESS", {"triggered": False, "alert_id": ctx.alert.id}, "false", False
+                return "SUCCESS", {"triggered": False, "alert_id": ctx.alert.id}, "false", False
 
             # 2. condition_severity (D1, D8)
-            elif ntype == NodeType.CONDITION_SEVERITY.value:
+            if ntype == NodeType.CONDITION_SEVERITY.value:
                 min_lvl = cfg.get("min_level", 0)
                 min_sev = cfg.get("min_verdict_severity")
                 sev_order = {"low": 1, "medium": 2, "high": 3, "critical": 4}
@@ -383,7 +381,7 @@ class WorkflowEngine:
                 return "SUCCESS", {"passed": passes, "level_check": level_pass, "verdict_check": verdict_pass}, active_handle, False
 
             # 3. condition_approval (D1, D14, D15)
-            elif ntype == NodeType.CONDITION_APPROVAL.value:
+            if ntype == NodeType.CONDITION_APPROVAL.value:
                 if ctx.dry_run:
                     return "SUCCESS", {"dry_run_approved": True, "required_role": cfg.get("required_role", "admin")}, "true", False
 
@@ -409,7 +407,7 @@ class WorkflowEngine:
                 return "WAITING_APPROVAL", {"approval_id": approval_id, "status": "PENDING", "required_role": role}, "true", True
 
             # 4. agent_llm (D1, D3)
-            elif ntype == NodeType.AGENT_LLM.value:
+            if ntype == NodeType.AGENT_LLM.value:
                 persona_instr = cfg.get("persona_instructions") or ""
                 if ctx.dry_run:
                     sim_verdict = Verdict(
@@ -432,7 +430,7 @@ class WorkflowEngine:
                 return "SUCCESS", {"verdict": re_report.verdict.model_dump()}, "default", False
 
             # 5. tool_slack (D1, D4)
-            elif ntype == NodeType.TOOL_SLACK.value:
+            if ntype == NodeType.TOOL_SLACK.value:
                 channel = cfg.get("channel") or "#soc-alerts"
                 ctx.notified.add("slack")
                 ctx.side_effects_executed = True
@@ -444,7 +442,7 @@ class WorkflowEngine:
                 return "SUCCESS", {"action": "slack_notification_sent", "channel": channel}, "default", False
 
             # 6. tool_jira (D1, D4)
-            elif ntype == NodeType.TOOL_JIRA.value:
+            if ntype == NodeType.TOOL_JIRA.value:
                 project = cfg.get("project") or "SEC"
                 ctx.ticket_created = True
                 ctx.side_effects_executed = True
@@ -456,7 +454,7 @@ class WorkflowEngine:
                 return "SUCCESS", {"action": "jira_ticket_created", "ticket": t}, "default", False
 
             # 7. tool_isolate (D1, D11, D12, D16)
-            elif ntype == NodeType.TOOL_ISOLATE.value:
+            if ntype == NodeType.TOOL_ISOLATE.value:
                 target_host = cfg.get("hostname") or ctx.alert.agent_name or "unknown-host"
                 force_override = bool(cfg.get("force_override", False))
 
@@ -483,7 +481,7 @@ class WorkflowEngine:
                 return "SUCCESS", {"action": "host_isolated", "target": target_host}, "default", False
 
             # 8. tool_firewall (D1, D11, D12, D16)
-            elif ntype == NodeType.TOOL_FIREWALL.value:
+            if ntype == NodeType.TOOL_FIREWALL.value:
                 target_ip = cfg.get("ip_address") or ctx.alert.src_ip or "0.0.0.0"
                 force_override = bool(cfg.get("force_override", False))
 
@@ -507,9 +505,8 @@ class WorkflowEngine:
                     pass
                 return "SUCCESS", {"action": "firewall_rule_applied", "target_ip": target_ip}, "default", False
 
-            else:
-                ctx.errors.append(f"Unknown node type: '{ntype}' on node '{node.id}'")
-                return "FAILED", {"error": f"Unknown node type '{ntype}'"}, "on_error", False
+            ctx.errors.append(f"Unknown node type: '{ntype}' on node '{node.id}'")
+            return "FAILED", {"error": f"Unknown node type '{ntype}'"}, "on_error", False
 
         except Exception as e:
             logger.error(f"Error executing node {node.id} ({ntype}): {e}")

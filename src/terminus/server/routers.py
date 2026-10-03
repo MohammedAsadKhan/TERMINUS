@@ -13,7 +13,6 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from terminus.auth.models import PublicUser, User
 from terminus.auth.service import AuthService, DuplicateEmailError, UserStore
-from terminus.containment.guardrails import ContainmentGuardrail
 from terminus.core.base import ConflictError
 from terminus.core.ids import OrgId, SessionToken, UserId
 from terminus.licensing.crypto import LicenseError
@@ -42,7 +41,6 @@ from terminus.reports.service import generate_daily_report
 from terminus.server.deps import (
     get_action_log_repo,
     get_agent_repo,
-    get_alert_claim_repo,
     get_allowlist_repo,
     get_approval_repo,
     get_auth_service,
@@ -62,10 +60,8 @@ from terminus.server.deps import (
 from terminus.storage.repositories import (
     SqliteActionLogRepository,
     SqliteAgentRepository,
-    SqliteAlertClaimRepository,
     SqliteAllowlistRepository,
     SqliteApprovalRepository,
-    SqliteIncidentRepository,
     SqliteWorkflowRepository,
     SqliteWorkflowRunRepository,
 )
@@ -146,8 +142,8 @@ class DryRunExecuteRequest(BaseModel):
     dry_run: bool = True
 
 
-from terminus.service.sensor import service_sensor
 from terminus.server.streaming import broadcaster
+from terminus.service.sensor import service_sensor
 
 
 class ServiceHeartbeatRequest(BaseModel):
@@ -950,6 +946,7 @@ async def get_decoy_vault_secrets(
 ) -> dict[str, Any]:
     """Simulated vulnerable endpoint exposing fake cloud & database credentials."""
     from uuid import uuid4
+
     from terminus.core.ids import AgentId, RuleId
 
     org_id_header = request.headers.get("X-Org-ID")
@@ -995,6 +992,7 @@ async def get_decoy_customer_pii(
 ) -> dict[str, Any]:
     """Simulated sensitive database endpoint exposing synthetic customer PII."""
     from uuid import uuid4
+
     from terminus.core.ids import AgentId, RuleId
 
     org_id_header = request.headers.get("X-Org-ID")

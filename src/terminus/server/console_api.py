@@ -13,7 +13,7 @@ from terminus.config import Settings, get_settings
 from terminus.core.ids import OrgId, TicketId, UserId
 from terminus.licensing.crypto import LicenseError
 from terminus.licensing.service import LicenseService
-from terminus.models import SocAgent, Workflow
+from terminus.models import Workflow
 from terminus.orgs.models import Membership, OrganizationRole
 from terminus.orgs.service import LastAdminError, OrganizationService
 from terminus.orgs.store import MembershipStore, OrganizationStore
@@ -26,8 +26,6 @@ from terminus.server.deps import (
     get_org_service,
     get_org_store,
     get_pipeline_runner,
-    get_tenant_agents,
-    get_tenant_workflows,
     get_user_store,
     require_admin,
 )

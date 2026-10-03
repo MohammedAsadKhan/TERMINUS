@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 from terminus.core.ids import OrgId
 from terminus.llm.base import LlmClient
 from terminus.llm.client import OpenAiCompatibleLlm
-from terminus.server.copilot_tools import IncidentTools, TOOL_SCHEMAS
+from terminus.server.copilot_tools import TOOL_SCHEMAS, IncidentTools
 from terminus.server.deps import get_current_org, get_llm_client, get_pipeline_runner
 
 copilot_router = APIRouter(prefix="/incidents", tags=["Analyst Copilot"])

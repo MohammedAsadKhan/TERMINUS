@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import logging
 from dataclasses import replace
-from typing import Any
 
 from terminus.core.ids import OrgId
 from terminus.correlation.stitcher import CampaignStitcher
@@ -22,7 +21,10 @@ from terminus.pipeline.deployment import PipelineDeployment
 from terminus.pipeline.triggers import trigger_matches
 from terminus.pipeline.workflow_engine import WorkflowEngine, WorkflowExecutionContext
 from terminus.storage.db import Database
-from terminus.storage.repositories import SqliteAlertClaimRepository, SqliteWorkflowRepository
+from terminus.storage.repositories import (
+    SqliteAlertClaimRepository,
+    SqliteWorkflowRepository,
+)
 
 logger = logging.getLogger("terminus.pipeline.runner")
 

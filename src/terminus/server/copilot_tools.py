@@ -31,8 +31,6 @@ from terminus.models import (
     Tier,
     Verdict,
     Workflow,
-    WorkflowEdge,
-    WorkflowNode,
 )
 from terminus.pipeline.deployment import PipelineDeployment
 from terminus.pipeline.validation import (
@@ -45,7 +43,6 @@ from terminus.pipeline.workflow_engine import WorkflowEngine
 from terminus.storage.db import Database
 from terminus.storage.repositories import (
     SqliteAgentRepository,
-    SqliteAlertClaimRepository,
     SqliteAllowlistRepository,
     SqliteWorkflowRepository,
 )
@@ -314,7 +311,7 @@ def compute_full_layout(nodes: list[dict[str, Any]], edges: list[dict[str, Any]]
         return []
 
     node_ids = {n["id"] for n in nodes if "id" in n}
-    in_degree: dict[str, int] = {nid: 0 for nid in node_ids}
+    in_degree: dict[str, int] = dict.fromkeys(node_ids, 0)
     adj: dict[str, list[str]] = defaultdict(list)
 
     for edge in edges:
@@ -585,9 +582,8 @@ class IncidentTools:
                     if cfg.get("force_override") is True:
                         override_discarded = True
                     cfg["force_override"] = False
-                else:
-                    if "force_override" in cfg:
-                        del cfg["force_override"]
+                elif "force_override" in cfg:
+                    del cfg["force_override"]
                 n_dict["config"] = cfg
                 sanitized_nodes.append(n_dict)
 
@@ -668,9 +664,8 @@ class IncidentTools:
                             if cfg.get("force_override") is True:
                                 override_discarded = True
                             cfg["force_override"] = False
-                    else:
-                        if "force_override" in cfg:
-                            del cfg["force_override"]
+                    elif "force_override" in cfg:
+                        del cfg["force_override"]
                     n_dict["config"] = cfg
                     sanitized_nodes.append(n_dict)
 
