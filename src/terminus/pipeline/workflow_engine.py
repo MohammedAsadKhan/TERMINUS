@@ -14,8 +14,6 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-import anyio
-
 from terminus.agent.investigator import InvestigationAgent
 from terminus.containment.guardrails import ContainmentGuardrail
 from terminus.core.ids import OrgId
@@ -26,6 +24,7 @@ from terminus.models import (
     PolicyResult,
     Severity,
     SiemAlert,
+    Tier,
     Verdict,
     Workflow,
     WorkflowEdge,
@@ -35,6 +34,7 @@ from terminus.pipeline.deployment import PipelineDeployment
 from terminus.pipeline.nodes.schemas import NodeType
 from terminus.pipeline.triggers import trigger_matches
 from terminus.privacy.redactor import SecretRedactor
+from terminus.storage.db import Database
 from terminus.storage.repositories import (
     SqliteAllowlistRepository,
     SqliteApprovalRepository,
@@ -433,24 +433,24 @@ class WorkflowEngine:
             if ntype == NodeType.TOOL_SLACK.value:
                 channel = cfg.get("channel") or "#soc-alerts"
                 ctx.notified.add("slack")
-                ctx.side_effects_executed = True
 
                 if ctx.dry_run:
                     return "SUCCESS", {"dry_run": True, "channel": channel, "notified": True}, "default", False
 
                 await deployment.notifier.notify(ctx.report, OrgId(ctx.org_id))
+                ctx.side_effects_executed = True
                 return "SUCCESS", {"action": "slack_notification_sent", "channel": channel}, "default", False
 
             # 6. tool_jira (D1, D4)
             if ntype == NodeType.TOOL_JIRA.value:
                 project = cfg.get("project") or "SEC"
                 ctx.ticket_created = True
-                ctx.side_effects_executed = True
 
                 if ctx.dry_run:
                     return "SUCCESS", {"dry_run": True, "project": project, "ticket_created": True}, "default", False
 
                 t = await deployment.ticket_store.create_ticket(ctx.report, OrgId(ctx.org_id))
+                ctx.side_effects_executed = True
                 return "SUCCESS", {"action": "jira_ticket_created", "ticket": t}, "default", False
 
             # 7. tool_isolate (D1, D11, D12, D16)
@@ -470,15 +470,24 @@ class WorkflowEngine:
                     ctx.errors.append(f"Containment blocked by guardrail: {guardrail_res.reason}")
                     return "BLOCKED", {"blocked": True, "target": target_host, "reason": guardrail_res.reason}, "on_error", False
 
-                ctx.side_effects_executed = True
                 if ctx.dry_run:
-                    return "SUCCESS", {"dry_run": True, "isolated": True, "target": target_host}, "default", False
+                    return "SUCCESS", {
+                        "dry_run": True,
+                        "simulated": True,
+                        "executed": False,
+                        "verified": False,
+                        "isolated": True,
+                        "target": target_host,
+                    }, "default", False
 
-                # Shielded live containment execution (D16)
-                with anyio.CancelScope(shield=True):
-                    # Live containment action
-                    pass
-                return "SUCCESS", {"action": "host_isolated", "target": target_host}, "default", False
+                ctx.errors.append(f"Containment not executed: no host isolation provider is configured for {target_host}.")
+                return "FAILED", {
+                    "status": "not_configured",
+                    "executed": False,
+                    "verified": False,
+                    "target": target_host,
+                    "error": "No host isolation provider is configured.",
+                }, "on_error", False
 
             # 8. tool_firewall (D1, D11, D12, D16)
             if ntype == NodeType.TOOL_FIREWALL.value:
@@ -497,13 +506,24 @@ class WorkflowEngine:
                     ctx.errors.append(f"Containment blocked by guardrail: {guardrail_res.reason}")
                     return "BLOCKED", {"blocked": True, "target": target_ip, "reason": guardrail_res.reason}, "on_error", False
 
-                ctx.side_effects_executed = True
                 if ctx.dry_run:
-                    return "SUCCESS", {"dry_run": True, "firewall_blocked": True, "target_ip": target_ip}, "default", False
+                    return "SUCCESS", {
+                        "dry_run": True,
+                        "simulated": True,
+                        "executed": False,
+                        "verified": False,
+                        "firewall_blocked": True,
+                        "target_ip": target_ip,
+                    }, "default", False
 
-                with anyio.CancelScope(shield=True):
-                    pass
-                return "SUCCESS", {"action": "firewall_rule_applied", "target_ip": target_ip}, "default", False
+                ctx.errors.append(f"Containment not executed: no firewall provider is configured for {target_ip}.")
+                return "FAILED", {
+                    "status": "not_configured",
+                    "executed": False,
+                    "verified": False,
+                    "target_ip": target_ip,
+                    "error": "No firewall provider is configured.",
+                }, "on_error", False
 
             ctx.errors.append(f"Unknown node type: '{ntype}' on node '{node.id}'")
             return "FAILED", {"error": f"Unknown node type '{ntype}'"}, "on_error", False

@@ -1,10 +1,12 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { App, Alert, Avatar, Button, Dropdown, Form, Input, Modal, Spin, Tag } from 'antd';
-import { ApartmentOutlined, ArrowRightOutlined, CheckOutlined, DashboardOutlined, DownOutlined, FileTextOutlined, LogoutOutlined, MessageOutlined, PlusOutlined, SafetyCertificateOutlined, SettingOutlined, ThunderboltOutlined, UserOutlined } from '@ant-design/icons';
+import { ApartmentOutlined, ArrowRightOutlined, CheckOutlined, CloudOutlined, CodeOutlined, DashboardOutlined, DatabaseOutlined, DesktopOutlined, DownOutlined, FileTextOutlined, GlobalOutlined, LogoutOutlined, MenuOutlined, MessageOutlined, PlusOutlined, SafetyCertificateOutlined, SettingOutlined, ThunderboltOutlined, UserOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { api, body } from './api';
 import { SessionContext } from './context';
+import { useTheme } from './theme';
+import { ASSET_KINDS, type Asset } from './asset-types';
 import { ErrorPanel, Loading } from './components';
 import { CopilotPage, CopilotProvider } from './copilot-ui';
 import type { Organization, OrgDetail, SystemInfo, User } from './types';
@@ -15,6 +17,7 @@ const Reports = lazy(() => import('./views/reports'));
 const Agents = lazy(() => import('./views/agents'));
 const Workflows = lazy(() => import('./views/workflows'));
 const Settings = lazy(() => import('./views/settings'));
+const Assets = lazy(() => import('./views/assets'));
 
 function Brand() {
   return (
@@ -68,13 +71,16 @@ function Login() {
 }
 
 export function ConsoleApp() {
+  const { themeId, setThemeId, availableThemes } = useTheme();
   const query = useQueryClient(); const { message } = App.useApp(); const navigate = useNavigate(); const location = useLocation();
   const [orgId, setOrgId] = useState(''); const [createOpen, setCreateOpen] = useState(false);
+  const [navOpen, setNavOpen] = useState(false);
 
   const user = useQuery({ queryKey: ['me'], queryFn: () => api<User>('/auth/me'), retry: false, staleTime: 60000 });
   const orgs = useQuery({ queryKey: ['orgs', user.data?.user_id], queryFn: () => api<Organization[]>('/orgs'), enabled: !!user.data });
   const detail = useQuery({ queryKey: ['org', orgId], queryFn: () => api<OrgDetail>('/orgs/current', orgId), enabled: !!orgId && !!user.data });
   const system = useQuery({ queryKey: ['system'], queryFn: () => api<SystemInfo>('/system'), enabled: !!user.data, refetchInterval: 30000 });
+  const assets = useQuery({ queryKey: ['assets', orgId], queryFn: () => api<Asset[]>('/assets', orgId), enabled: !!user.data && !!orgId });
 
   useEffect(() => {
     if (!user.data || !orgs.data) return;
@@ -118,6 +124,8 @@ export function ConsoleApp() {
   if (!user.data) return <Login />;
 
   const currentPath = '/' + location.pathname.split('/')[1];
+  const activePath = currentPath === '/assets' ? location.pathname : currentPath;
+  const assetIcons = [<CodeOutlined />, <DatabaseOutlined />, <CloudOutlined />, <DesktopOutlined />, <GlobalOutlined />, <DesktopOutlined />];
   const navigation = [
     { label: 'OPERATIONS', items: [
       { key: '/', label: 'Overview', icon: <DashboardOutlined /> },
@@ -125,8 +133,9 @@ export function ConsoleApp() {
       { key: '/copilot', label: 'Copilot', icon: <MessageOutlined /> },
       { key: '/reports', label: 'Reports', icon: <FileTextOutlined /> },
     ] },
+    { label: 'ASSETS', items: ASSET_KINDS.map((category, index) => ({ key: `/assets/${category.kind}`, label: category.label, icon: assetIcons[index], count: assets.data ? assets.data.filter(asset => asset.kind === category.kind).length : undefined })) },
     { label: 'AUTOMATION', items: [
-      { key: '/agents', label: 'Agent fleet', icon: <ThunderboltOutlined /> },
+      { key: '/agents', label: 'Agents', icon: <ThunderboltOutlined /> },
       { key: '/workflows', label: 'Workflows', icon: <ApartmentOutlined /> },
     ] },
     { label: 'WORKSPACE', items: [
@@ -134,18 +143,32 @@ export function ConsoleApp() {
       { key: '/settings', label: 'Settings', icon: <SettingOutlined /> },
     ] },
   ];
-  const topTabs = navigation.flatMap(group => group.items);
+  const currentPage = navigation.flatMap(group => group.items).find(item => item.key === activePath)?.label || 'Overview';
 
     const currentOrg = orgs.data?.find(o => o.org_id === orgId)?.name || detail.data?.organization.name || 'Workspace';
 
     return (
     <SessionContext.Provider value={{ user: user.data, orgId, detail: detail.data, system: system.data }}>
       <CopilotProvider orgId={orgId}>
-      <div className="hud-layout top-layout">
+      <div className="hud-layout workspace-layout">
+        <a className="skip-link" href="#workspace-content">Skip to content</a>
+        {navOpen && <button className="sidebar-scrim" aria-label="Close navigation" onClick={() => setNavOpen(false)} />}
+        <aside className={`console-sidebar ${navOpen ? 'open' : ''}`} aria-label="Workspace navigation">
+          <button className="sidebar-brand" onClick={() => { navigate('/'); setNavOpen(false); }} aria-label="Terminus overview"><Brand /></button>
+          <div className="sidebar-workspace"><span className="sidebar-workspace-label">Security workspace</span><strong title={currentOrg}>{currentOrg}</strong></div>
+          <nav className="sidebar-nav" aria-label="Main navigation">
+            {navigation.map(group => <div className="nav-group" key={group.label}>
+              <div className="nav-group-label">{group.label}</div>
+              {group.items.map(item => <button key={item.key} type="button" className={`nav-item ${activePath === item.key ? 'active' : ''}`} aria-current={activePath === item.key ? 'page' : undefined} onClick={() => { navigate(item.key); setNavOpen(false); }}>{item.icon}<span>{item.label}</span>{'count' in item && <span className="asset-nav-count">{item.count ?? '—'}</span>}</button>)}
+            </div>)}
+          </nav>
+          <div className="sidebar-bottom"><span className="sidebar-product">TERMINUS <span>AI SOC</span></span><small>Investigate. Decide. Respond.</small></div>
+        </aside>
         <div className="console-workspace">
         <header className="console-topbar">
           <div className="console-topbar-main">
-            <button className="topbar-brand" onClick={() => navigate('/')} aria-label="Terminus overview"><Brand /></button>
+            <Button className="mobile-nav-toggle" type="text" icon={<MenuOutlined />} aria-label="Open navigation" aria-expanded={navOpen} onClick={() => setNavOpen(!navOpen)} />
+            <div className="workspace-breadcrumb"><span>Workspace</span><span>/</span><strong>{currentPage}</strong></div>
             <div className="hud-right-stats">
               <span className="header-connection"><i className={`engine-light ${system.data ? 'online' : ''}`} />{system.data ? 'Connected' : 'Checking'}</span>
               <Dropdown
@@ -190,6 +213,7 @@ export function ConsoleApp() {
                     { type: 'divider' },
                     { key: 'org_settings', label: 'Organization & Team', icon: <UserOutlined />, onClick: () => navigate('/organization') },
                     { key: 'settings', label: 'Platform Settings', icon: <SettingOutlined />, onClick: () => navigate('/settings') },
+                    { key: 'appearance', label: 'Appearance', children: availableThemes.map(theme => ({ key: `theme-${theme.id}`, label: <span className="theme-menu-option">{theme.name}{themeId === theme.id && <CheckOutlined />}</span>, onClick: () => setThemeId(theme.id) })) },
                     { type: 'divider' },
                     { key: 'logout', label: 'Sign out', icon: <LogoutOutlined />, danger: true, onClick: () => void logout() },
                   ],
@@ -207,10 +231,9 @@ export function ConsoleApp() {
               </Dropdown>
             </div>
           </div>
-          <nav className="top-tabs" aria-label="Main navigation">{topTabs.map(item => <button key={item.key} type="button" className={`top-tab ${currentPath === item.key ? 'active' : ''}`} aria-current={currentPath === item.key ? 'page' : undefined} onClick={() => navigate(item.key)}>{item.icon}<span>{item.label}</span></button>)}</nav>
         </header>
 
-        <main className="hud-main">
+        <main className="hud-main" id="workspace-content" tabIndex={-1}>
           <ErrorPanel error={orgs.error} retry={() => void orgs.refetch()} />
           {orgs.isPending ? <Loading /> : !orgId ? (
             <div className="onboarding panel">
@@ -238,6 +261,8 @@ export function ConsoleApp() {
                 <Route path="/integrations" element={<Navigate to="/settings" replace />} />
                 <Route path="/organization" element={<Settings section="organization" />} />
                 <Route path="/settings" element={<Settings section="settings" />} />
+                <Route path="/assets" element={<Navigate to="/assets/repository" replace />} />
+                <Route path="/assets/:kind" element={<Assets />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </Suspense>

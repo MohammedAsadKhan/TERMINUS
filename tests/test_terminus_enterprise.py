@@ -113,10 +113,16 @@ async def test_active_response_containment() -> None:
     assert res_blocked.success is False
     assert "BLOCKED" in res_blocked.audit_message
 
-    # 2. Standard asset should succeed
-    res_ok = await runner.execute_containment("isolate_host", "workstation-102", "operator-1")
-    assert res_ok.success is True
-    assert "successfully isolated" in res_ok.audit_message
+    # 2. Guardrails allow these targets, but no live providers are configured.
+    for action_type, target in (
+        ("isolate_host", "workstation-102"),
+        ("block_ip", "198.51.100.25"),
+        ("revoke_iam_session", "compromised-session-1"),
+    ):
+        result = await runner.execute_containment(action_type, target, "operator-1")
+        assert result.success is False
+        assert "NOT EXECUTED" in result.audit_message
+        assert result.raw_response == {"status": "not_configured", "executed": False, "verified": False}
 
 
 def test_self_tuning_soc_and_backtest() -> None:

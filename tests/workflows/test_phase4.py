@@ -15,7 +15,7 @@ from terminus.models import (
     WorkflowNode,
 )
 from terminus.pipeline.workflow_engine import WorkflowEngine
-from terminus.storage.db import init_db
+from terminus.storage.db import Database, init_db
 from terminus.ticketing.memory import MemoryTickets
 
 
@@ -115,6 +115,31 @@ async def test_t_eng_1_happy_path_linear(test_db):
     assert ctx.node_statuses["n3"] == "SUCCESS"
     assert ctx.side_effects_executed is True
     assert "slack" in ctx.notified
+
+
+@pytest.mark.anyio
+async def test_workflow_engine_builds_report_when_omitted(test_db):
+    db = Database(str(test_db))
+    engine = WorkflowEngine(db=db)
+    alert = make_sample_alert()
+    workflow = Workflow(
+        id="wf-optional-report",
+        name="Optional Report",
+        nodes=[WorkflowNode(id="trigger", type="trigger_wazuh", config={"min_level": 5})],
+        edges=[],
+    )
+
+    ctx = await engine.execute_workflow(
+        workflow=workflow,
+        alert=alert,
+        deployment=FakeDeployment(),
+    )
+
+    assert ctx.status == "COMPLETED"
+    assert ctx.report.alert_id == alert.id
+    assert ctx.report.policy.tier == Tier.TRIAGE
+    assert ctx.report.policy.reason == "Execution report"
+    assert ctx.report.evidence.alert.id == alert.id
 
 
 @pytest.mark.anyio
@@ -286,10 +311,13 @@ async def test_t_eng_5_and_6_approval_gate_and_resume(test_db):
     )
 
     assert ctx2 is not None
-    assert ctx2.status == "COMPLETED"
-    assert ctx2.outcome == "HANDLED"
-    assert ctx2.node_statuses["n3"] == "SUCCESS"
-    assert ctx2.side_effects_executed is True
+    assert ctx2.status == "FAILED"
+    assert ctx2.outcome == "FAILED_BEFORE_SIDE_EFFECTS"
+    assert ctx2.node_statuses["n3"] == "FAILED"
+    assert ctx2.node_outputs["n3"]["status"] == "not_configured"
+    assert ctx2.node_outputs["n3"]["executed"] is False
+    assert ctx2.node_outputs["n3"]["verified"] is False
+    assert ctx2.side_effects_executed is False
 
 
 @pytest.mark.anyio
@@ -423,8 +451,80 @@ async def test_t_eng_9_containment_force_override(test_db):
         deployment=deployment,
     )
 
+    assert ctx.status == "FAILED"
+    assert ctx.outcome == "FAILED_BEFORE_SIDE_EFFECTS"
+    assert ctx.node_statuses["n3"] == "FAILED"
+    assert ctx.node_outputs["n3"]["status"] == "not_configured"
+    assert ctx.node_outputs["n3"]["verified"] is False
+    assert ctx.side_effects_executed is False
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("node_type", "config", "execution_flag"),
+    [
+        ("tool_isolate", {}, "isolated"),
+        ("tool_firewall", {"ip_address": "198.51.100.25"}, "firewall_blocked"),
+    ],
+)
+async def test_containment_dry_run_is_simulated_without_side_effects(test_db, node_type, config, execution_flag):
+    engine = WorkflowEngine()
+    alert = make_sample_alert()
+    report = make_sample_report(alert)
+    workflow = Workflow(
+        id="wf-dry-containment",
+        name="Dry Run Containment",
+        nodes=[WorkflowNode(id="contain", type=node_type, config=config)],
+        edges=[],
+    )
+
+    ctx = await engine.execute_workflow(
+        workflow=workflow,
+        alert=alert,
+        base_report=report,
+        org_id="org-dry-containment",
+        deployment=FakeDeployment(),
+        dry_run=True,
+    )
+
+    output = ctx.node_outputs["contain"]
     assert ctx.status == "COMPLETED"
-    assert ctx.node_statuses["n3"] == "SUCCESS"
+    assert output["dry_run"] is True
+    assert output["simulated"] is True
+    assert output["executed"] is False
+    assert output["verified"] is False
+    assert output[execution_flag] is True
+    assert ctx.side_effects_executed is False
+
+
+@pytest.mark.anyio
+async def test_live_firewall_without_provider_fails_before_side_effects(test_db):
+    engine = WorkflowEngine()
+    alert = make_sample_alert()
+    report = make_sample_report(alert)
+    workflow = Workflow(
+        id="wf-live-firewall-unconfigured",
+        name="Live Firewall Without Provider",
+        nodes=[WorkflowNode(id="firewall", type="tool_firewall", config={"ip_address": "198.51.100.25"})],
+        edges=[],
+    )
+
+    ctx = await engine.execute_workflow(
+        workflow=workflow,
+        alert=alert,
+        base_report=report,
+        org_id="org-live-firewall-unconfigured",
+        deployment=FakeDeployment(),
+    )
+
+    output = ctx.node_outputs["firewall"]
+    assert ctx.status == "FAILED"
+    assert ctx.outcome == "FAILED_BEFORE_SIDE_EFFECTS"
+    assert ctx.node_statuses["firewall"] == "FAILED"
+    assert output["status"] == "not_configured"
+    assert output["executed"] is False
+    assert output["verified"] is False
+    assert ctx.side_effects_executed is False
 
 
 @pytest.mark.anyio

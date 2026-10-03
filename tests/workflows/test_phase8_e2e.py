@@ -233,11 +233,11 @@ async def test_t_e2e_2_approval_gate_and_resume_lifecycle(temp_db):
     )
 
     assert resumed_ctx is not None
-    assert resumed_ctx.status == "COMPLETED"
-    assert resumed_ctx.outcome == "HANDLED"
-    assert resumed_ctx.side_effects_executed is True
+    assert resumed_ctx.status == "FAILED"
+    assert resumed_ctx.outcome == "FAILED_BEFORE_SIDE_EFFECTS"
+    assert resumed_ctx.side_effects_executed is False
     assert "n3" in resumed_ctx.executed_nodes
-    assert resumed_ctx.node_statuses["n3"] == "SUCCESS"
+    assert resumed_ctx.node_statuses["n3"] == "FAILED"
 
 
 @pytest.mark.anyio

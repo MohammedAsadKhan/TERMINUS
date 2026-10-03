@@ -12,6 +12,112 @@ from typing import Any
 from terminus.models import AgentStatus, SocAgent, Workflow, WorkflowEdge, WorkflowNode
 
 
+def _workflow_seed_signature(workflow: Workflow) -> tuple[Any, ...]:
+    """Return persisted workflow fields used to recognize an untouched old seed."""
+    return (
+        workflow.id,
+        workflow.name,
+        workflow.agent_id,
+        workflow.enabled,
+        workflow.priority,
+        tuple(tuple(sorted(node.model_dump().items())) for node in workflow.nodes),
+        tuple(tuple(sorted(edge.model_dump().items())) for edge in workflow.edges),
+    )
+
+
+def _seed_workflows(now_iso: str) -> tuple[list[Workflow], list[Workflow]]:
+    """Build corrected baseline playbooks and exact legacy definitions for safe upgrades."""
+    corrected = [
+        Workflow(
+            id="wf-slack-triage",
+            name="High-Severity Slack Notification",
+            description="Immediately alerts the on-call security team on Slack when high-severity incidents occur.",
+            enabled=True,
+            nodes=[
+                WorkflowNode(id="n1", type="trigger_wazuh", label="Alert Trigger", config={}, x=0, y=0),
+                WorkflowNode(id="n2", type="condition_severity", label="Wazuh level >= 3", config={"min_level": 3}, x=240, y=0),
+                WorkflowNode(id="n3", type="tool_slack", label="Post to #soc-alerts", config={"channel": "#soc-alerts"}, x=480, y=0),
+            ],
+            edges=[
+                WorkflowEdge(id="e1", source="n1", target="n2", source_handle="default"),
+                WorkflowEdge(id="e2", source="n2", target="n3", source_handle="true"),
+            ],
+            created_at=now_iso,
+            updated_at=now_iso,
+        ),
+        Workflow(
+            id="wf-ransomware-containment",
+            name="Ransomware Workstation Containment Gated Flow",
+            description="Requires mandatory SOC analyst approval before requesting workstation isolation.",
+            enabled=True,
+            nodes=[
+                WorkflowNode(id="n1", type="trigger_wazuh", label="Ransomware Trigger", config={}, x=0, y=0),
+                WorkflowNode(id="n2", type="condition_severity", label="Wazuh level >= 4", config={"min_level": 4}, x=240, y=0),
+                WorkflowNode(
+                    id="n3",
+                    type="condition_approval",
+                    label="Mandatory Human Approval",
+                    config={
+                        "required_role": "admin",
+                        "prompt_message": "Approve simulated workstation isolation for this ransomware alert.",
+                        "timeout_seconds": 300,
+                    },
+                    x=480,
+                    y=0,
+                ),
+                WorkflowNode(id="n4", type="tool_isolate", label="Simulate Host Isolation", config={}, x=720, y=0),
+                WorkflowNode(id="n5", type="tool_slack", label="Report Response Outcome", config={"channel": "#soc-containment"}, x=960, y=0),
+            ],
+            edges=[
+                WorkflowEdge(id="e1", source="n1", target="n2", source_handle="default"),
+                WorkflowEdge(id="e2", source="n2", target="n3", source_handle="true"),
+                WorkflowEdge(id="e3", source="n3", target="n4", source_handle="true"),
+                WorkflowEdge(id="e4", source="n4", target="n5", source_handle="default"),
+            ],
+            created_at=now_iso,
+            updated_at=now_iso,
+        ),
+    ]
+
+    # These match only the two invalid definitions shipped by the previous sensor.
+    # Comparing the complete persisted graph prevents replacing analyst edits.
+    legacy = [
+        Workflow(
+            id="wf-slack-triage",
+            name="High-Severity Slack Notification",
+            enabled=True,
+            nodes=[
+                WorkflowNode(id="n1", type="trigger_wazuh", label="", config={}, x=0, y=0, name="Alert Trigger"),
+                WorkflowNode(id="n2", type="condition_severity", label="", config={"min_level": 3}, x=0, y=0, name="Severity >= HIGH"),
+                WorkflowNode(id="n3", type="tool_slack", label="", config={"channel": "#soc-alerts"}, x=0, y=0, name="Post to #soc-alerts"),
+            ],
+            edges=[
+                WorkflowEdge(id="e1", source="n1", target="n2", source_handle="default"),
+                WorkflowEdge(id="e2", source="n2", target="n3", source_handle="default"),
+            ],
+        ),
+        Workflow(
+            id="wf-ransomware-containment",
+            name="Ransomware Workstation Containment Gated Flow",
+            enabled=True,
+            nodes=[
+                WorkflowNode(id="n1", type="trigger_wazuh", label="", config={}, x=0, y=0, name="Ransomware Trigger"),
+                WorkflowNode(id="n2", type="condition_severity", label="", config={"min_level": 4}, x=0, y=0, name="Severity >= CRITICAL"),
+                WorkflowNode(id="n3", type="condition_approval", label="", config={"action_type": "isolate_host", "timeout_seconds": 300}, x=0, y=0, name="Mandatory Human Approval"),
+                WorkflowNode(id="n4", type="tool_isolate", label="", config={}, x=0, y=0, name="Execute Host Isolation"),
+                WorkflowNode(id="n5", type="tool_slack", label="", config={"channel": "#soc-containment"}, x=0, y=0, name="Broadcast Isolation Confirmed"),
+            ],
+            edges=[
+                WorkflowEdge(id="e1", source="n1", target="n2", source_handle="default"),
+                WorkflowEdge(id="e2", source="n2", target="n3", source_handle="default"),
+                WorkflowEdge(id="e3", source="n3", target="n4", source_handle="default"),
+                WorkflowEdge(id="e4", source="n4", target="n5", source_handle="default"),
+            ],
+        ),
+    ]
+    return corrected, legacy
+
+
 class ServiceConnectionSensor:
     """Manages telemetry service connectivity state and dynamic auto-configuration."""
 
@@ -128,49 +234,11 @@ class ServiceConnectionSensor:
                 agent_repo.save(agent, org_id)
 
         # 2. Standard Baseline DAG Workflows
-        standard_workflows = [
-            Workflow(
-                id="wf-slack-triage",
-                name="High-Severity Slack Notification",
-                description="Immediately alerts the on-call security team on Slack when high-severity incidents occur.",
-                enabled=True,
-                nodes=[
-                    WorkflowNode(id="n1", type="trigger_wazuh", name="Alert Trigger", config={}),
-                    WorkflowNode(id="n2", type="condition_severity", name="Severity >= HIGH", config={"min_level": 3}),
-                    WorkflowNode(id="n3", type="tool_slack", name="Post to #soc-alerts", config={"channel": "#soc-alerts"}),
-                ],
-                edges=[
-                    WorkflowEdge(id="e1", source="n1", target="n2"),
-                    WorkflowEdge(id="e2", source="n2", target="n3"),
-                ],
-                created_at=now_iso,
-                updated_at=now_iso,
-            ),
-            Workflow(
-                id="wf-ransomware-containment",
-                name="Ransomware Workstation Containment Gated Flow",
-                description="Requires mandatory SOC analyst approval before isolating workstations during ransomware outbreaks.",
-                enabled=True,
-                nodes=[
-                    WorkflowNode(id="n1", type="trigger_wazuh", name="Ransomware Trigger", config={}),
-                    WorkflowNode(id="n2", type="condition_severity", name="Severity >= CRITICAL", config={"min_level": 4}),
-                    WorkflowNode(id="n3", type="condition_approval", name="Mandatory Human Approval", config={"action_type": "isolate_host", "timeout_seconds": 300}),
-                    WorkflowNode(id="n4", type="tool_isolate", name="Execute Host Isolation", config={}),
-                    WorkflowNode(id="n5", type="tool_slack", name="Broadcast Isolation Confirmed", config={"channel": "#soc-containment"}),
-                ],
-                edges=[
-                    WorkflowEdge(id="e1", source="n1", target="n2"),
-                    WorkflowEdge(id="e2", source="n2", target="n3"),
-                    WorkflowEdge(id="e3", source="n3", target="n4"),
-                    WorkflowEdge(id="e4", source="n4", target="n5"),
-                ],
-                created_at=now_iso,
-                updated_at=now_iso,
-            ),
-        ]
-
+        standard_workflows, legacy_workflows = _seed_workflows(now_iso)
+        legacy_by_id = {wf.id: wf for wf in legacy_workflows}
         for wf in standard_workflows:
-            if not workflow_repo.get(wf.id, org_id):
+            existing = workflow_repo.get(wf.id, org_id)
+            if existing is None or _workflow_seed_signature(existing) == _workflow_seed_signature(legacy_by_id[wf.id]):
                 workflow_repo.save(wf, org_id)
 
         # 3. Standard Critical Allowlist Safeguards (D12/D14)

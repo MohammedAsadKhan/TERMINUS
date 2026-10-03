@@ -1,10 +1,8 @@
-"""Active Containment & SOAR Action Connectors for TERMINUS.
+"""Guardrailed dispatch boundary for active containment actions.
 
-Provides verified containment mechanisms:
-- Wazuh Active Response (firewall-drop, host-deny, restart-ossec)
-- Boundary Firewall / Webhook IP Blocking
-- AWS IAM Session Invalidation
-- Guardrailed One-Click Incident Remediation
+No live host, firewall, or IAM providers are currently configured. Eligible
+actions therefore return an explicit not-configured result; they never report
+execution or verification that did not happen.
 """
 
 from __future__ import annotations
@@ -30,7 +28,7 @@ class ContainmentResult:
 
 
 class ActiveResponseRunner:
-    """Executes automated or human-approved SOAR containment actions."""
+    """Checks containment guardrails and reports whether an action can run."""
 
     def __init__(self, siem_client: SiemClient | None = None) -> None:
         self.siem = siem_client
@@ -66,36 +64,33 @@ class ActiveResponseRunner:
 
         # 2. Dispatch Action
         if action_type == "isolate_host":
-            msg = f"Host interface for '{target}' successfully isolated via active response."
             return ContainmentResult(
-                success=True,
+                success=False,
                 action_type=action_type,
                 target=target,
                 operator_id=operator_id,
-                audit_message=msg,
-                raw_response={"status": "isolated", "command": "active-response/bin/host-deny", "verified": True},
+                audit_message=f"CONTAINMENT NOT EXECUTED: no host isolation provider is configured for '{target}'.",
+                raw_response={"status": "not_configured", "executed": False, "verified": False},
             )
 
         if action_type == "block_ip":
-            msg = f"Adversary IP '{target}' dynamically injected into border firewall drop table."
             return ContainmentResult(
-                success=True,
+                success=False,
                 action_type=action_type,
                 target=target,
                 operator_id=operator_id,
-                audit_message=msg,
-                raw_response={"status": "blocked", "rule": "iptables -I INPUT -s target -j DROP", "verified": True},
+                audit_message=f"CONTAINMENT NOT EXECUTED: no firewall provider is configured for '{target}'.",
+                raw_response={"status": "not_configured", "executed": False, "verified": False},
             )
 
         if action_type == "revoke_iam_session":
-            msg = f"Compromised AWS IAM credentials for '{target}' invalidated and session revoked."
             return ContainmentResult(
-                success=True,
+                success=False,
                 action_type=action_type,
                 target=target,
                 operator_id=operator_id,
-                audit_message=msg,
-                raw_response={"status": "revoked", "action": "aws:RevokeSession", "verified": True},
+                audit_message=f"CONTAINMENT NOT EXECUTED: no IAM session revocation provider is configured for '{target}'.",
+                raw_response={"status": "not_configured", "executed": False, "verified": False},
             )
 
         return ContainmentResult(

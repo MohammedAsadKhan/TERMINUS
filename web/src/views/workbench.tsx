@@ -502,7 +502,7 @@ export default function Workbench({ incidentView = false }: { incidentView?: boo
       <div className="work-page-header">
         <div>
           <h1>Incidents Command Center</h1>
-          <p>Correlate cross-host attack patterns, inspect raw forensic evidence, and dispatch verified containment.</p>
+          <p>Correlate cross-host attack patterns, inspect raw forensic evidence, and review guarded response actions.</p>
         </div>
         <div className="work-head-actions">
           <div className="work-stat-pills">
@@ -580,7 +580,7 @@ export default function Workbench({ incidentView = false }: { incidentView?: boo
       </div>
 
       {/* THREE COLUMN COMMAND CENTER: Visualizer (Left) | Incident Logs (Middle) | Inspector (Right) */}
-      <div className="work-split-3col">
+      <div className={`work-split-3col layout-${layout}`}>
         {/* COLUMN 1 (LEFT): Attack Relationship Topology Visualizer */}
         <section className="work-col-visualizer" aria-label="Attack Relationship Topology">
           <div className="work-panel-header">
@@ -644,7 +644,7 @@ export default function Workbench({ incidentView = false }: { incidentView?: boo
             <div className="work-placeholder">
               <SafetyCertificateOutlined style={{ fontSize: 36, color: 'var(--accent)', marginBottom: 12, opacity: 0.85 }} />
               <h2>Incident Dossier Inspector</h2>
-              <p>Select any incident row from the queue or click a node on the Attack Topology to inspect forensic evidence, correlate MITRE techniques, and execute verified containment.</p>
+              <p>Select any incident row from the queue or click a node on the Attack Topology to inspect forensic evidence, correlate MITRE techniques, and review response actions.</p>
               {active.length > 0 && (
                 <Button type="primary" onClick={() => navigate(`/incidents/${encodeURIComponent(active[0].id)}`)}>
                   Inspect Top Priority ({active[0].id})

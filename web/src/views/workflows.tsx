@@ -51,6 +51,7 @@ import { useSearchParams } from 'react-router-dom';
 import '@xyflow/react/dist/style.css';
 import { api, body } from '../api';
 import { useSession } from '../context';
+import { useTheme } from '../theme';
 import { EmptyPanel, ErrorPanel, Loading, PageTitle } from '../components';
 import type { Agent, Approval, Workflow } from '../types';
 
@@ -60,8 +61,8 @@ const { Text } = Typography;
 const palette = [
   { type: 'trigger_wazuh', label: 'Wazuh Alert Trigger', group: 'TRIGGER', color: 'green', description: 'Evaluates incoming Wazuh SIEM telemetry' },
   { type: 'condition_severity', label: 'Severity Gate', group: 'CONDITION', color: 'amber', description: 'Deterministic level & verdict severity filter' },
-  { type: 'condition_approval', label: 'Human Approval Gate', group: 'APPROVAL', color: 'purple', description: 'Halts execution until analyst authorization' },
-  { type: 'agent_llm', label: 'AI Investigation Persona', group: 'AGENT', color: 'purple', description: 'Re-evaluates telemetry with custom persona' },
+  { type: 'condition_approval', label: 'Human Approval Gate', group: 'APPROVAL', color: 'blue', description: 'Halts execution until analyst authorization' },
+  { type: 'agent_llm', label: 'AI Investigation Persona', group: 'AGENT', color: 'blue', description: 'Re-evaluates telemetry with custom persona' },
   { type: 'tool_slack', label: 'Slack Alert', group: 'OUTPUT', color: 'blue', description: 'Broadcasts report to Slack channel' },
   { type: 'tool_jira', label: 'Jira Ticket', group: 'OUTPUT', color: 'blue', description: 'Creates structured tracking incident ticket' },
   { type: 'tool_isolate', label: 'Isolate Host', group: 'CONTAINMENT', color: 'red', description: 'Active containment workstation network cut' },
@@ -88,7 +89,7 @@ function OperationNode({ data, selected }: NodeProps<FlowNode>) {
       SUCCESS: '#22c55e',
       FAILED: '#ef4444',
       BLOCKED: '#f59e0b',
-      WAITING_APPROVAL: '#a855f7',
+      WAITING_APPROVAL: '#2563c9',
       SKIPPED: '#64748b',
     };
     statusBadge = (
@@ -114,12 +115,12 @@ function OperationNode({ data, selected }: NodeProps<FlowNode>) {
   return (
     <div className={`operation-node ${meta?.color || 'blue'} ${selected ? 'selected' : ''}`} style={{ position: 'relative' }}>
       {statusBadge}
-      <Handle type="target" position={Position.Left} style={{ background: '#759988', width: 8, height: 8 }} />
+      <Handle type="target" position={Position.Left} style={{ background: 'var(--accent)', width: 8, height: 8 }} />
       <div className="node-kind">
         <i />
         {meta?.group || 'STEP'}
       </div>
-      <strong>{data.label}</strong>
+      <strong>{data.label?.trim() || meta?.label || data.kind}</strong>
       <small>{meta?.description || data.kind}</small>
 
       {/* Output handles strictly adhering to D8 */}
@@ -167,6 +168,8 @@ function OperationNode({ data, selected }: NodeProps<FlowNode>) {
 const nodeTypes = { operation: OperationNode };
 
 function WorkflowEditor() {
+  const { activeTheme } = useTheme();
+  const lightCanvas = activeTheme.id === 'workspace';
   const { orgId, detail } = useSession();
   const { message, modal } = App.useApp();
   const query = useQueryClient();
@@ -221,11 +224,14 @@ function WorkflowEditor() {
     setPriority(selected.priority ?? 100);
     setVersion(selected.version ?? 1);
     setAgent(selected.agent_id);
+    // Seeded definitions can omit editor coordinates. Spread their nodes out
+    // for display while retaining any layout that an analyst has saved.
+    const needsInitialLayout = selected.nodes.length > 1 && selected.nodes.every(n => !n.x && !n.y);
     setNodes(
-      selected.nodes.map(n => ({
+      selected.nodes.map((n, index) => ({
         id: n.id,
         type: 'operation',
-        position: { x: n.x, y: n.y },
+        position: needsInitialLayout ? { x: index * 340, y: 60 } : { x: n.x, y: n.y },
         data: { label: n.label, kind: n.type, config: n.config },
       }))
     );
@@ -744,15 +750,15 @@ function WorkflowEditor() {
                     fitView
                     minZoom={0.15}
                     maxZoom={2}
-                    colorMode="dark"
+                    colorMode={lightCanvas ? 'light' : 'dark'}
                     defaultEdgeOptions={{
                       type: 'smoothstep',
-                      style: { stroke: '#759988', strokeWidth: 1.7 },
+                      style: { stroke: lightCanvas ? '#8093af' : '#7f9dc4', strokeWidth: 1.7 },
                     }}
                   >
-                    <Background variant={BackgroundVariant.Dots} gap={22} size={1} color="#35423d" />
+                    <Background variant={BackgroundVariant.Dots} gap={22} size={1} color={lightCanvas ? '#cdd5e1' : '#354158'} bgColor={activeTheme.bgBase} />
                     <Controls />
-                    <MiniMap pannable zoomable nodeColor="#4e725b" maskColor="rgba(10,18,14,.7)" />
+                    <MiniMap pannable zoomable nodeColor={activeTheme.primaryColor} bgColor={activeTheme.bgSurface} maskColor={lightCanvas ? 'rgba(221,229,240,.55)' : 'rgba(15,20,30,.7)'} />
                   </ReactFlow>
                 </div>
               </div>

@@ -11,8 +11,14 @@ export default defineConfig({
   },
   server: {
     proxy: Object.fromEntries(
-      ['/auth', '/orgs', '/incidents', '/agents', '/workflows', '/reports', '/wazuh', '/system', '/metrics', '/health', '/copilot', '/stream']
-        .map(path => [path, 'http://127.0.0.1:8000']),
+      ['/auth', '/orgs', '/incidents', '/agents', '/assets', '/workflows', '/reports', '/settings', '/wazuh', '/system', '/metrics', '/health', '/copilot', '/stream']
+        .map(path => [path, {
+          target: 'http://127.0.0.1:8000',
+          changeOrigin: true,
+          // Local development uses a separate frontend origin. Keep forwarded
+          // writes same-origin with the backend's browser security check.
+          headers: { origin: 'http://127.0.0.1:8000' },
+        }]),
     ),
   },
 });

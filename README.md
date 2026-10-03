@@ -21,13 +21,18 @@
 - **Wilson Score Statistical Backtesting**: Evaluates historical detection telemetry with 95% Wilson confidence lower bounds ($w^-$) to eliminate false-positive overfitting.
 - **Idempotent Claim Leases & Concurrency (D5, D24)**: Atomic SQLite WAL claims with 60-second background lease sweepers and crash recovery.
 - **Real-Time Tenant-Isolated SSE Stream**: Server-Sent Events bus streaming live incident investigations, agent thought steps, and approval requests to the UI.
-- **Interactive SOC Analyst Console**: Modern dark-mode React 18 / Vite workspace featuring dynamic incident queues, force-directed graph canvas, ReAct Copilot, and visual DAG designer.
+- **Interactive SOC Analyst Console**: React 19 / Vite / Ant Design workspace featuring dynamic incident queues, force-directed graph canvas, ReAct Copilot, and visual DAG designer.
+- **Asset Inventory**: Organization-scoped SQLite records for repositories, containers, cloud accounts, virtual machines, domains, and devices. Admins can register and remove inventory records; monitoring coverage is explicitly shown as not connected until collectors/providers are implemented.
 
 ---
 
 ## 3-Step Windows Quickstart (Grading Walkthrough)
 
 TERMINUS is packaged for turnkey evaluation without requiring pre-installed Node.js or complex database setup:
+
+For a source checkout, build the console before launching the service: run `npm ci` and `npm run build` from `web/`. Generated assets go into `src/terminus/server/static/console/` and are ignored by Git. Include that directory in a runnable submission archive, or have the evaluator run the build commands. The setup executables configure the service; they do not bundle the full service and console.
+
+The current runtime uses SQLite, with automatic migration of legacy agent and workflow keys. Authentication, organizations, memberships, sessions, and report history still use process memory. See [Database status](docs/DATABASE_STATUS.md) for persistence and setup configuration limitations. Live containment requires an implemented response connector; the current demo supports simulation and guardrail evaluation.
 
 ### 1. Setup & Configuration Wizard
 Double-click `TerminusSetupWizard.exe` (or run `setup_terminus.bat`):
@@ -175,7 +180,7 @@ terminus/
 ├── scripts/                 # Setup, Flood Simulation & Verification Utilities
 ├── tests/                   # 133 Unit, Concurrency, and E2E Workflow Test Suites
 │   └── workflows/           # Phases 0-8 Comprehensive Verification Suites
-├── web/                     # React 18 + Vite + Ant Design Analyst Console Source
+├── web/                     # React 19 + Vite + Ant Design Analyst Console Source
 ├── pyproject.toml           # Tooling & Dependency Configuration
 ├── ARCHITECTURE.md          # Complete Engineering Architecture Specification
 └── README.md                # Platform Documentation & Overview

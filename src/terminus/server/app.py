@@ -19,6 +19,7 @@ from terminus.models import ReportType
 from terminus.reports.service import generate_daily_report
 from terminus.server.bank_router import bank_router
 from terminus.server.console_api import router as console_router
+from terminus.server.assets_api import router as assets_router
 from terminus.server.copilot import copilot_router, global_copilot_router
 from terminus.server.deps import get_org_store, get_pipeline_runner, get_reports_store
 from terminus.server.graph import graph_router
@@ -157,6 +158,7 @@ def create_app() -> FastAPI:
         return response
 
     app.include_router(console_router)
+    app.include_router(assets_router)
     app.include_router(health_router)
     app.include_router(auth_router)
     app.include_router(org_router)

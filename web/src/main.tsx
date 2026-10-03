@@ -10,12 +10,13 @@ import './styles.css';
 import './design.css';
 import './workbench.css';
 import './investigation-graph.css';
+import './workspace.css';
 
 const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: 15000 }, mutations: { retry: false } } });
 
 function Root() {
-  const [themeId, setThemeIdState] = useState<string>(() => localStorage.getItem('terminus_theme_id') || 'carbon');
-  const activeTheme = THEMES[themeId] || THEMES.carbon;
+  const [themeId, setThemeIdState] = useState<string>(() => localStorage.getItem('terminus_theme_id') || 'workspace');
+  const activeTheme = THEMES[themeId] || THEMES.workspace;
 
   const setThemeId = (id: string) => {
     if (THEMES[id]) {
@@ -32,7 +33,7 @@ function Root() {
   return (
     <ThemeContext.Provider value={{ themeId, activeTheme, setThemeId, availableThemes: Object.values(THEMES) }}>
       <ConfigProvider theme={{
-        algorithm: theme.darkAlgorithm,
+        algorithm: activeTheme.id === 'workspace' ? theme.defaultAlgorithm : theme.darkAlgorithm,
         token: {
           colorPrimary: activeTheme.primaryColor,
           colorInfo: activeTheme.primaryColor,
@@ -41,14 +42,14 @@ function Root() {
           colorBorder: activeTheme.borderColor,
           colorText: activeTheme.textMain,
           colorTextSecondary: activeTheme.textMuted,
-          borderRadius: 10,
-          fontFamily: "Inter, 'Segoe UI', system-ui, sans-serif",
+          borderRadius: 6,
+          fontFamily: "'Segoe UI', system-ui, sans-serif",
           fontSize: 13,
-          controlHeight: 38,
+          controlHeight: 34,
         },
         components: {
           Table: { headerBg: activeTheme.tableHeaderBg, rowHoverBg: activeTheme.tableHoverBg },
-          Button: { primaryColor: activeTheme.bgBase, fontWeight: 600 },
+          Button: { primaryColor: activeTheme.id === 'workspace' ? '#ffffff' : activeTheme.bgBase, fontWeight: 600 },
           Menu: { itemBg: 'transparent', itemSelectedBg: activeTheme.menuSelectedBg, itemSelectedColor: activeTheme.menuSelectedColor },
         }
       }}>

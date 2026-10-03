@@ -6,8 +6,10 @@ automatic schema creation, and database snapshots.
 
 from __future__ import annotations
 
+import re
 import sqlite3
 import threading
+from contextlib import suppress
 from pathlib import Path
 from typing import Any
 
@@ -339,11 +341,32 @@ class Database:
                 PRIMARY KEY (org_id, alert_id)
             );
             """,
+            """
+            CREATE TABLE IF NOT EXISTS assets (
+                asset_id TEXT PRIMARY KEY,
+                org_id TEXT NOT NULL,
+                kind TEXT NOT NULL CHECK (kind IN ('repository', 'container', 'cloud', 'virtual_machine', 'domain', 'device')),
+                name TEXT NOT NULL,
+                locator TEXT,
+                notes TEXT,
+                source TEXT NOT NULL DEFAULT 'manual' CHECK (source IN ('registered', 'manual')),
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (org_id) REFERENCES organizations(org_id) ON DELETE CASCADE
+            );
+            """,
         ]
 
         conn = self._get_connection()
         for stmt in table_statements:
             conn.executescript(stmt)
+
+        # Older releases keyed these tables by their public ID alone. That
+        # prevents two organizations from using the same agent/workflow ID,
+        # even though repositories and the current schema scope IDs by org.
+        # Rebuild only when the table's actual primary key is stale; the
+        # migration copies every stored column and runs atomically.
+        _migrate_tenant_scoped_primary_key(conn, "soc_agents", "agent_id")
+        _migrate_tenant_scoped_primary_key(conn, "workflows", "workflow_id")
 
         # Apply column migrations for preexisting tables
         for table, col, col_def in [
@@ -357,10 +380,8 @@ class Database:
             ("workflow_runs", "side_effects", "INTEGER NOT NULL DEFAULT 0"),
             ("workflow_runs", "unknown_outcome", "INTEGER NOT NULL DEFAULT 0"),
         ]:
-            try:
+            with suppress(sqlite3.OperationalError):
                 conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} {col_def};")
-            except sqlite3.OperationalError:
-                pass
 
         # Create indexes after columns are guaranteed to exist
         index_statements = [
@@ -380,9 +401,193 @@ class Database:
             "CREATE INDEX IF NOT EXISTS idx_action_logs_org_time ON action_logs(org_id, timestamp DESC);",
             "CREATE INDEX IF NOT EXISTS idx_graph_events_org_time ON graph_events(org_id, occurred_at DESC);",
             "CREATE INDEX IF NOT EXISTS idx_graph_events_org_pair ON graph_events(org_id, source_ip, host, occurred_at DESC);",
+            "CREATE INDEX IF NOT EXISTS idx_assets_org_created ON assets(org_id, created_at DESC);",
+            "CREATE INDEX IF NOT EXISTS idx_assets_org_kind ON assets(org_id, kind);",
         ]
         for stmt in index_statements:
             conn.execute(stmt)
+
+
+def _migrate_tenant_scoped_primary_key(  # noqa: C901, PLR0912, PLR0915
+    conn: sqlite3.Connection, table: str, id_column: str
+) -> None:
+    """Change a legacy global ID primary key to (org_id, ID), preserving rows.
+
+    The table SQL is adapted instead of replaced with a hard-coded schema so
+    columns added by older migrations or local deployments survive the rebuild.
+    Indexes and triggers are recreated after the original table is dropped.
+    """
+    if (table, id_column) not in {
+        ("soc_agents", "agent_id"),
+        ("workflows", "workflow_id"),
+    }:
+        raise ValueError("Migration only supports the known tenant-scoped tables")
+    rows = conn.execute(f'PRAGMA table_info("{table}")').fetchall()
+    if not rows:
+        return
+    primary_key = [row["name"] for row in sorted(rows, key=lambda row: row["pk"]) if row["pk"]]
+    if primary_key == ["org_id", id_column]:
+        return
+    columns = {row["name"] for row in rows}
+    if not {"org_id", id_column}.issubset(columns):
+        raise sqlite3.DatabaseError(
+            f"Cannot migrate {table}: expected org_id and {id_column} columns"
+        )
+
+    duplicate = conn.execute(
+        f'SELECT 1 FROM "{table}" GROUP BY org_id, "{id_column}" HAVING COUNT(*) > 1 LIMIT 1'  # noqa: S608
+    ).fetchone()
+    if duplicate:
+        raise sqlite3.IntegrityError(
+            f"Cannot migrate {table}: duplicate organization-scoped IDs exist"
+        )
+
+    schema_row = conn.execute(
+        "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?", (table,)
+    ).fetchone()
+    if not schema_row or not schema_row["sql"]:
+        raise sqlite3.DatabaseError(f"Cannot read schema for {table}")
+    create_sql = schema_row["sql"]
+    index_and_trigger_sql = [
+        row["sql"]
+        for row in conn.execute(
+            "SELECT sql FROM sqlite_master WHERE tbl_name = ? "
+            "AND type IN ('index', 'trigger') AND sql IS NOT NULL ORDER BY type, name",
+            (table,),
+        ).fetchall()
+    ]
+
+    temporary_table = f"{table}__tenant_key_migration"
+    if conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (temporary_table,)
+    ).fetchone():
+        raise sqlite3.DatabaseError(f"Migration staging table already exists: {temporary_table}")
+
+    # Refuse a rebuild if another table has an inbound foreign key. These
+    # current tables have no inbound references; silently dropping a referenced
+    # table could cascade-delete child rows.
+    table_names = [
+        row["name"]
+        for row in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'"
+        ).fetchall()
+    ]
+    for child_table in table_names:
+        for foreign_key in conn.execute(f'PRAGMA foreign_key_list("{child_table}")').fetchall():
+            if foreign_key["table"] == table:
+                raise sqlite3.DatabaseError(
+                    f"Cannot safely migrate {table}: {child_table} has an inbound foreign key"
+                )
+
+    # Replace the table name, then parse top-level column/constraint
+    # declarations. This handles both inline keys and table-level keys without
+    # relying on line breaks or leaving commas behind.
+    create_sql = re.sub(
+        rf"(?is)^(\s*CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?)[\"`\[]?{re.escape(table)}[\"`\]]?",
+        rf"\g<1>{temporary_table}",
+        create_sql,
+        count=1,
+    )
+    # Locate the matching outer parenthesis, respecting quoted strings and
+    # identifiers, so constraints remain inside the table declaration.
+    open_paren = create_sql.find("(")
+    depth = 0
+    quote: str | None = None
+    close_paren = -1
+    i = open_paren
+    while i >= 0 and i < len(create_sql):
+        char = create_sql[i]
+        if quote:
+            if char == quote:
+                if i + 1 < len(create_sql) and create_sql[i + 1] == quote:
+                    i += 1
+                else:
+                    quote = None
+        elif char in ("'", '"', "`"):
+            quote = char
+        elif char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+            if depth == 0:
+                close_paren = i
+                break
+        i += 1
+    if close_paren < 0:
+        raise sqlite3.DatabaseError(f"Cannot safely parse schema for {table}")
+
+    body = create_sql[open_paren + 1 : close_paren]
+    definitions: list[str] = []
+    start = 0
+    depth = 0
+    quote = None
+    i = 0
+    while i < len(body):
+        char = body[i]
+        if quote:
+            if char == quote:
+                if i + 1 < len(body) and body[i + 1] == quote:
+                    i += 1
+                else:
+                    quote = None
+        elif char in ("'", '"', "`"):
+            quote = char
+        elif char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+        elif char == "," and depth == 0:
+            definitions.append(body[start:i].strip())
+            start = i + 1
+        i += 1
+    definitions.append(body[start:].strip())
+
+    quoted_id = rf'["`\[]?{re.escape(id_column)}["`\]]?'
+    table_pk = re.compile(r"(?is)^PRIMARY\s+KEY\s*\((.*?)\)(.*)$")
+    saw_primary_key = False
+    replaced_table_key = False
+    for index, definition in enumerate(definitions):
+        table_key_match = table_pk.match(definition)
+        if table_key_match:
+            saw_primary_key = True
+            definitions[index] = f"PRIMARY KEY (org_id, {id_column}){table_key_match.group(2)}"
+            replaced_table_key = True
+            continue
+        if re.match(rf"(?is)^{quoted_id}\s+", definition):
+            updated, count = re.subn(r"(?i)\s+PRIMARY\s+KEY\b", "", definition, count=1)
+            if count:
+                saw_primary_key = True
+                definitions[index] = updated
+    if not saw_primary_key:
+        raise sqlite3.DatabaseError(
+            f"Cannot safely migrate {table}: unsupported primary-key declaration"
+        )
+    if not replaced_table_key:
+        definitions.append(f"PRIMARY KEY (org_id, {id_column})")
+    create_sql = create_sql[: open_paren + 1] + "\n    " + ",\n    ".join(definitions) + "\n" + create_sql[close_paren:]
+
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        conn.execute(create_sql)
+        column_list = ", ".join(f'"{name}"' for name in columns)
+        conn.execute(
+            f'INSERT INTO "{temporary_table}" ({column_list}) '  # noqa: S608
+            f'SELECT {column_list} FROM "{table}"'
+        )
+        conn.execute(f'DROP TABLE "{table}"')
+        conn.execute(f'ALTER TABLE "{temporary_table}" RENAME TO "{table}"')
+        for statement in index_and_trigger_sql:
+            # An explicit single-column unique index on the old ID would
+            # recreate the same cross-tenant restriction the migration fixes.
+            if statement.lstrip().upper().startswith("CREATE UNIQUE INDEX"):
+                index_info = re.search(r"(?is)\bON\s+[\"`\[]?\w+[\"`\]]?\s*\((.*?)\)", statement)
+                if index_info and re.sub(r"[\"`\[\]\s]", "", index_info.group(1)) == id_column:
+                    continue
+            conn.execute(statement)
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
 
 
 def create_connection(db_path: str | Path = "terminus.db") -> sqlite3.Connection:
