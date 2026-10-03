@@ -15,7 +15,10 @@
 - **Deterministic Tier-0 Noise Filter**: Sub-millisecond pre-filtering (<1ms) evaluating rules before invoking LLMs. Filters 70–85% of benign noise at **0 token cost**.
 - **ReAct AI Forensic Investigator Swarms**: Multi-turn reasoning swarms (*Triage Sentinel*, *Forensic Investigator*, *Containment Operator*) equipped with parameterized forensic tools (`siem_search`, `threat_intel_lookup`, `powershell_deobfuscator`).
 - **Visual DAG Workflow Engine**: Validated graph-based playbooks with strict node schemas (`extra="forbid"`), resolved-edge join semantics (D9), and non-raising execution safety (D6).
-- **Deterministic Blast-Radius Containment (D11, D12, D14)**: Mathematically enforces that critical infrastructure (Domain Controllers, core subnets) cannot be isolated by probabilistic AI hallucination.
+- **Deterministic Blast-Radius Containment (D11, D12, D14)**: Mathematically enforces that critical infrastructure (Domain Controllers, core subnets, and default gateways) cannot be isolated by probabilistic AI hallucination.
+- **Fleet-Wide Dual Containment Quota**: Sliding-window rate limiter enforcing a maximum of 10 global host isolations and 3 per subnet per 15-minute window with automated lease TTL expiration.
+- **Dynamic Sigma & YARA Rule Synthesizer**: Closed-loop detection engineering that drafts validated Sigma and YARA rules from investigated incidents.
+- **Wilson Score Statistical Backtesting**: Evaluates historical detection telemetry with 95% Wilson confidence lower bounds ($w^-$) to eliminate false-positive overfitting.
 - **Idempotent Claim Leases & Concurrency (D5, D24)**: Atomic SQLite WAL claims with 60-second background lease sweepers and crash recovery.
 - **Real-Time Tenant-Isolated SSE Stream**: Server-Sent Events bus streaming live incident investigations, agent thought steps, and approval requests to the UI.
 - **Interactive SOC Analyst Console**: Modern dark-mode React 18 / Vite workspace featuring dynamic incident queues, force-directed graph canvas, ReAct Copilot, and visual DAG designer.
@@ -28,8 +31,9 @@ TERMINUS is packaged for turnkey evaluation without requiring pre-installed Node
 
 ### 1. Setup & Configuration Wizard
 Double-click `TerminusSetupWizard.exe` (or run `setup_terminus.bat`):
-* Configures service daemon port (default: `8000`), SQLite WAL database (`terminus.db`), and AI reasoning backend (Groq / OpenAI / Ollama).
-* Provisions the root administrator (`admin@terminus.local` / `Password123!`) and generates a cryptographic enterprise license token.
+* Interactive pre-flight checks: live port collision scanning (Port `8000`) and live "Test LLM Connection" probe.
+* Configures service daemon port, SQLite WAL database (`terminus.db`), and AI reasoning backend (Groq / OpenAI / Ollama / vLLM).
+* Provisions the root administrator (`admin@terminus.local` / `Password123!`), generates cryptographic enterprise license tokens, and exports `docs/wazuh_integration.xml`.
 
 ### 2. Start the Standalone Service Daemon
 Double-click `run_demo_service.bat`:
@@ -44,6 +48,11 @@ In a second terminal window, double-click `launch_attack_simulation.bat`:
   2. **Wave 2 — LockBit 3.0 Ransomware Detonation**: Triggers ReAct forensic investigation and pauses for **Mandatory Human Approval** before host isolation.
   3. **Wave 3 — Active Directory Mimikatz DCSync Attack**: Demonstrates deterministic guardrails **blocking** unauthorized isolation of Domain Controller `dc01.corp.internal`.
   4. **Wave 4 — AI Copilot Campaign Correlation**: Correlates multi-host adversary behavior across the MITRE ATT&CK matrix.
+
+### Platform Reset & Teardown
+To reset the database or clean the environment, run `uninstall_terminus.bat`:
+* **Soft Reset**: Cleans database state, test artifacts, and logs while preserving the virtual environment.
+* **Full Teardown**: Gracefully terminates services and completely cleans virtual environments and build artifacts.
 
 ---
 
@@ -126,7 +135,7 @@ flowchart TD
 TERMINUS is backed by a 100% automated test suite covering all 8 development phases:
 
 ```bash
-# Run full automated test suite (127 tests)
+# Run full automated test suite (133 tests)
 uv run pytest -q
 
 # Run with verbose output and duration analysis
@@ -147,7 +156,7 @@ terminus/
 ├── src/terminus/            # Core Python Platform Package
 │   ├── agent/               # ReAct Forensic Investigation Swarms & Scoped Tools
 │   ├── auth/                # Session Tokens & Timing-Safe Password Hashing
-│   ├── containment/         # Deterministic Blast-Radius Safety Guardrails (D11, D12)
+│   ├── containment/         # Deterministic Blast-Radius Safety Guardrails & Quotas (D11, D12)
 │   ├── core/                # Value Objects, Typed IDs, and Base Exceptions
 │   ├── licensing/           # Cryptographic HMAC-SHA256 Licensing Token Engine
 │   ├── llm/                 # OpenAI/Groq/vLLM LLM Client & Strict JSON Parser
@@ -158,11 +167,13 @@ terminus/
 │   ├── privacy/             # Automated Secret & Sensitive Token Redactor (D13)
 │   ├── server/              # FastAPI Application, SSE Streaming Bus & Routers
 │   ├── service/             # Telemetry Connection Sensor & Baseline Auto-Config
-│   └── storage/             # SQLite WAL Repositories (Claims, Runs, Workflows, Logs)
+│   ├── storage/             # SQLite WAL Repositories (Claims, Runs, Workflows, Logs)
+│   └── tuning/              # Dynamic Sigma/YARA Rule Synthesizer & Wilson Score Backtesting
 ├── docs/                    # Architectural Specifications & Evaluation Guides
-│   └── GRADING_GUIDE.md     # 5-Minute Evaluation Walkthrough for Graders
+│   ├── GRADING_GUIDE.md     # 5-Minute Evaluation Walkthrough for Graders
+│   └── wazuh_integration.xml # Auto-generated Wazuh Integration XML Block
 ├── scripts/                 # Setup, Flood Simulation & Verification Utilities
-├── tests/                   # 127 Unit, Concurrency, and E2E Workflow Test Suites
+├── tests/                   # 133 Unit, Concurrency, and E2E Workflow Test Suites
 │   └── workflows/           # Phases 0-8 Comprehensive Verification Suites
 ├── web/                     # React 18 + Vite + Ant Design Analyst Console Source
 ├── pyproject.toml           # Tooling & Dependency Configuration
