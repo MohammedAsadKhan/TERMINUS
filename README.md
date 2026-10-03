@@ -2,7 +2,7 @@
 
 [![Python 3.12](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg)](https://fastapi.tiangolo.com)
-[![Pytest](https://img.shields.io/badge/pytest-133%20passed-brightgreen.svg)](https://docs.pytest.org/)
+[![Pytest](https://img.shields.io/badge/pytest-149%20passed-brightgreen.svg)](https://docs.pytest.org/)
 [![License](https://img.shields.io/badge/license-Enterprise-blue.svg)](LICENSE)
 [![Architecture](https://img.shields.io/badge/Architecture-Dual--Engine%20SOC-purple.svg)](ARCHITECTURE.md)
 
@@ -30,7 +30,7 @@
 
 TERMINUS is packaged for turnkey evaluation without requiring pre-installed Node.js or complex database setup:
 
-For a source checkout, build the console before launching the service: run `npm ci` and `npm run build` from `web/`. Generated assets go into `src/terminus/server/static/console/` and are ignored by Git. Include that directory in a runnable submission archive, or have the evaluator run the build commands. The setup executables configure the service; they do not bundle the full service and console.
+The prebuilt console is tracked in `src/terminus/server/static/console/` so evaluators can launch the service without a frontend build. After changing frontend source, run `npm ci` and `npm run build` from `web/` and include the updated generated assets. The setup executables configure the service; they do not bundle the full service and console.
 
 The current runtime uses SQLite, with automatic migration of legacy agent and workflow keys. Authentication, organizations, memberships, sessions, and report history still use process memory. See [Database status](docs/DATABASE_STATUS.md) for persistence and setup configuration limitations. Live containment requires an implemented response connector; the current demo supports simulation and guardrail evaluation.
 
@@ -140,7 +140,7 @@ flowchart TD
 TERMINUS is backed by a 100% automated test suite covering all 8 development phases:
 
 ```bash
-# Run full automated test suite (133 tests)
+# Run full automated test suite (149 tests)
 uv run pytest -q
 
 # Run with verbose output and duration analysis
@@ -178,7 +178,7 @@ terminus/
 │   ├── GRADING_GUIDE.md     # 5-Minute Evaluation Walkthrough for Graders
 │   └── wazuh_integration.xml # Auto-generated Wazuh Integration XML Block
 ├── scripts/                 # Setup, Flood Simulation & Verification Utilities
-├── tests/                   # 133 Unit, Concurrency, and E2E Workflow Test Suites
+├── tests/                   # 149 Unit, Concurrency, and E2E Workflow Test Suites
 │   └── workflows/           # Phases 0-8 Comprehensive Verification Suites
 ├── web/                     # React 19 + Vite + Ant Design Analyst Console Source
 ├── pyproject.toml           # Tooling & Dependency Configuration
