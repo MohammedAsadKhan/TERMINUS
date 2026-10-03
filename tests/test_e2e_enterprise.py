@@ -454,7 +454,7 @@ def test_workflow_graph_validation_and_execution(client: TestClient) -> None:
         ],
         edges=[
             WorkflowEdge(id="e1", source="n1", target="n2"),
-            WorkflowEdge(id="e2", source="n2", target="n3"),
+            WorkflowEdge(id="e2", source="n2", target="n3", source_handle="true"),
             WorkflowEdge(id="e3", source="n3", target="n4"),
         ],
     )

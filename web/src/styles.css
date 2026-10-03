@@ -1126,3 +1126,148 @@ textarea::-webkit-scrollbar {
   }
 }
 
+/* ─── AGENT & PLAYBOOK ACTIONS LOG ─── */
+.action-log-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-top: 14px;
+}
+
+.action-log-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.action-log-header h2 {
+  font-size: 15px;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.action-log-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.action-search-input {
+  flex: 1;
+  min-width: 200px;
+  max-width: 380px;
+}
+
+.action-log-scroll {
+  max-height: 480px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-right: 4px;
+}
+
+.action-log-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 10px 12px;
+  transition: all 0.15s ease-in-out;
+  cursor: pointer;
+}
+
+.action-log-row:hover {
+  background: rgba(42, 157, 143, 0.06);
+  border-color: rgba(42, 157, 143, 0.4);
+  transform: translateX(2px);
+}
+
+.action-log-row.action-containment-row {
+  border-left: 3px solid #f43f5e;
+}
+
+.action-log-col-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.action-log-tags {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.action-type-tag {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: #cfdbd5;
+}
+
+.action-target-pill {
+  font-size: 10.5px;
+  color: #9cb7a2;
+  background: rgba(0, 0, 0, 0.25);
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid rgba(156, 183, 162, 0.25);
+}
+
+.action-summary-text {
+  font-size: 12px;
+  color: var(--text-main);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.action-log-col-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.action-log-time {
+  font-size: 11px;
+  color: #7b8e86;
+  white-space: nowrap;
+}
+
+.action-ticket-ref {
+  font-size: 10px;
+  font-family: Consolas, monospace;
+  color: #2a9d8f;
+  background: rgba(42, 157, 143, 0.1);
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid rgba(42, 157, 143, 0.3);
+}
+
+.queue-action-switcher {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+

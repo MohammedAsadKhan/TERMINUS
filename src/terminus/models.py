@@ -145,6 +145,23 @@ class Evidence:
     threat_intel: str
     context_notes: str
 
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "alert": self.alert.model_dump(),
+            "agent_name": self.agent_name,
+            "threat_intel": self.threat_intel,
+            "context_notes": self.context_notes,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> Evidence:
+        return cls(
+            alert=SiemAlert.model_validate(d["alert"]),
+            agent_name=d.get("agent_name"),
+            threat_intel=d.get("threat_intel", ""),
+            context_notes=d.get("context_notes", ""),
+        )
+
 
 @dataclass(frozen=True, slots=True)
 class InvestigationReport:
@@ -156,6 +173,27 @@ class InvestigationReport:
     evidence: Evidence
     campaign_id: str | None = None
     campaign_alert_count: int = 0
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "alert_id": self.alert_id,
+            "policy": self.policy.model_dump(),
+            "verdict": self.verdict.model_dump(),
+            "evidence": self.evidence.to_dict(),
+            "campaign_id": self.campaign_id,
+            "campaign_alert_count": self.campaign_alert_count,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> InvestigationReport:
+        return cls(
+            alert_id=d["alert_id"],
+            policy=PolicyResult.model_validate(d["policy"]),
+            verdict=Verdict.model_validate(d["verdict"]),
+            evidence=Evidence.from_dict(d["evidence"]),
+            campaign_id=d.get("campaign_id"),
+            campaign_alert_count=d.get("campaign_alert_count", 0),
+        )
 
 
 # ─── SOC Agent & Workflow Automation Models ───────────────────────────────────────
@@ -190,8 +228,8 @@ class WorkflowNode(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     id: str
-    type: str  # e.g., trigger_wazuh, trigger_cron, agent_llm, tool_firewall, condition_severity, loop_poll
-    label: str
+    type: str  # Exactly one of 8 types in D1
+    label: str = ""
     config: dict[str, Any] = Field(default_factory=dict)
     x: int = 0
     y: int = 0
@@ -200,11 +238,12 @@ class WorkflowNode(BaseModel):
 class WorkflowEdge(BaseModel):
     """A directional dataflow wire connecting two nodes in a workflow."""
 
-    model_config = ConfigDict(frozen=True, extra="forbid")
+    model_config = ConfigDict(extra="allow")
 
     id: str
     source: str
     target: str
+    source_handle: str = "default"  # "default", "true", "false", "on_error"
 
 
 class Workflow(BaseModel):
@@ -214,10 +253,49 @@ class Workflow(BaseModel):
 
     id: str
     name: str
+    org_id: str = "default"
     agent_id: str | None = None
-    enabled: bool = True
+    enabled: bool = False
+    priority: int = 100
+    version: int = 1
+    created_at: str = ""
+    updated_at: str = ""
     nodes: list[WorkflowNode] = Field(default_factory=list)
     edges: list[WorkflowEdge] = Field(default_factory=list)
+
+
+# ─── Workflow Execution & Run Models ──────────────────────────────────────────────
+
+
+class WorkflowRunStatus(StrEnum):
+    RUNNING = "RUNNING"
+    WAITING_APPROVAL = "WAITING_APPROVAL"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+    INTERRUPTED = "INTERRUPTED"
+
+
+class RunOutcome(StrEnum):
+    HANDLED = "HANDLED"
+    WAITING_APPROVAL = "WAITING_APPROVAL"
+    FAILED_BEFORE_SIDE_EFFECTS = "FAILED_BEFORE_SIDE_EFFECTS"
+    FAILED_AFTER_SIDE_EFFECTS = "FAILED_AFTER_SIDE_EFFECTS"
+    INTERRUPTED = "INTERRUPTED"
+
+
+class NodeRunStatus(StrEnum):
+    SUCCESS = "SUCCESS"
+    FAILED = "FAILED"
+    BLOCKED = "BLOCKED"
+    SKIPPED = "SKIPPED"
+    WAITING = "WAITING"
+
+
+class ApprovalStatus(StrEnum):
+    PENDING = "PENDING"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
+    EXPIRED = "EXPIRED"
 
 
 # ─── Daily Incident Report Models ──────────────────────────────────────────────────
@@ -262,4 +340,3 @@ class DailyIncidentReport(BaseModel):
     executive_summary: str
     top_impacted_hosts: list[dict[str, Any]] = Field(default_factory=list)
     recommended_actions: list[str] = Field(default_factory=list)
-

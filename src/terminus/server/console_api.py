@@ -94,18 +94,7 @@ async def remove_member(target_org: OrgId, user_id: UserId, org_id: CurrentOrg, 
         raise HTTPException(409, str(err)) from err
 
 
-@router.delete("/agents/{agent_id}", status_code=204, dependencies=[Depends(require_admin)])
-async def delete_agent(agent_id: str, agents: Annotated[dict[str, SocAgent], Depends(get_tenant_agents)], workflows: Annotated[dict[str, Workflow], Depends(get_tenant_workflows)]) -> None:
-    if any(w.agent_id == agent_id or any(n.config.get("agent_id") == agent_id for n in w.nodes) for w in workflows.values()):
-        raise HTTPException(409, "Remove this agent from workflows before deleting it")
-    if agents.pop(agent_id, None) is None:
-        raise HTTPException(404, "Agent not found")
 
-
-@router.delete("/workflows/{workflow_id}", status_code=204, dependencies=[Depends(require_admin)])
-async def delete_workflow(workflow_id: str, workflows: Annotated[dict[str, Workflow], Depends(get_tenant_workflows)]) -> None:
-    if workflows.pop(workflow_id, None) is None:
-        raise HTTPException(404, "Workflow not found")
 
 
 def workflow_errors(workflow: Workflow) -> list[str]:

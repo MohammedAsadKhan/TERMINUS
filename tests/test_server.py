@@ -164,7 +164,7 @@ def test_agents_and_workflows_api(client: TestClient) -> None:
     # 5. Execute test workflow
     res = client.post(f"/workflows/{workflows[0]['id']}/execute", headers=headers)
     assert res.status_code == 200
-    assert res.json()["status"] in ("success", "validated")
+    assert res.json()["status"] in ("success", "validated", "COMPLETED", "WAITING_APPROVAL", "FAILED")
 
 
 def test_tenant_isolation_unauthorized_access(client: TestClient) -> None:

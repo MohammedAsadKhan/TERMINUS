@@ -28,12 +28,12 @@ class PayloadDeobfuscator:
     )
     BASE64_GENERIC_REGEX = re.compile(r"\b([A-Za-z0-9+/]{24,}={0,2})\b")
 
-    DANGEROUS_COMMANDS = [
+    DANGEROUS_COMMANDS: tuple[str, ...] = (
         "iex", "invoke-expression", "downloadstring", "bitstransfer",
         "mimikatz", "sekurlsa", "lsass", "rundll32", "regsvr32",
         "certutil", "vssadmin", "wbadmin", "bcdedit", "wmic", "powershell",
         "/bin/sh", "/bin/bash", "curl", "wget", "chmod +x", "nc -e",
-    ]
+    )
 
     @classmethod
     def deobfuscate(cls, text: str) -> DeobfuscationResult | None:

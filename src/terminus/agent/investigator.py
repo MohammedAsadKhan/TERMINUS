@@ -56,7 +56,11 @@ class InvestigationAgent:
         self.tools = tools
 
     async def investigate(
-        self, alert: SiemAlert, org_id: OrgId
+        self,
+        alert: SiemAlert,
+        org_id: OrgId,
+        persona_prompt: str | None = None,
+        role_instructions: str | None = None,
     ) -> InvestigationReport:
         policy = self.policy_engine.evaluate(alert, org_id)
 
@@ -82,6 +86,8 @@ class InvestigationAgent:
             alert=alert,
             org_id=org_id,
             policy=policy,
+            persona_prompt=persona_prompt,
+            role_instructions=role_instructions,
         )
 
         return InvestigationReport(

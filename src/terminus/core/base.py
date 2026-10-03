@@ -20,6 +20,10 @@ class NotFoundError(LookupError):
     """Raised when a repository cannot find a record by its identity."""
 
 
+class ConflictError(RuntimeError):
+    """Raised when an update conflicts with the current database version/state."""
+
+
 class Repository(ABC, Generic[_RecordT]):
     """Base class for a persistence wrapper of one aggregate type."""
 

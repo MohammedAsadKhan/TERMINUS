@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import sqlite3
 import threading
+from pathlib import Path
 from typing import Any
 
 
@@ -46,6 +47,7 @@ class Database:
             conn.row_factory = sqlite3.Row
             conn.execute("PRAGMA journal_mode = WAL;")
             conn.execute("PRAGMA foreign_keys = ON;")
+            conn.execute("PRAGMA busy_timeout = 5000;")
             conn.execute("PRAGMA synchronous = NORMAL;")
             self._local.conn = conn
         return self._local.conn
@@ -70,8 +72,8 @@ class Database:
         return [dict(row) for row in cur.fetchall()]
 
     def _init_db(self) -> None:
-        """Create all required tables and indexes."""
-        schema_statements = [
+        """Create all required tables, apply column migrations, and build indexes."""
+        table_statements = [
             """
             CREATE TABLE IF NOT EXISTS organizations (
                 org_id TEXT PRIMARY KEY,
@@ -144,34 +146,121 @@ class Database:
             );
             """,
             """
-            CREATE INDEX IF NOT EXISTS idx_incidents_org_status ON incidents(org_id, status);
-            CREATE INDEX IF NOT EXISTS idx_incidents_created ON incidents(created_at DESC);
-            """,
-            """
             CREATE TABLE IF NOT EXISTS soc_agents (
-                agent_id TEXT PRIMARY KEY,
+                agent_id TEXT NOT NULL,
                 org_id TEXT NOT NULL,
                 name TEXT NOT NULL,
                 role_description TEXT NOT NULL,
                 master_prompt TEXT NOT NULL,
                 status TEXT NOT NULL DEFAULT 'active',
-                incidents_processed INTEGER DEFAULT 0,
-                avg_sla_ms REAL DEFAULT 0.0,
+                incidents_processed INTEGER NOT NULL DEFAULT 0,
+                avg_sla_ms REAL NOT NULL DEFAULT 0.0,
                 created_at TEXT NOT NULL,
+                PRIMARY KEY (org_id, agent_id),
                 FOREIGN KEY (org_id) REFERENCES organizations(org_id) ON DELETE CASCADE
             );
             """,
             """
             CREATE TABLE IF NOT EXISTS workflows (
-                workflow_id TEXT PRIMARY KEY,
+                workflow_id TEXT NOT NULL,
                 org_id TEXT NOT NULL,
                 name TEXT NOT NULL,
                 agent_id TEXT,
-                enabled INTEGER NOT NULL DEFAULT 1,
+                enabled INTEGER NOT NULL DEFAULT 0,
+                priority INTEGER NOT NULL DEFAULT 100,
+                version INTEGER NOT NULL DEFAULT 1,
                 nodes_json TEXT NOT NULL DEFAULT '[]',
                 edges_json TEXT NOT NULL DEFAULT '[]',
+                created_by TEXT,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
+                PRIMARY KEY (org_id, workflow_id),
+                FOREIGN KEY (org_id) REFERENCES organizations(org_id) ON DELETE CASCADE
+            );
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS alert_claims (
+                org_id TEXT NOT NULL,
+                alert_id TEXT NOT NULL,
+                attempt INTEGER NOT NULL DEFAULT 1,
+                status TEXT NOT NULL,
+                outcome TEXT,
+                side_effects INTEGER NOT NULL DEFAULT 0,
+                report_json TEXT,
+                incident_id TEXT,
+                claimed_at TEXT NOT NULL,
+                completed_at TEXT,
+                PRIMARY KEY (org_id, alert_id),
+                FOREIGN KEY (org_id) REFERENCES organizations(org_id) ON DELETE CASCADE
+            );
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS workflow_runs (
+                run_id TEXT PRIMARY KEY,
+                workflow_id TEXT NOT NULL,
+                org_id TEXT NOT NULL,
+                alert_id TEXT NOT NULL,
+                attempt INTEGER NOT NULL DEFAULT 1,
+                status TEXT NOT NULL,
+                outcome TEXT,
+                side_effects INTEGER NOT NULL DEFAULT 0,
+                unknown_outcome INTEGER NOT NULL DEFAULT 0,
+                definition_snapshot TEXT NOT NULL,
+                alert_json TEXT NOT NULL,
+                base_report_json TEXT NOT NULL,
+                edge_states_json TEXT NOT NULL DEFAULT '{}',
+                incident_id TEXT,
+                errors_json TEXT NOT NULL DEFAULT '[]',
+                heartbeat_at TEXT NOT NULL,
+                started_at TEXT NOT NULL,
+                completed_at TEXT,
+                UNIQUE (workflow_id, alert_id, attempt),
+                FOREIGN KEY (org_id) REFERENCES organizations(org_id) ON DELETE CASCADE
+            );
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS node_runs (
+                node_run_id TEXT PRIMARY KEY,
+                run_id TEXT NOT NULL,
+                org_id TEXT NOT NULL,
+                node_id TEXT NOT NULL,
+                node_type TEXT NOT NULL,
+                status TEXT NOT NULL,
+                inputs_json TEXT NOT NULL DEFAULT '{}',
+                outputs_json TEXT NOT NULL DEFAULT '{}',
+                error_message TEXT,
+                started_at TEXT NOT NULL,
+                completed_at TEXT,
+                FOREIGN KEY (run_id) REFERENCES workflow_runs(run_id) ON DELETE CASCADE
+            );
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS workflow_approvals (
+                approval_id TEXT PRIMARY KEY,
+                run_id TEXT NOT NULL,
+                workflow_id TEXT NOT NULL,
+                org_id TEXT NOT NULL,
+                node_id TEXT NOT NULL,
+                required_role TEXT NOT NULL DEFAULT 'admin',
+                prompt_message TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'PENDING',
+                created_at TEXT NOT NULL,
+                expires_at TEXT NOT NULL,
+                resolved_by TEXT,
+                resolved_at TEXT,
+                FOREIGN KEY (run_id) REFERENCES workflow_runs(run_id) ON DELETE CASCADE,
+                FOREIGN KEY (org_id) REFERENCES organizations(org_id) ON DELETE CASCADE
+            );
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS containment_allowlist (
+                entry_id TEXT PRIMARY KEY,
+                org_id TEXT NOT NULL,
+                kind TEXT NOT NULL,
+                value TEXT NOT NULL,
+                note TEXT,
+                created_by TEXT,
+                created_at TEXT NOT NULL,
                 FOREIGN KEY (org_id) REFERENCES organizations(org_id) ON DELETE CASCADE
             );
             """,
@@ -213,7 +302,23 @@ class Database:
                 timestamp TEXT NOT NULL,
                 FOREIGN KEY (org_id) REFERENCES organizations(org_id) ON DELETE CASCADE
             );
-            CREATE INDEX IF NOT EXISTS idx_audit_org_time ON audit_logs(org_id, timestamp DESC);
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS action_logs (
+                action_id TEXT PRIMARY KEY,
+                org_id TEXT NOT NULL,
+                timestamp TEXT NOT NULL,
+                actor_type TEXT NOT NULL,
+                actor_name TEXT NOT NULL,
+                action_type TEXT NOT NULL,
+                target TEXT,
+                status TEXT NOT NULL,
+                summary TEXT NOT NULL,
+                details_json TEXT DEFAULT '{}',
+                incident_id TEXT,
+                alert_id TEXT,
+                FOREIGN KEY (org_id) REFERENCES organizations(org_id) ON DELETE CASCADE
+            );
             """,
             """
             CREATE TABLE IF NOT EXISTS graph_events (
@@ -233,11 +338,69 @@ class Database:
                 raw_event TEXT NOT NULL,
                 PRIMARY KEY (org_id, alert_id)
             );
-            CREATE INDEX IF NOT EXISTS idx_graph_events_org_time ON graph_events(org_id, occurred_at DESC);
-            CREATE INDEX IF NOT EXISTS idx_graph_events_org_pair ON graph_events(org_id, source_ip, host, occurred_at DESC);
             """,
         ]
 
         conn = self._get_connection()
-        for stmt in schema_statements:
+        for stmt in table_statements:
             conn.executescript(stmt)
+
+        # Apply column migrations for preexisting tables
+        for table, col, col_def in [
+            ("workflows", "priority", "INTEGER NOT NULL DEFAULT 100"),
+            ("workflows", "version", "INTEGER NOT NULL DEFAULT 1"),
+            ("workflows", "created_by", "TEXT"),
+            ("workflow_runs", "outcome", "TEXT"),
+            ("workflow_runs", "definition_snapshot", "TEXT NOT NULL DEFAULT '{}'"),
+            ("workflow_runs", "heartbeat_at", "TEXT NOT NULL DEFAULT ''"),
+            ("workflow_runs", "attempt", "INTEGER NOT NULL DEFAULT 1"),
+            ("workflow_runs", "side_effects", "INTEGER NOT NULL DEFAULT 0"),
+            ("workflow_runs", "unknown_outcome", "INTEGER NOT NULL DEFAULT 0"),
+        ]:
+            try:
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} {col_def};")
+            except sqlite3.OperationalError:
+                pass
+
+        # Create indexes after columns are guaranteed to exist
+        index_statements = [
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_soc_agents_org_agent ON soc_agents(org_id, agent_id);",
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_workflows_org_wf ON workflows(org_id, workflow_id);",
+            "CREATE INDEX IF NOT EXISTS idx_incidents_org_status ON incidents(org_id, status);",
+            "CREATE INDEX IF NOT EXISTS idx_incidents_created ON incidents(created_at DESC);",
+            "CREATE INDEX IF NOT EXISTS idx_soc_agents_org ON soc_agents(org_id);",
+            "CREATE INDEX IF NOT EXISTS idx_workflows_org ON workflows(org_id, enabled, priority);",
+            "CREATE INDEX IF NOT EXISTS idx_wfruns_org ON workflow_runs(org_id, started_at DESC);",
+            "CREATE INDEX IF NOT EXISTS idx_wfruns_status ON workflow_runs(status, heartbeat_at);",
+            "CREATE INDEX IF NOT EXISTS idx_noderuns_run ON node_runs(run_id);",
+            "CREATE INDEX IF NOT EXISTS idx_noderuns_org ON node_runs(org_id);",
+            "CREATE INDEX IF NOT EXISTS idx_approvals_org_status ON workflow_approvals(org_id, status, expires_at);",
+            "CREATE INDEX IF NOT EXISTS idx_allowlist_org ON containment_allowlist(org_id);",
+            "CREATE INDEX IF NOT EXISTS idx_audit_org_time ON audit_logs(org_id, timestamp DESC);",
+            "CREATE INDEX IF NOT EXISTS idx_action_logs_org_time ON action_logs(org_id, timestamp DESC);",
+            "CREATE INDEX IF NOT EXISTS idx_graph_events_org_time ON graph_events(org_id, occurred_at DESC);",
+            "CREATE INDEX IF NOT EXISTS idx_graph_events_org_pair ON graph_events(org_id, source_ip, host, occurred_at DESC);",
+        ]
+        for stmt in index_statements:
+            conn.execute(stmt)
+
+
+def create_connection(db_path: str | Path = "terminus.db") -> sqlite3.Connection:
+    """Create and configure a standalone SQLite connection with WAL & FKs enabled."""
+    conn = sqlite3.connect(
+        str(db_path),
+        check_same_thread=False,
+        timeout=30.0,
+        isolation_level=None,
+    )
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode = WAL;")
+    conn.execute("PRAGMA foreign_keys = ON;")
+    conn.execute("PRAGMA busy_timeout = 5000;")
+    conn.execute("PRAGMA synchronous = NORMAL;")
+    return conn
+
+
+def init_db(db_path: str | Path = "terminus.db") -> None:
+    """Initialize a database at the given path."""
+    Database.reset_instance(str(db_path))

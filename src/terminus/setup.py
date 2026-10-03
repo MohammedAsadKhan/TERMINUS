@@ -117,9 +117,9 @@ TERMINUS_LICENSE_TOKEN={lic_token}
     print("🎉 SETUP COMPLETE!")
     print("=" * 80)
     print("\nYou can now launch the Terminus Engine with:")
-    print("  uv run terminus-serve")
+    print("  run_demo_service.bat  (or 'uv run uvicorn terminus.server.app:create_app --factory --host 0.0.0.0 --port 8000')")
     print("\nAccess the Analyst Command Center at:")
-    print("  http://localhost:8000/dashboard\n")
+    print("  http://localhost:8000/console/\n")
 
 
 if __name__ == "__main__":

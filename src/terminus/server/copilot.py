@@ -51,13 +51,22 @@ async def chat_with_incident_copilot(
         "If evidence is missing, say so. Do not claim an action was executed."
     )
 
+    from terminus.privacy.redactor import SecretRedactor
+    from terminus.privacy.sanitizer import PromptInjectionSanitizer
+
+    raw_log = str(ticket.get("full_log") or "")
+    sanitized_log = PromptInjectionSanitizer.wrap_untrusted_data(
+        "untrusted_incident_log", SecretRedactor.redact(raw_log)
+    )
+
     user_prompt = f"""INCIDENT CONTEXT:
 - Ticket ID: {ticket.get('id')}
 - Summary: {ticket.get('summary')}
 - Target Host: {ticket.get('agent_name')}
 - Severity: {ticket.get('severity')}
 - Evidence: {ticket.get('threat_intel')}
-- Full Log: {ticket.get('full_log')}
+- Full Log:
+{sanitized_log}
 
 ANALYST QUESTION: {req.prompt}
 

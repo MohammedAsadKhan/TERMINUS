@@ -39,25 +39,34 @@ from terminus.siem.static import StaticSiemClient
 from terminus.siem.wazuh import WazuhClient
 from terminus.storage.db import Database
 from terminus.storage.repositories import (
+    SqliteActionLogRepository,
     SqliteAgentRepository,
+    SqliteAlertClaimRepository,
+    SqliteAllowlistRepository,
+    SqliteApprovalRepository,
     SqliteIncidentRepository,
     SqliteMembershipRepository,
     SqliteOrgRepository,
     SqliteUserRepository,
     SqliteWorkflowRepository,
+    SqliteWorkflowRunRepository,
 )
 from terminus.ticketing.jira import JiraTickets
 from terminus.ticketing.memory import MemoryTickets
 
 # ─── Global Database & Repositories ──────────────────────────────────────────────────
 
-_db = Database.get_instance()
-_sqlite_incident_repo = SqliteIncidentRepository(_db)
-_sqlite_org_repo = SqliteOrgRepository(_db)
-_sqlite_membership_repo = SqliteMembershipRepository(_db)
-_sqlite_user_repo = SqliteUserRepository(_db)
-_sqlite_workflow_repo = SqliteWorkflowRepository(_db)
-_sqlite_agent_repo = SqliteAgentRepository(_db)
+_sqlite_incident_repo = SqliteIncidentRepository()
+_sqlite_org_repo = SqliteOrgRepository()
+_sqlite_membership_repo = SqliteMembershipRepository()
+_sqlite_user_repo = SqliteUserRepository()
+_sqlite_workflow_repo = SqliteWorkflowRepository()
+_sqlite_agent_repo = SqliteAgentRepository()
+_sqlite_workflow_run_repo = SqliteWorkflowRunRepository()
+_sqlite_approval_repo = SqliteApprovalRepository()
+_sqlite_alert_claim_repo = SqliteAlertClaimRepository()
+_sqlite_allowlist_repo = SqliteAllowlistRepository()
+_sqlite_action_log_repo = SqliteActionLogRepository()
 
 # In-memory stores kept for backwards compatibility
 _user_store = UserStore()
@@ -90,8 +99,6 @@ def bootstrap_default_admin() -> None:
                 from datetime import UTC, datetime
                 from terminus.licensing.models import LicenseTier
 
-                # A stable demo tenant keeps its seven-day graph addressable
-                # across local server restarts. Other tenants remain isolated.
                 org_id = OrgId("org-terminus-demo")
                 license_ref = license_svc.generate(org_id=org_id, tier=LicenseTier.TRIAL, days=30)
                 _org_store.create(Organization(org_id=org_id, name="Terminus Security Operations", created_at=datetime.now(UTC), license_ref=license_ref), org_id)
@@ -102,8 +109,8 @@ def bootstrap_default_admin() -> None:
 
 bootstrap_default_admin()
 
-_agents_store: dict[str, SocAgent] = {
-    "agent-triage": SocAgent(
+_default_seed_agents = [
+    SocAgent(
         id="agent-triage",
         name="Triage Sentinel",
         role_description="Sub-millisecond alert filtering, MITRE tag correlation, and noise suppression.",
@@ -113,7 +120,7 @@ _agents_store: dict[str, SocAgent] = {
         avg_sla_ms=0.0,
         created_at="2026-09-01T00:00:00Z",
     ),
-    "agent-forensic": SocAgent(
+    SocAgent(
         id="agent-forensic",
         name="Forensic Investigator",
         role_description="Deep LLM evidence collection, threat intel enrichment, payload breakdown, and root cause reasoning.",
@@ -123,7 +130,7 @@ _agents_store: dict[str, SocAgent] = {
         avg_sla_ms=0.0,
         created_at="2026-09-01T00:00:00Z",
     ),
-    "agent-containment": SocAgent(
+    SocAgent(
         id="agent-containment",
         name="Containment Operator",
         role_description="Executes network boundary firewall blocks, host workstation isolations, and service credential revocations.",
@@ -133,7 +140,7 @@ _agents_store: dict[str, SocAgent] = {
         avg_sla_ms=0.0,
         created_at="2026-09-01T00:00:00Z",
     ),
-    "agent-threat-hunter": SocAgent(
+    SocAgent(
         id="agent-threat-hunter",
         name="Proactive Threat Hunter",
         role_description="Iteratively polls endpoints every 5 minutes for anomalous memory execution and persistence mechanisms.",
@@ -143,57 +150,65 @@ _agents_store: dict[str, SocAgent] = {
         avg_sla_ms=0.0,
         created_at="2026-09-01T00:00:00Z",
     ),
-}
+]
 
-_workflows_store: dict[str, Workflow] = {
-    "wf-log4j-response": Workflow(
-        id="wf-log4j-response",
-        name="Log4Shell Automated Containment Pipeline",
-        agent_id="agent-forensic",
-        enabled=True,
-        nodes=[
-            WorkflowNode(id="n1", type="trigger_wazuh", label="Wazuh Ingest Webhook (/wazuh)", x=50, y=100),
-            WorkflowNode(id="n2", type="condition_severity", label="Policy Filter (Level >= 10)", config={"threshold": 10}, x=300, y=100),
-            WorkflowNode(id="n3", type="agent_llm", label="Forensic Investigator LLM Agent", config={"agent_id": "agent-forensic"}, x=550, y=100),
-            WorkflowNode(id="n4", type="tool_firewall", label="Block Attacker IP (Perimeter Firewall)", x=800, y=50),
-            WorkflowNode(id="n5", type="tool_isolate", label="Isolate Target Endpoint Workload", x=800, y=180),
-            WorkflowNode(id="n6", type="tool_slack", label="Dispatch Alert (#soc-critical)", x=1050, y=110),
-        ],
-        edges=[
-            WorkflowEdge(id="e1", source="n1", target="n2"),
-            WorkflowEdge(id="e2", source="n2", target="n3"),
-            WorkflowEdge(id="e3", source="n3", target="n4"),
-            WorkflowEdge(id="e4", source="n3", target="n5"),
-            WorkflowEdge(id="e5", source="n4", target="n6"),
-            WorkflowEdge(id="e6", source="n5", target="n6"),
-        ],
-    ),
-    "wf-threat-hunt-loop": Workflow(
-        id="wf-threat-hunt-loop",
-        name="Proactive Endpoint Memory Polling Loop",
-        agent_id="agent-threat-hunter",
-        enabled=True,
-        nodes=[
-            WorkflowNode(id="n1", type="trigger_cron", label="Cron Schedule Poller (Every 5m)", config={"schedule": "*/5 * * * *"}, x=50, y=120),
-            WorkflowNode(id="n2", type="agent_hunter", label="Proactive Threat Hunter Agent", config={"agent_id": "agent-threat-hunter"}, x=320, y=120),
-            WorkflowNode(id="n3", type="loop_poll", label="Memory Scan Iterator (30s Loop)", config={"interval_sec": 30}, x=580, y=120),
-            WorkflowNode(id="n4", type="tool_jira", label="Create High-Priority Jira Ticket", x=840, y=120),
-        ],
-        edges=[
-            WorkflowEdge(id="e1", source="n1", target="n2"),
-            WorkflowEdge(id="e2", source="n2", target="n3"),
-            WorkflowEdge(id="e3", source="n3", target="n4"),
-        ],
-    ),
-}
+for seed_agent in _default_seed_agents:
+    _sqlite_agent_repo.save(seed_agent, "org-default")
+    _sqlite_agent_repo.save(seed_agent, "org-terminus-demo")
 
 
-def get_agents_store() -> dict[str, SocAgent]:
-    return _agents_store
+def get_sqlite_workflow_repo() -> SqliteWorkflowRepository:
+    return _sqlite_workflow_repo
 
 
-def get_workflows_store() -> dict[str, Workflow]:
-    return _workflows_store
+def get_workflow_repo() -> SqliteWorkflowRepository:
+    return _sqlite_workflow_repo
+
+
+def get_sqlite_agent_repo() -> SqliteAgentRepository:
+    return _sqlite_agent_repo
+
+
+def get_agent_repo() -> SqliteAgentRepository:
+    return _sqlite_agent_repo
+
+
+def get_workflow_run_repo() -> SqliteWorkflowRunRepository:
+    return _sqlite_workflow_run_repo
+
+
+def get_approval_repo() -> SqliteApprovalRepository:
+    return _sqlite_approval_repo
+
+
+def get_alert_claim_repo() -> SqliteAlertClaimRepository:
+    return _sqlite_alert_claim_repo
+
+
+def get_allowlist_repo() -> SqliteAllowlistRepository:
+    return _sqlite_allowlist_repo
+
+
+def get_incident_repo() -> SqliteIncidentRepository:
+    return _sqlite_incident_repo
+
+
+def get_action_log_repo() -> SqliteActionLogRepository:
+    return _sqlite_action_log_repo
+
+
+def get_agents_store(
+    org_id: Annotated[OrgId, Depends(lambda: OrgId("org-default"))],
+) -> dict[str, SocAgent]:
+    agents = _sqlite_agent_repo.list_for_org(str(org_id))
+    return {a.id: a for a in agents}
+
+
+def get_workflows_store(
+    org_id: Annotated[OrgId, Depends(lambda: OrgId("org-default"))],
+) -> dict[str, Workflow]:
+    wfs = _sqlite_workflow_repo.list_for_org(str(org_id))
+    return {w.id: w for w in wfs}
 
 
 def get_user_store() -> UserStore:
@@ -355,6 +370,19 @@ def get_webhook_org(
     return org_id
 
 
+def get_current_user_role(
+    user: Annotated[User, Depends(get_current_user)],
+    org_id: Annotated[OrgId, Depends(get_current_org)],
+    membership_store: Annotated[MembershipStore, Depends(get_membership_store)],
+) -> str:
+    role = membership_store.role_of(org_id, user.user_id)
+    if role == OrganizationRole.ADMIN:
+        return "admin"
+    if role == OrganizationRole.MEMBER:
+        return "analyst"
+    return "viewer"
+
+
 def require_admin(
     user: Annotated[User, Depends(get_current_user)],
     org_id: Annotated[OrgId, Depends(get_current_org)],
@@ -383,21 +411,17 @@ def require_operator(
         raise HTTPException(status_code=403, detail="Operation requires a member or admin role")
 
 
-_tenant_agents: dict[str, dict[str, SocAgent]] = {}
-_tenant_workflows: dict[str, dict[str, Workflow]] = {}
-
-
 def get_tenant_agents(
     org_id: Annotated[OrgId, Depends(get_current_org)],
+    agent_repo: Annotated[SqliteAgentRepository, Depends(get_agent_repo)],
 ) -> dict[str, SocAgent]:
-    if org_id not in _tenant_agents:
-        _tenant_agents[org_id] = {key: value.model_copy(deep=True) for key, value in _agents_store.items()}
-    return _tenant_agents[org_id]
+    agents = agent_repo.list_for_org(str(org_id))
+    return {a.id: a for a in agents}
 
 
 def get_tenant_workflows(
     org_id: Annotated[OrgId, Depends(get_current_org)],
+    workflow_repo: Annotated[SqliteWorkflowRepository, Depends(get_workflow_repo)],
 ) -> dict[str, Workflow]:
-    if org_id not in _tenant_workflows:
-        _tenant_workflows[org_id] = {key: value.model_copy(deep=True) for key, value in _workflows_store.items()}
-    return _tenant_workflows[org_id]
+    wfs = workflow_repo.list_for_org(str(org_id))
+    return {w.id: w for w in wfs}

@@ -2,15 +2,21 @@ import { useMemo, useState } from 'react';
 import { Alert, App, Button, Empty, Input, Modal, Segmented, Select, Spin, Tag } from 'antd';
 import {
   AppstoreOutlined,
+  AuditOutlined,
+  CheckCircleOutlined,
   ClearOutlined,
+  ClockCircleOutlined,
   CloseOutlined,
   DeploymentUnitOutlined,
   DownloadOutlined,
+  FilterOutlined,
   FireOutlined,
   NodeIndexOutlined,
   ReloadOutlined,
+  RobotOutlined,
   SafetyCertificateOutlined,
   SearchOutlined,
+  StopOutlined,
   ThunderboltOutlined,
   UnorderedListOutlined,
 } from '@ant-design/icons';
@@ -22,7 +28,7 @@ import { date, ErrorPanel } from '../components';
 import { ChatText, CopilotPanel } from '../copilot-ui';
 import { NetworkCanvas, type NetworkEvent, type NetworkSelection } from '../network-canvas';
 import { ThreatVelocityChart, AttackSurfaceMatrix } from './overview-charts';
-import type { Incident } from '../types';
+import type { AgentAction, Incident } from '../types';
 
 type Action = { action_type: 'start_investigation' | 'close_ticket' | 'reopen_ticket'; resolution_category?: string; resolution_notes?: string };
 type DetailTab = 'Evidence' | 'Activity' | 'Assistant';
@@ -58,6 +64,123 @@ function QueueRow({ item, selected, onClick }: { item: Incident; selected?: bool
       <span className="work-row-status"><Badge value={item.status || 'OPEN'} /></span>
       <time className="work-row-time">{formatTime(item.created_at || item.timestamp)}</time>
     </button>
+  );
+}
+
+function ActionRow({ item, onClick }: { item: AgentAction; onClick?: () => void }) {
+  const getActorBadge = () => {
+    if (item.actor_type === 'agent') return <Tag color="purple" icon={<RobotOutlined />}>{item.actor_name}</Tag>;
+    if (item.actor_type === 'guardrail') return <Tag color="gold" icon={<SafetyCertificateOutlined />}>Safety Guardrail</Tag>;
+    if (item.actor_type === 'policy') return <Tag color="cyan" icon={<FilterOutlined />}>Policy Engine</Tag>;
+    return <Tag color="blue" icon={<DeploymentUnitOutlined />}>{item.actor_name || 'Playbook'}</Tag>;
+  };
+
+  const getStatusBadge = () => {
+    const s = (item.status || 'COMPLETED').toUpperCase();
+    if (s === 'COMPLETED' || s === 'SUCCESS' || s === 'APPROVED') return <Tag color="success" icon={<CheckCircleOutlined />}>SUCCESS</Tag>;
+    if (s === 'BLOCKED') return <Tag color="error" icon={<StopOutlined />}>BLOCKED</Tag>;
+    if (s === 'WAITING_APPROVAL' || s === 'PENDING') return <Tag color="warning" icon={<ClockCircleOutlined />}>APPROVAL REQ</Tag>;
+    if (s === 'SUPPRESSED') return <Tag color="default">SUPPRESSED</Tag>;
+    return <Tag color="magenta">{s}</Tag>;
+  };
+
+  const isContainment = ['TOOL_ISOLATE', 'TOOL_FIREWALL', 'ISOLATE_HOST', 'BLOCK_IP'].includes((item.action_type || '').toUpperCase());
+
+  return (
+    <div className={`action-log-row ${isContainment ? 'action-containment-row' : ''}`} onClick={onClick}>
+      <div className="action-log-col-main">
+        <div className="action-log-tags">
+          {getActorBadge()}
+          <Tag className="action-type-tag">{(item.action_type || 'ACTION').replaceAll('_', ' ')}</Tag>
+          {getStatusBadge()}
+          {item.target && <span className="action-target-pill"><span className="mono">{item.target}</span></span>}
+        </div>
+        <p className="action-summary-text">{item.summary}</p>
+      </div>
+      <div className="action-log-col-meta">
+        <time className="action-log-time">{formatTime(item.timestamp)}</time>
+        {item.incident_id && <span className="action-ticket-ref">{item.incident_id}</span>}
+      </div>
+    </div>
+  );
+}
+
+function ActionsLogList() {
+  const { orgId } = useSession();
+  const navigate = useNavigate();
+  const [filter, setFilter] = useState('all');
+  const [search, setSearch] = useState('');
+
+  const actionsQuery = useQuery({
+    queryKey: ['agent-actions', orgId],
+    queryFn: () => api<AgentAction[]>('/agents/actions', orgId),
+    refetchInterval: 10000,
+  });
+
+  const actions = useMemo(() => {
+    return (actionsQuery.data || []).filter(item => {
+      const type = (item.action_type || '').toUpperCase();
+      if (filter === 'containment' && !['TOOL_ISOLATE', 'TOOL_FIREWALL', 'ISOLATE_HOST', 'BLOCK_IP'].includes(type)) return false;
+      if (filter === 'investigation' && !['INVESTIGATION_ASSESSMENT', 'AGENT_LLM', 'AI_INVESTIGATION'].includes(type)) return false;
+      if (filter === 'approvals' && !['CONDITION_APPROVAL', 'APPROVAL_REQUEST', 'APPROVAL_PAUSE', 'APPROVAL_RESOLVED'].includes(type)) return false;
+      if (filter === 'workflows' && item.actor_type !== 'workflow') return false;
+      if (search.trim()) {
+        const text = `${item.actor_name} ${item.action_type} ${item.target || ''} ${item.summary} ${item.incident_id || ''}`.toLowerCase();
+        if (!text.includes(search.trim().toLowerCase())) return false;
+      }
+      return true;
+    });
+  }, [actionsQuery.data, filter, search]);
+
+  return (
+    <div className="action-log-container">
+      <div className="action-log-toolbar">
+        <Segmented
+          size="small"
+          value={filter}
+          onChange={val => setFilter(String(val))}
+          options={[
+            { label: 'All Actions', value: 'all' },
+            { label: 'Containment', value: 'containment' },
+            { label: 'AI Investigations', value: 'investigation' },
+            { label: 'Approvals', value: 'approvals' },
+            { label: 'Playbooks', value: 'workflows' },
+          ]}
+        />
+        <Input
+          size="small"
+          prefix={<SearchOutlined />}
+          placeholder="Filter actions by agent, target host, IP, or summary..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          allowClear
+          className="action-search-input"
+        />
+        <Button size="small" icon={<ReloadOutlined />} onClick={() => void actionsQuery.refetch()} loading={actionsQuery.isFetching}>
+          Refresh
+        </Button>
+      </div>
+
+      <div className="action-log-scroll">
+        {actionsQuery.isPending ? (
+          <div className="work-loading"><Spin size="small" /></div>
+        ) : actions.length ? (
+          actions.map(action => (
+            <ActionRow
+              key={action.action_id}
+              item={action}
+              onClick={() => {
+                if (action.incident_id) {
+                  navigate(`/incidents/${encodeURIComponent(action.incident_id)}`);
+                }
+              }}
+            />
+          ))
+        ) : (
+          <Empty description="No recorded agent actions matching filter" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -257,6 +380,7 @@ export default function Workbench({ incidentView = false }: { incidentView?: boo
   const [period, setPeriod] = useState('all');
   const [layout, setLayout] = useState<ViewLayout>('unified');
   const [selectedEntity, setSelectedEntity] = useState<NetworkSelection | null>(null);
+  const [overviewTab, setOverviewTab] = useState<'queue' | 'actions'>('queue');
 
   // Stable 30s background refetch without millisecond URL shifts (prevents canvas flickering)
   const incidents = useQuery({ queryKey: ['incidents', orgId], queryFn: () => api<Incident[]>('/incidents', orgId), refetchInterval: 30000 });
@@ -322,7 +446,7 @@ export default function Workbench({ incidentView = false }: { incidentView?: boo
         </div>
 
         <div className="work-overview-split">
-          {/* LEFT COLUMN: 2 Visualizers at the Header + Priority Incident Queue */}
+          {/* LEFT COLUMN: 2 Visualizers at the Header + Priority Incident Queue & Actions Log */}
           <div className="work-overview-left">
             <div className="work-overview-visualizers">
               <ThreatVelocityChart incidents={all} />
@@ -331,21 +455,32 @@ export default function Workbench({ incidentView = false }: { incidentView?: boo
 
             <section className="work-overview-queue">
               <div className="work-section-head">
-                <div>
-                  <h2>Priority Incident Queue</h2>
-                  <p>Active incidents ordered by risk severity and occurrence time.</p>
+                <div className="queue-action-switcher">
+                  <Segmented
+                    value={overviewTab}
+                    onChange={val => setOverviewTab(val as 'queue' | 'actions')}
+                    options={[
+                      { label: `Priority Queue (${active.length})`, value: 'queue', icon: <UnorderedListOutlined /> },
+                      { label: 'Autonomous Actions Log', value: 'actions', icon: <AuditOutlined /> },
+                    ]}
+                  />
                 </div>
                 <Link to="/incidents">Open unified workspace →</Link>
               </div>
-              <div className="work-queue-list">
-                {active.length ? (
-                  active.map(item => (
-                    <QueueRow key={item.id} item={item} onClick={() => navigate(`/incidents/${encodeURIComponent(item.id)}`)} />
-                  ))
-                ) : (
-                  <Empty description="No active incidents in queue" image={Empty.PRESENTED_IMAGE_SIMPLE} />
-                )}
-              </div>
+
+              {overviewTab === 'queue' ? (
+                <div className="work-queue-list">
+                  {active.length ? (
+                    active.map(item => (
+                      <QueueRow key={item.id} item={item} onClick={() => navigate(`/incidents/${encodeURIComponent(item.id)}`)} />
+                    ))
+                  ) : (
+                    <Empty description="No active incidents in queue" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+                  )}
+                </div>
+              ) : (
+                <ActionsLogList />
+              )}
             </section>
           </div>
 

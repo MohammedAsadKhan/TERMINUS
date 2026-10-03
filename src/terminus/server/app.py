@@ -14,7 +14,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from terminus.config import get_settings
-from terminus.core.base import NotFoundError
+from terminus.core.base import ConflictError, NotFoundError
 from terminus.models import ReportType
 from terminus.reports.service import generate_daily_report
 from terminus.server.bank_router import bank_router
@@ -24,6 +24,7 @@ from terminus.server.deps import get_org_store, get_pipeline_runner, get_reports
 from terminus.server.graph import graph_router
 from terminus.server.routers import (
     agent_router,
+    allowlist_router,
     auth_router,
     decoy_router,
     health_router,
@@ -64,14 +65,33 @@ async def _daily_report_scheduler_task() -> None:
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """App lifespan context manager for startup and shutdown hooks."""
     settings = get_settings()
-    print(f"Terminus platform booting up... (LLM Base URL: {settings.llm_base_url})")
+    # Auto-configure baseline SOC configuration (allowlists, agents, workflows)
+    from terminus.server.deps import _sqlite_agent_repo, _sqlite_allowlist_repo, _sqlite_workflow_repo
+    from terminus.service.sensor import service_sensor
+
+    for default_org in ["org-default", "org-terminus-demo"]:
+        service_sensor.auto_configure_baseline(
+            default_org,
+            _sqlite_agent_repo,
+            _sqlite_workflow_repo,
+            _sqlite_allowlist_repo,
+        )
 
     # Spawn 24h automatic daily report scheduler background task
     task = asyncio.create_task(_daily_report_scheduler_task())
+    # Spawn 60s sweeper background task with initialized deployment (D24)
+    from terminus.pipeline.sweeper import sweeper_background_task
+    pipeline_runner = get_pipeline_runner(settings)
+    sweeper_task = asyncio.create_task(sweeper_background_task(deployment=pipeline_runner.deployment))
     yield
     task.cancel()
+    sweeper_task.cancel()
     try:
         await task
+    except asyncio.CancelledError:
+        pass
+    try:
+        await sweeper_task
     except asyncio.CancelledError:
         pass
     print("Terminus platform shutting down.")
@@ -100,6 +120,10 @@ def create_app() -> FastAPI:
     @app.exception_handler(NotFoundError)
     async def not_found(request: Request, exc: NotFoundError) -> JSONResponse:
         return JSONResponse({"detail": "Record not found"}, status_code=404)
+
+    @app.exception_handler(ConflictError)
+    async def conflict_handler(request: Request, exc: ConflictError) -> JSONResponse:
+        return JSONResponse({"detail": str(exc)}, status_code=409)
 
     @app.middleware("http")
     async def browser_security(
@@ -135,6 +159,7 @@ def create_app() -> FastAPI:
     app.include_router(webhook_router)
     app.include_router(agent_router)
     app.include_router(workflow_router)
+    app.include_router(allowlist_router)
     app.include_router(report_router)
     app.include_router(decoy_router)
     app.include_router(bank_router)

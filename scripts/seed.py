@@ -1,4 +1,4 @@
-import httpx2 as httpx
+import httpx
 
 client = httpx.Client(base_url="http://127.0.0.1:8000")
 

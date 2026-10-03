@@ -7,6 +7,7 @@ API tokens, and PII before telemetry reaches external LLM inference endpoints.
 from __future__ import annotations
 
 import re
+from typing import Any
 
 
 class SecretRedactor:
@@ -37,6 +38,17 @@ class SecretRedactor:
         (re.compile(r"\b(?!000|666|9\d{2})\d{3}-(?!00)\d{2}-(?!0000)\d{4}\b"), "[REDACTED_SSN]"),
     ]
 
+    SECRET_KEY_SUBSTRINGS = (
+        "password",
+        "passwd",
+        "secret",
+        "token",
+        "api_key",
+        "apikey",
+        "authorization",
+        "cookie",
+    )
+
     @classmethod
     def redact(cls, text: str) -> str:
         """Redacts all sensitive tokens, credentials, and PII from the provided string."""
@@ -47,3 +59,23 @@ class SecretRedactor:
         for pattern, replacement in cls.PATTERNS:
             scrubbed = pattern.sub(replacement, scrubbed)
         return scrubbed
+
+    @classmethod
+    def redact_dict(cls, data: Any) -> Any:
+        """Recursively redacts dictionary and list structures by key name and value pattern."""
+        if isinstance(data, dict):
+            redacted: dict[str, Any] = {}
+            for k, v in data.items():
+                k_str = str(k).lower()
+                if any(sub in k_str for sub in cls.SECRET_KEY_SUBSTRINGS):
+                    redacted[k] = "[REDACTED]"
+                else:
+                    redacted[k] = cls.redact_dict(v)
+            return redacted
+        if isinstance(data, list):
+            return [cls.redact_dict(item) for item in data]
+        if isinstance(data, tuple):
+            return tuple(cls.redact_dict(item) for item in data)
+        if isinstance(data, str):
+            return cls.redact(data)
+        return data

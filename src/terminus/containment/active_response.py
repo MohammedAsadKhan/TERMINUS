@@ -41,11 +41,20 @@ class ActiveResponseRunner:
         target: str,
         operator_id: str,
         force_override: bool = False,
+        org_id: str = "org-default",
+        allowlist_repo: Any | None = None,
     ) -> ContainmentResult:
         """Executes a containment action with blast radius checks."""
-        # 1. Check Blast Radius
-        assessment = ContainmentGuardrail.assess_target(target)
-        if not assessment.auto_containment_allowed and not force_override:
+        # 1. Check Blast Radius (D11 & D12)
+        kind = "ip" if action_type == "block_ip" else "host"
+        assessment = ContainmentGuardrail.assess_target(
+            target=target,
+            kind=kind,
+            org_id=org_id,
+            allowlist_repo=allowlist_repo,
+            force_override=force_override,
+        )
+        if not assessment.allowed:
             return ContainmentResult(
                 success=False,
                 action_type=action_type,

@@ -28,6 +28,28 @@ from terminus.tools.threat_intel import ThreatIntelClient
 logger = logging.getLogger("terminus.agent.react")
 
 
+INVARIANT_BASE_SYSTEM_PROMPT = (
+    "You are an elite Autonomous AI SOC Forensic Investigator. "
+    "Analyze the verified security evidence and output your verdict strictly as a JSON object.\n"
+    "Guardrail: Base all severity, confidence, and recommended actions ONLY on verified evidence facts. "
+    "A missing external reputation check is unknown, not benign. Distinguish an attempted attack "
+    "from confirmed compromise, and do not claim an action was executed."
+)
+
+
+def build_system_prompt(
+    persona_prompt: str | None = None,
+    role_instructions: str | None = None,
+) -> str:
+    """Combines invariant forensic safety prompt with specialized persona and role instructions."""
+    parts = [INVARIANT_BASE_SYSTEM_PROMPT]
+    if persona_prompt and persona_prompt.strip():
+        parts.append(f"AGENT PERSONA & MASTER INSTRUCTIONS:\n{persona_prompt.strip()}")
+    if role_instructions and role_instructions.strip():
+        parts.append(f"SPECIALIZED WORKFLOW ROLE INSTRUCTIONS:\n{role_instructions.strip()}")
+    return "\n\n".join(parts)
+
+
 class ReActAgent:
     """Autonomous multi-turn forensic investigator with evidence citations."""
 
@@ -36,16 +58,20 @@ class ReActAgent:
         llm: LlmClient,
         threat_intel: ThreatIntelClient | None = None,
         max_iterations: int = 3,
+        default_persona_prompt: str | None = None,
     ) -> None:
         self.llm = llm
         self.threat_intel = threat_intel or ThreatIntelClient()
         self.max_iterations = max_iterations
+        self.default_persona_prompt = default_persona_prompt
 
     async def run_investigation(
         self,
         alert: SiemAlert,
         org_id: OrgId,
         policy: PolicyResult,
+        persona_prompt: str | None = None,
+        role_instructions: str | None = None,
     ) -> tuple[Verdict, list[dict[str, Any]], Evidence]:
         """Performs multi-step forensic triage, tool calling, and citation generation."""
         citations: list[dict[str, Any]] = []
@@ -112,14 +138,9 @@ class ReActAgent:
             context_notes="\n".join(context_notes),
         )
 
-        # 6. LLM Reasoning Prompt Construction
-        system_prompt = (
-            "You are an elite Autonomous AI SOC Forensic Investigator. "
-            "Analyze the verified security evidence and output your verdict strictly as a JSON object.\n"
-            "Guardrail: Base all severity, confidence, and recommended actions ONLY on verified evidence facts. "
-            "A missing external reputation check is unknown, not benign. Distinguish an attempted attack "
-            "from confirmed compromise, and do not claim an action was executed."
-        )
+        # 6. LLM Reasoning Prompt Construction with Persona Support
+        active_persona = persona_prompt or self.default_persona_prompt
+        system_prompt = build_system_prompt(active_persona, role_instructions)
 
         user_prompt = f"""EVIDENCE DOSSIER:
 - Alert ID: {alert.id} (Rule Level: {alert.level})
