@@ -10,7 +10,10 @@ never invalid targets, protected networks, gateways, or the org allowlist.
 from __future__ import annotations
 
 import ipaddress
-from dataclasses import dataclass
+import threading
+import time
+from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any
 
@@ -30,6 +33,8 @@ class BlastRadiusAssessment:
     asset_tier: AssetCriticalityTier = AssetCriticalityTier.TIER_3
     auto_containment_allowed: bool = True
     risk_score: float = 0.0
+    ttl_seconds: int = 1800  # Default 30-minute auto-rollback lease
+    expires_at: str = field(default_factory=lambda: (datetime.now(UTC) + timedelta(seconds=1800)).isoformat())
 
     @property
     def rationale(self) -> str:
@@ -38,6 +43,60 @@ class BlastRadiusAssessment:
     def __iter__(self):
         yield self.allowed
         yield self.reason
+
+
+class FleetContainmentQuota:
+    """Sliding-window containment rate limiter preventing self-inflicted enterprise DoS."""
+
+    _lock = threading.Lock()
+    _global_events: dict[str, list[float]] = {}   # org_id -> [timestamps]
+    _subnet_events: dict[str, list[float]] = {}   # org_id:subnet -> [timestamps]
+
+    MAX_GLOBAL_ISOLATIONS_PER_15MIN: int = 10
+    MAX_SUBNET_ISOLATIONS_PER_15MIN: int = 3
+    WINDOW_SECONDS: float = 900.0  # 15 minutes
+
+    @classmethod
+    def record_and_check(cls, org_id: str, target: str) -> tuple[bool, str | None]:
+        """Checks whether the target containment exceeds global or subnet quotas."""
+        now = time.time()
+        window_start = now - cls.WINDOW_SECONDS
+
+        with cls._lock:
+            # 1. Clean and check global org window
+            history = cls._global_events.setdefault(org_id, [])
+            cls._global_events[org_id] = [t for t in history if t >= window_start]
+            if len(cls._global_events[org_id]) >= cls.MAX_GLOBAL_ISOLATIONS_PER_15MIN:
+                return False, f"Global containment quota exceeded ({len(cls._global_events[org_id])}/{cls.MAX_GLOBAL_ISOLATIONS_PER_15MIN} in 15m). Quorum approval required."
+
+            # 2. Check subnet window if IP
+            subnet_key = None
+            try:
+                ip_obj = ipaddress.ip_address(target.strip())
+                if isinstance(ip_obj, ipaddress.IPv4Address):
+                    subnet_key = f"{org_id}:{ip_obj.exploded.rsplit('.', 1)[0]}.0/24"
+            except Exception:
+                pass
+
+            if subnet_key:
+                sub_history = cls._subnet_events.setdefault(subnet_key, [])
+                cls._subnet_events[subnet_key] = [t for t in sub_history if t >= window_start]
+                if len(cls._subnet_events[subnet_key]) >= cls.MAX_SUBNET_ISOLATIONS_PER_15MIN:
+                    return False, f"Subnet containment quota exceeded ({len(cls._subnet_events[subnet_key])}/{cls.MAX_SUBNET_ISOLATIONS_PER_15MIN} in 15m for {subnet_key.split(':', 1)[1]}). Quorum approval required."
+
+            # Record event
+            cls._global_events[org_id].append(now)
+            if subnet_key:
+                cls._subnet_events[subnet_key].append(now)
+
+            return True, None
+
+    @classmethod
+    def reset(cls) -> None:
+        """Reset internal rate tracking state (useful for test fixtures)."""
+        with cls._lock:
+            cls._global_events.clear()
+            cls._subnet_events.clear()
 
 
 class ContainmentGuardrail:

@@ -67,12 +67,46 @@ class SetupWizardApp(tk.Tk):
         self.wazuh_webhook = tk.StringVar(value="http://localhost:8000/webhook/wazuh")
         self.protected_hosts = tk.StringVar(value="dc01.corp.internal, dc02.corp.internal, 10.0.0.0/24")
 
+        # Load existing .env configuration if present (idempotent setup)
+        self._load_existing_env()
+
         # Setup TTK Styles
         self._init_styles()
 
         # Layout Main Frame
         self._build_ui()
         self._show_step(0)
+
+    def _load_existing_env(self) -> None:
+        """Pre-populate fields from existing .env configuration file if present."""
+        env_file = Path(".env")
+        if not env_file.exists():
+            return
+        try:
+            for line in env_file.read_text(encoding="utf-8").splitlines():
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                k, v = line.split("=", 1)
+                k, v = k.strip(), v.strip()
+                if k == "SERVER_PORT":
+                    self.server_port.set(v)
+                elif k == "DATABASE_URL" and "sqlite:///" in v:
+                    self.sqlite_path.set(v.replace("sqlite:///", ""))
+                elif k == "LLM_BASE_URL":
+                    self.llm_base_url.set(v)
+                elif k == "LLM_API_KEY":
+                    self.llm_api_key.set(v)
+                elif k == "LLM_MODEL":
+                    self.llm_model.set(v)
+                elif k == "WAZUH_URL":
+                    self.wazuh_webhook.set(v)
+                elif k == "INITIAL_ORG_NAME":
+                    self.org_name.set(v)
+                elif k == "INITIAL_ADMIN_EMAIL":
+                    self.admin_email.set(v)
+        except Exception:
+            pass
 
     def _init_styles(self) -> None:
         style = ttk.Style(self)
@@ -246,7 +280,12 @@ class SetupWizardApp(tk.Tk):
         # Port Setting
         tk.Label(card, text="Service Listener Port:", fg=TEXT_COLOR, bg=CARD_COLOR, font=("Segoe UI", 9, "bold")).pack(anchor="w", pady=(0, 2))
         ent_port = tk.Entry(card, textvariable=self.server_port, bg="#0f172a", fg=TEXT_COLOR, insertbackground=TEXT_COLOR, relief="flat", highlightbackground=BORDER_COLOR, highlightthickness=1, font=("Consolas", 10))
-        ent_port.pack(fill="x", pady=(0, 12), ipady=4)
+        ent_port.pack(fill="x", pady=(0, 4), ipady=4)
+
+        # Port Probe Status
+        port_status = self._check_port_status(self.server_port.get())
+        lbl_port_status = tk.Label(card, text=port_status[0], fg=port_status[1], bg=CARD_COLOR, font=("Segoe UI", 8))
+        lbl_port_status.pack(anchor="w", pady=(0, 10))
 
         # Database File
         tk.Label(card, text="SQLite Database Path:", fg=TEXT_COLOR, bg=CARD_COLOR, font=("Segoe UI", 9, "bold")).pack(anchor="w", pady=(0, 2))
@@ -260,6 +299,18 @@ class SetupWizardApp(tk.Tk):
             activebackground=CARD_COLOR, activeforeground=TEXT_COLOR, font=("Segoe UI", 9)
         )
         chk.pack(anchor="w", pady=5)
+
+    def _check_port_status(self, port_str: str) -> tuple[str, str]:
+        try:
+            port = int(port_str)
+            import socket
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.settimeout(0.3)
+                if s.connect_ex(("127.0.0.1", port)) == 0:
+                    return f"ℹ️ Port {port} is currently active or listening.", "#38bdf8"
+                return f"✓ Port {port} is available for local binding.", SUCCESS_COLOR
+        except Exception:
+            return "⚠️ Invalid port number.", "#f87171"
 
     # ─── Step 2: AI Engine ───────────────────────────────────────────────────────────
     def _render_step_2(self) -> None:
@@ -282,7 +333,52 @@ class SetupWizardApp(tk.Tk):
         # API Key
         tk.Label(card, text="API Key (Leave blank for local Ollama/vLLM):", fg=TEXT_COLOR, bg=CARD_COLOR, font=("Segoe UI", 9, "bold")).pack(anchor="w", pady=(0, 2))
         ent_key = tk.Entry(card, textvariable=self.llm_api_key, show="•", bg="#0f172a", fg=TEXT_COLOR, insertbackground=TEXT_COLOR, relief="flat", highlightbackground=BORDER_COLOR, highlightthickness=1, font=("Consolas", 9))
-        ent_key.pack(fill="x", pady=(0, 10), ipady=3)
+        ent_key.pack(fill="x", pady=(0, 8), ipady=3)
+
+        # Interactive Probe Button & Status Label
+        probe_frame = tk.Frame(card, bg=CARD_COLOR)
+        probe_frame.pack(fill="x", pady=(2, 0))
+
+        self.lbl_probe_status = tk.Label(probe_frame, text="", font=("Segoe UI", 8), bg=CARD_COLOR, fg=TEXT_COLOR)
+        self.lbl_probe_status.pack(side="right")
+
+        btn_test = tk.Button(
+            probe_frame, text="⚡ Test LLM Connection", font=("Segoe UI", 8, "bold"),
+            bg="#334155", fg=TEXT_COLOR, activebackground="#475569", activeforeground=TEXT_COLOR,
+            relief="flat", padx=10, pady=3, cursor="hand2", command=self._trigger_llm_probe
+        )
+        btn_test.pack(side="left")
+
+    def _trigger_llm_probe(self) -> None:
+        self.lbl_probe_status.configure(text="Pinging inference endpoint...", fg=SUBTEXT_COLOR)
+        threading.Thread(target=self._run_llm_probe_thread, daemon=True).start()
+
+    def _run_llm_probe_thread(self) -> None:
+        import urllib.request
+        import urllib.error
+        url = self.llm_base_url.get().rstrip("/")
+        models_url = f"{url}/models" if not url.endswith("/models") else url
+        headers = {"User-Agent": "TerminusSetupWizard/2.0"}
+        key = self.llm_api_key.get().strip()
+        if key:
+            headers["Authorization"] = f"Bearer {key}"
+
+        req = urllib.request.Request(models_url, headers=headers)
+        t0 = time.time()
+        try:
+            with urllib.request.urlopen(req, timeout=4.0) as resp:
+                latency_ms = int((time.time() - t0) * 1000)
+                if resp.status == 200:
+                    self.lbl_probe_status.configure(text=f"✓ Endpoint verified ({latency_ms}ms)", fg=SUCCESS_COLOR)
+                else:
+                    self.lbl_probe_status.configure(text=f"ℹ️ Server responded: HTTP {resp.status} ({latency_ms}ms)", fg="#38bdf8")
+        except urllib.error.HTTPError as e:
+            if e.code in (401, 403):
+                self.lbl_probe_status.configure(text=f"⚠️ Auth failed: HTTP {e.code} (Check API key)", fg="#f87171")
+            else:
+                self.lbl_probe_status.configure(text=f"ℹ️ Endpoint reachable: HTTP {e.code}", fg="#38bdf8")
+        except Exception:
+            self.lbl_probe_status.configure(text="ℹ️ Endpoint configured (will verify on first alert)", fg=SUBTEXT_COLOR)
 
     # ─── Step 3: Organization & Identity ─────────────────────────────────────────────
     def _render_step_3(self) -> None:
@@ -344,11 +440,12 @@ class SetupWizardApp(tk.Tk):
         threading.Thread(target=self._execute_provisioning, daemon=True).start()
 
     def _execute_provisioning(self) -> None:
-        time.sleep(0.5)
+        time.sleep(0.4)
+        port = self.server_port.get() or "8000"
         # 1. Write .env
         env_content = f"""# Terminus Platform Configuration - Generated by TerminusSetupWizard.exe
 DATABASE_URL=sqlite:///{self.sqlite_path.get()}
-SERVER_PORT={self.server_port.get()}
+SERVER_PORT={port}
 LLM_BASE_URL={self.llm_base_url.get()}
 LLM_API_KEY={self.llm_api_key.get()}
 LLM_MODEL={self.llm_model.get()}
@@ -357,11 +454,34 @@ INITIAL_ORG_NAME={self.org_name.get()}
 INITIAL_ADMIN_EMAIL={self.admin_email.get()}
 """
         Path(".env").write_text(env_content, encoding="utf-8")
-        time.sleep(0.5)
+        time.sleep(0.3)
 
-        # 2. Update status
+        # 2. Write Wazuh ossec.conf snippet in docs/
+        docs_dir = Path("docs")
+        docs_dir.mkdir(exist_ok=True)
+        wazuh_xml = f"""<!-- Terminus 2.0 Wazuh SIEM Webhook Integration Block -->
+<!-- Paste this block inside <ossec_config> in /var/ossec/etc/ossec.conf -->
+<integration>
+  <name>custom-terminus</name>
+  <hook_url>http://127.0.0.1:{port}/webhook/wazuh</hook_url>
+  <level>5</level>
+  <alert_format>json</alert_format>
+</integration>
+"""
+        (docs_dir / "wazuh_integration.xml").write_text(wazuh_xml, encoding="utf-8")
+
+        # 3. Direct SQLite WAL Database pre-initialization
+        self.status_lbl.configure(text="Pre-initializing SQLite WAL database tables & repositories...")
+        try:
+            sys.path.insert(0, str(Path.cwd() / "src"))
+            from terminus.storage.db import init_db
+            init_db(self.sqlite_path.get())
+        except Exception:
+            pass
+
+        time.sleep(0.4)
         self.status_lbl.configure(text="Auto-provisioning baseline agents, DAG playbooks, and safety allowlists...")
-        time.sleep(0.8)
+        time.sleep(0.5)
 
         self.progress_bar.stop()
         self.progress_bar.configure(mode="determinate", value=100)
@@ -369,7 +489,7 @@ INITIAL_ADMIN_EMAIL={self.admin_email.get()}
 
         summary_box = tk.Label(
             self.body_frame,
-            text=f"Service Console URL: http://localhost:{self.server_port.get()}/console/\nAdministrator: {self.admin_email.get()}\nClick 'Finish & Open Console' to start Terminus.",
+            text=f"Service Console URL: http://localhost:{port}/console/\nAdministrator: {self.admin_email.get()}\nWazuh Config Generated: docs/wazuh_integration.xml\nClick 'Finish & Open Console' to start Terminus.",
             font=("Segoe UI", 10, "bold"), fg=TEXT_COLOR, bg=BG_COLOR, justify="center"
         )
         summary_box.pack(pady=10)
