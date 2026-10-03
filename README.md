@@ -1,4 +1,4 @@
-# TERMINUS 2.0 — Autonomous AI Security Operations & SOAR Platform
+# TERMINUS — Autonomous AI Security Operations & SOAR Platform
 
 [![Python 3.12](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg)](https://fastapi.tiangolo.com)
@@ -6,7 +6,7 @@
 [![License](https://img.shields.io/badge/license-Enterprise-blue.svg)](LICENSE)
 [![Architecture](https://img.shields.io/badge/Architecture-Dual--Engine%20SOC-purple.svg)](ARCHITECTURE.md)
 
-**TERMINUS 2.0** is an enterprise-grade, multi-tenant Autonomous AI Security Operations Center (AI SOC) and SOAR platform built as an independent, deterministic service layer on top of SIEM telemetry (e.g., Wazuh, Syslog). It pairs a deterministic, sub-millisecond policy engine with specialized ReAct AI investigation agents, visual DAG automation playbooks with mandatory human-in-the-loop approval gates, and deterministic blast-radius containment guardrails.
+**TERMINUS** is an enterprise-grade, multi-tenant Autonomous AI Security Operations Center (AI SOC) and SOAR platform built as an independent, deterministic service layer on top of SIEM telemetry (e.g., Wazuh, Syslog). It pairs a deterministic, sub-millisecond policy engine with specialized ReAct AI investigation agents, visual DAG automation playbooks with mandatory human-in-the-loop approval gates, and deterministic blast-radius containment guardrails.
 
 ---
 

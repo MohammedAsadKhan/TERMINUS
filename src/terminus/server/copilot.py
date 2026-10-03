@@ -1,4 +1,4 @@
-"""Interactive Incident Analyst Copilot Endpoint for TERMINUS 2.0.
+"""Interactive Incident Analyst Copilot Endpoint for TERMINUS.
 
 Enables human SOC analysts to query incident context, run on-demand forensics,
 and interrogate the autonomous agent regarding root cause and mitigation strategies.

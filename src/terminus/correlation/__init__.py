@@ -1,4 +1,4 @@
-"""Correlation subsystem for Terminus 2.0."""
+"""Correlation subsystem for Terminus."""
 
 from terminus.correlation.stitcher import CampaignStitcher, StitchedCampaign
 

@@ -1,4 +1,4 @@
-"""Historical SIEM Query & Process Forensics Tool for TERMINUS 2.0."""
+"""Historical SIEM Query & Process Forensics Tool for TERMINUS."""
 
 from __future__ import annotations
 

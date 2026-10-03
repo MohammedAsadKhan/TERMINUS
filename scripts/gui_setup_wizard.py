@@ -1,4 +1,4 @@
-"""TERMINUS 2.0 - Graphical Windows Service Setup & Installation Wizard.
+"""TERMINUS - Graphical Windows Service Setup & Installation Wizard.
 
 A professional, multi-step enterprise setup wizard for installing, configuring,
 and launching the TERMINUS Autonomous AI SOC Platform service on Windows.
@@ -33,7 +33,7 @@ BORDER_COLOR = "#334155"    # Subtle Border
 class SetupWizardApp(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
-        self.title("Terminus 2.0 — Enterprise Service Setup Wizard")
+        self.title("Terminus — Enterprise Service Setup Wizard")
         self.geometry("860x580")
         self.minsize(800, 520)
         self.configure(bg=BG_COLOR)
@@ -135,7 +135,7 @@ class SetupWizardApp(tk.Tk):
         brand_frame = tk.Frame(self.sidebar, bg=SIDEBAR_COLOR, pady=20, padx=15)
         brand_frame.pack(fill="x")
         
-        lbl_logo = tk.Label(brand_frame, text="TERMINUS 2.0", font=("Segoe UI", 14, "bold"), fg=TEXT_COLOR, bg=SIDEBAR_COLOR)
+        lbl_logo = tk.Label(brand_frame, text="TERMINUS", font=("Segoe UI", 14, "bold"), fg=TEXT_COLOR, bg=SIDEBAR_COLOR)
         lbl_logo.pack(anchor="w")
         lbl_sub = tk.Label(brand_frame, text="Service Setup Wizard", font=("Segoe UI", 9), fg=SUBTEXT_COLOR, bg=SIDEBAR_COLOR)
         lbl_sub.pack(anchor="w")
@@ -358,7 +358,7 @@ class SetupWizardApp(tk.Tk):
         import urllib.error
         url = self.llm_base_url.get().rstrip("/")
         models_url = f"{url}/models" if not url.endswith("/models") else url
-        headers = {"User-Agent": "TerminusSetupWizard/2.0"}
+        headers = {"User-Agent": "TerminusSetupWizard/1.0"}
         key = self.llm_api_key.get().strip()
         if key:
             headers["Authorization"] = f"Bearer {key}"
@@ -459,7 +459,7 @@ INITIAL_ADMIN_EMAIL={self.admin_email.get()}
         # 2. Write Wazuh ossec.conf snippet in docs/
         docs_dir = Path("docs")
         docs_dir.mkdir(exist_ok=True)
-        wazuh_xml = f"""<!-- Terminus 2.0 Wazuh SIEM Webhook Integration Block -->
+        wazuh_xml = f"""<!-- Terminus Wazuh SIEM Webhook Integration Block -->
 <!-- Paste this block inside <ossec_config> in /var/ossec/etc/ossec.conf -->
 <integration>
   <name>custom-terminus</name>

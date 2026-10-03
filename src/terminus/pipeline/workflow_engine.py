@@ -1,4 +1,4 @@
-"""Asynchronous DAG Workflow Execution Engine for TERMINUS 2.0.
+"""Asynchronous DAG Workflow Execution Engine for TERMINUS.
 
 Implements all workflow execution decisions (D1, D2, D3, D4, D6, D7, D8, D9, D10,
 D11, D14, D15, D16, D17, D18, D19, D20, D21).

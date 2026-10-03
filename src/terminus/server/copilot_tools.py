@@ -1,4 +1,4 @@
-"""Comprehensive tenant-scoped Copilot tools for TERMINUS 2.0.
+"""Comprehensive tenant-scoped Copilot tools for TERMINUS.
 
 Provides incident querying, Agent Fleet configuration, visual DAG workflow building,
 containment allowlisting, and dry-run execution testing adhering strictly to Pinned Decisions:
@@ -398,7 +398,7 @@ def _brief_ticket(ticket: dict[str, Any]) -> dict[str, Any]:
 
 
 class IncidentTools:
-    """Multi-domain Copilot tools handler implementing all Terminus 2.0 capabilities."""
+    """Multi-domain Copilot tools handler implementing all Terminus capabilities."""
 
     def __init__(
         self,
@@ -470,7 +470,7 @@ class IncidentTools:
         if name == "get_platform_knowledge":
             topic = str(arguments.get("topic") or "overview").lower()
             knowledge_base = {
-                "overview": "Terminus 2.0 is an enterprise multi-tenant AI Security Operations Center (SOC) platform.",
+                "overview": "Terminus is an enterprise multi-tenant AI Security Operations Center (SOC) platform.",
                 "policies": "Deterministic Policy Triage Engine evaluates incoming alerts into IGNORE, TRIAGE, ESCALATE.",
                 "workflows": "Visual DAG Workflows connect exactly 8 node types to automate SOC response playbooks.",
                 "agents": "Specialized AI SOC agent personas for triage, forensics, and active containment.",

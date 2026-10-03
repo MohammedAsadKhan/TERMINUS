@@ -1,4 +1,4 @@
-"""Evaluation and benchmark subsystem for Terminus 2.0."""
+"""Evaluation and benchmark subsystem for Terminus."""
 
 from terminus.eval.benchmark import BENCHMARK_SCENARIOS, run_benchmark
 

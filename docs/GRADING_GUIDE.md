@@ -1,15 +1,15 @@
-# TERMINUS 2.0 — Capstone Grading & Evaluation Guide
+# TERMINUS — Capstone Grading & Evaluation Guide
 ## 5-Minute Quick Evaluation Walkthrough for Graders & Evaluators
 
 ---
 
 ### 1. Overview & System Verification
 
-**TERMINUS 2.0** is an Autonomous AI Security Operations & SOAR platform service. It ingests raw SIEM telemetry from Wazuh, applies sub-millisecond Tier-0 policy noise suppression (<1ms, 0 tokens), dispatches complex incidents to specialized ReAct agent swarms, executes visual DAG workflows with human-in-the-loop approval gates, and enforces deterministic blast-radius containment guardrails.
+**TERMINUS** is an Autonomous AI Security Operations & SOAR platform service. It ingests raw SIEM telemetry from Wazuh, applies sub-millisecond Tier-0 policy noise suppression (<1ms, 0 tokens), dispatches complex incidents to specialized ReAct agent swarms, executes visual DAG workflows with human-in-the-loop approval gates, and enforces deterministic blast-radius containment guardrails.
 
 | Metric / Item | Status / Value | Verification Command |
 | :--- | :--- | :--- |
-| **Automated Test Suite** | **127 / 127 Passing** (100% Pass Rate) | `uv run pytest -q` |
+| **Automated Test Suite** | **133 / 133 Passing** (100% Pass Rate) | `uv run pytest -q` |
 | **Service Daemon Port** | `http://localhost:8000` | `GET /health` $\rightarrow$ `200 OK` |
 | **Web Operations Console** | `http://localhost:8000/console/` | Pre-compiled React 18 / AntD Console |
 | **Default Root Admin** | `admin@terminus.local` / `Password123!` | Auto-bootstrapped on first run |

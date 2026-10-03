@@ -1,4 +1,4 @@
-"""Workflow DAG Validation and Policy Gate Enforcement for TERMINUS 2.0.
+"""Workflow DAG Validation and Policy Gate Enforcement for TERMINUS.
 
 Implements all static workflow checks (D1, D8, D11, D13, D23):
 1. Node registry validation (exactly 8 types)

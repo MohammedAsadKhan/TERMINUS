@@ -1,4 +1,4 @@
-"""Forensic tools subsystem for Terminus 2.0."""
+"""Forensic tools subsystem for Terminus."""
 
 from terminus.tools.deobfuscator import DeobfuscationResult, PayloadDeobfuscator
 from terminus.tools.siem_search import SiemForensicsTool

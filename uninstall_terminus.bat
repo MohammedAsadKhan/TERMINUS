@@ -1,9 +1,9 @@
 @echo off
 setlocal enabledelayedexpansion
-title TERMINUS 2.0 - Platform Uninstaller & Reset Tool
+title TERMINUS - Platform Uninstaller & Reset Tool
 
 echo ===============================================================================
-echo   TERMINUS 2.0 — PLATFORM UNINSTALLER & RESET TOOL
+echo   TERMINUS — PLATFORM UNINSTALLER & RESET TOOL
 echo ===============================================================================
 echo.
 echo   Select an action:

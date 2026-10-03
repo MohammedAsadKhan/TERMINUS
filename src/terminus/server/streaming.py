@@ -1,4 +1,4 @@
-"""Server-Sent Events (SSE) Real-Time Streaming Bus for TERMINUS 2.0.
+"""Server-Sent Events (SSE) Real-Time Streaming Bus for TERMINUS.
 
 Pushes live incident updates, investigation agent progress steps, and
 containment notifications directly to connected analyst dashboards with strict tenant isolation.

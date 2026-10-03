@@ -1,4 +1,4 @@
-"""Background sweeper task for TERMINUS 2.0 (D24).
+"""Background sweeper task for TERMINUS (D24).
 
 Runs on server startup and every 60 seconds to:
 1. Detect stale RUNNING workflows (heartbeat_at > 5 min old) and transition them to INTERRUPTED.

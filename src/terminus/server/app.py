@@ -1,4 +1,4 @@
-"""FastAPI application factory and server entrypoint for TERMINUS 2.0."""
+"""FastAPI application factory and server entrypoint for TERMINUS."""
 
 from __future__ import annotations
 

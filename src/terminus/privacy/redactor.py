@@ -1,4 +1,4 @@
-"""Local PII, Credential, and Secret Redaction Engine for TERMINUS 2.0.
+"""Local PII, Credential, and Secret Redaction Engine for TERMINUS.
 
 Ensures zero-latency client-side scrubbing of sensitive enterprise credentials,
 API tokens, and PII before telemetry reaches external LLM inference endpoints.

@@ -1,4 +1,4 @@
-"""Static Script and Payload De-obfuscation Engine for TERMINUS 2.0.
+"""Static Script and Payload De-obfuscation Engine for TERMINUS.
 
 Automatically decodes Base64 payloads, PowerShell encoded commands,
 hex-encoded strings, and URL-encoded command strings.

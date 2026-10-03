@@ -1,4 +1,4 @@
-"""Asynchronous Ingestion Buffer & Token-Bucket Rate Limiter for TERMINUS 2.0.
+"""Asynchronous Ingestion Buffer & Token-Bucket Rate Limiter for TERMINUS.
 
 Provides resilient alert buffering during telemetry spikes and floods,
 preventing HTTP 504 timeouts and dropped alerts.

@@ -1,4 +1,4 @@
-"""Blast-Radius Calculation & Critical Asset Protection Guardrails for TERMINUS 2.0.
+"""Blast-Radius Calculation & Critical Asset Protection Guardrails for TERMINUS.
 
 Prevents automated or accidental disruption of Tier-0 critical enterprise infrastructure
 (Domain Controllers, Payment Gateways, Core DNS) during automated incident containment.

@@ -1,4 +1,4 @@
-"""Stateful Multi-Turn ReAct Autonomous Investigation Agent for TERMINUS 2.0.
+"""Stateful Multi-Turn ReAct Autonomous Investigation Agent for TERMINUS.
 
 Executes iterative reasoning, tool calling, payload de-obfuscation, and live threat
 intelligence enrichment, generating verifiable verdicts with cryptographic citations.

@@ -1,4 +1,4 @@
-"""Adversarial Prompt Injection Defense & Data Isolation for TERMINUS 2.0.
+"""Adversarial Prompt Injection Defense & Data Isolation for TERMINUS.
 
 Provides strict XML-delimited encapsulation and pre-screening to prevent
 threat actors from embedding malicious instructions within security logs.

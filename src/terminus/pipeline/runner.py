@@ -1,4 +1,4 @@
-"""Pipeline Runner orchestrator for TERMINUS 2.0.
+"""Pipeline Runner orchestrator for TERMINUS.
 
 Implements end-to-end alert processing with:
 - Idempotent alert claims (D5)

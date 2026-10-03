@@ -1,4 +1,4 @@
-"""Terminus 2.0 - Live Interactive SOC Flood & Defense Simulation.
+"""Terminus - Live Interactive SOC Flood & Defense Simulation.
 
 Connects to the running TERMINUS Autonomous Service at http://127.0.0.1:8000.
 Registers service heartbeats, streams multi-stage cyberattack waves (Credential Stuffing,
@@ -133,7 +133,7 @@ async def run_simulation(duration_seconds: int = 180) -> None:
     # Register initial active connection heartbeat
     await register_heartbeat("connected", {"target_org": org_id, "duration": duration_seconds})
 
-    banner("TERMINUS 2.0 - LIVE ADVERSARY ATTACK STREAMING & AUTONOMOUS DEFENSE", CYAN)
+    banner("TERMINUS - LIVE ADVERSARY ATTACK STREAMING & AUTONOMOUS DEFENSE", CYAN)
     print(f"  * Web Console: {BOLD}{BASE_URL}/console/{RESET}")
     print(f"  * Authenticated Operator: {BOLD}{ADMIN_EMAIL}{RESET}")
     print(f"  * Active Workspace: {BOLD}{org_id}{RESET}")
@@ -346,7 +346,7 @@ async def run_simulation(duration_seconds: int = 180) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Terminus 2.0 Live Attack Simulation Stream")
+    parser = argparse.ArgumentParser(description="Terminus Live Attack Simulation Stream")
     parser.add_argument(
         "--duration",
         type=int,

@@ -1,4 +1,4 @@
-"""Persistence repositories for TERMINUS 2.0.
+"""Persistence repositories for TERMINUS.
 
 Provides robust SQLite-backed stores for Incidents, Organizations, Users,
 Memberships, SocAgents, Workflows, WorkflowRuns, Approvals, AlertClaims,

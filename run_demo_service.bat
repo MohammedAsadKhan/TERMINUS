@@ -5,7 +5,7 @@ title TERMINUS Autonomous AI SOC Platform - Standalone Service Daemon
 set "PYTHONPATH=%~dp0src;%PYTHONPATH%"
 
 echo ===============================================================================
-echo   TERMINUS 2.0 - AUTONOMOUS AI SOC & SOAR PLATFORM SERVICE
+echo   TERMINUS - AUTONOMOUS AI SOC & SOAR PLATFORM SERVICE
 echo ===============================================================================
 echo   [+] Mode: Standalone Background Service (Multi-Tenant AI SOC)
 echo   [+] Service Host: 0.0.0.0

@@ -1,4 +1,4 @@
-"""SIEM Alert Trigger Matching Engine for TERMINUS 2.0.
+"""SIEM Alert Trigger Matching Engine for TERMINUS.
 
 Provides single-source-of-truth alert matching logic used both for workflow
 matching prior to execution and within trigger_wazuh nodes during workflow runs (D2).

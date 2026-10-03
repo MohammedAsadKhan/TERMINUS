@@ -1,4 +1,4 @@
-"""Deterministic Sub-Millisecond Multi-Tenant Policy Engine for TERMINUS 2.0.
+"""Deterministic Sub-Millisecond Multi-Tenant Policy Engine for TERMINUS.
 
 Provides high-speed, zero-token triage, per-tenant CIDR allowlists, and accurate
 MITRE ATT&CK technique severity classification.

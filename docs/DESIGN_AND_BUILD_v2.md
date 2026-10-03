@@ -1,4 +1,4 @@
-# DESIGN_AND_BUILD_v2.md — Agentic SOC Platform Master Architectural Blueprint (v2.0 Ultimate)
+# DESIGN_AND_BUILD.md — Agentic SOC Platform Master Architectural Blueprint
 
 > **Document Status:** Comprehensive, Decision-Complete Deep Specification.
 > **Scope:** Full product architecture combining core MVP pipeline, 6 Market-Dominating Innovations, 10 Enterprise Production Features, 5 Specialized SOC Operations, Database Schemas, IAM Adapters, PII Sanitizer Pipelines, State Machine Specifications, and Web UI Protocols.

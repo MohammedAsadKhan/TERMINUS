@@ -1,4 +1,4 @@
-"""OCSF (Open Cybersecurity Schema Framework) & ECS Schema Normalizer for TERMINUS 2.0.
+"""OCSF (Open Cybersecurity Schema Framework) & ECS Schema Normalizer for TERMINUS.
 
 Normalizes alerts from Wazuh, Sysmon, CrowdStrike, GuardDuty, or generic telemetry
 into a canonical domain representation.

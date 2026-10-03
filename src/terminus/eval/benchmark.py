@@ -1,4 +1,4 @@
-"""Automated Benchmark Evaluation Suite for TERMINUS 2.0.
+"""Automated Benchmark Evaluation Suite for TERMINUS.
 
 Evaluates precision, recall, false positive reduction, and evidence citation accuracy
 across standardized ground-truth security attack and benign operational scenarios.
@@ -170,7 +170,7 @@ async def run_benchmark() -> dict[str, Any]:
     severity_matches = 0
 
     print("=" * 80)
-    print("  TERMINUS 2.0 — AUTOMATED BENCHMARK EVALUATION HARNESS")
+    print("  TERMINUS — AUTOMATED BENCHMARK EVALUATION HARNESS")
     print("=" * 80)
 
     start_time = time.time()

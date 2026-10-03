@@ -1,4 +1,4 @@
-"""Active Containment & SOAR Action Connectors for TERMINUS 2.0.
+"""Active Containment & SOAR Action Connectors for TERMINUS.
 
 Provides verified containment mechanisms:
 - Wazuh Active Response (firewall-drop, host-deny, restart-ossec)

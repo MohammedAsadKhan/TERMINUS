@@ -18,7 +18,7 @@ _logger = logging.getLogger(__name__)
 class Settings(BaseSettings):
     """Typed, env-driven configuration for the terminus platform."""
 
-    model_config = SettingsConfigDict(env_prefix="TERMINUS_", env_file=".env")
+    model_config = SettingsConfigDict(env_prefix="TERMINUS_", env_file=".env", extra="ignore")
 
     host: str = "127.0.0.1"
     port: int = 8000

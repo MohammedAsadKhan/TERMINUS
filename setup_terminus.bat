@@ -1,11 +1,11 @@
 @echo off
 setlocal enabledelayedexpansion
-title TERMINUS 2.0 - Platform Setup & Installation Wizard
+title TERMINUS - Platform Setup & Installation Wizard
 
 set "PYTHONPATH=%~dp0src;%PYTHONPATH%"
 
 echo ===============================================================================
-echo   TERMINUS 2.0 — INTERACTIVE SETUP & SERVICE INSTALLATION WIZARD
+echo   TERMINUS — INTERACTIVE SETUP & SERVICE INSTALLATION WIZARD
 echo ===============================================================================
 echo   This wizard will initialize your database, configure LLM reasoning providers,
 echo   set up SIEM ingestion webhooks, provision your administrator account, and

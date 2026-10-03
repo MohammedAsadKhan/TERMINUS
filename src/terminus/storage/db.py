@@ -1,4 +1,4 @@
-"""Persistent database engine and table definitions for TERMINUS 2.0.
+"""Persistent database engine and table definitions for TERMINUS.
 
 Provides thread-safe async SQLite persistence with connection management,
 automatic schema creation, and database snapshots.

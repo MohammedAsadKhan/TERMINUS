@@ -1,4 +1,4 @@
-"""Containment and SOAR subsystem for Terminus 2.0."""
+"""Containment and SOAR subsystem for Terminus."""
 
 from terminus.containment.active_response import ActiveResponseRunner, ContainmentResult
 from terminus.containment.guardrails import (

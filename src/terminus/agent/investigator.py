@@ -1,4 +1,4 @@
-"""Investigation Agent module for TERMINUS 2.0."""
+"""Investigation Agent module for TERMINUS."""
 
 from __future__ import annotations
 

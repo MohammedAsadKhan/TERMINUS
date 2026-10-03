@@ -1,4 +1,4 @@
-# TERMINUS 2.0 — System Architecture & Technical Specification
+# TERMINUS — System Architecture & Technical Specification
 ## Enterprise Autonomous AI Security Operations & SOAR Engine
 
 ---
@@ -9,7 +9,7 @@ Modern Security Operations Centers face a fundamental tension:
 1. **Rule-based SIEM systems** are fast and deterministic but brittle, unable to perform nuanced lateral movement analysis or synthesize multi-source evidence.
 2. **Pure LLM architectures** provide reasoning but suffer from latency (2–15s), prohibitive token costs on raw event floods (\$10k+/month for 50k alerts/day), non-deterministic hallucination, and vulnerable prompt injection vectors.
 
-**TERMINUS 2.0** resolves this dichotomy through a **Dual-Engine Architecture**:
+**TERMINUS** resolves this dichotomy through a **Dual-Engine Architecture**:
 
 ```mermaid
 flowchart TD
@@ -162,12 +162,13 @@ The **Web Analyst Console** (`web/` compiled to `src/terminus/server/static/cons
 
 ## 5. Verification & Test Architecture
 
-TERMINUS 2.0 maintains a **127-test automated verification suite** across 18 specialized test modules:
+TERMINUS maintains a **133-test automated verification suite** across 20 specialized test modules:
 
 ```
 tests/
 ├── test_adapters.py             # Wazuh / SIEM JSON schema parsing & normalization
 ├── test_auth.py                 # Timing-safe auth, PBKDF2 hashing & session tokens
+├── test_containment_quota.py    # Fleet-wide dual sliding-window quota & lease TTLs
 ├── test_copilot_tools.py        # Copilot forensic tools & tenant isolation
 ├── test_e2e_enterprise.py       # Full SaaS lifecycle (Orgs, RBAC, Webhooks, Actions)
 ├── test_investigation_graph.py  # Force-directed topology graph persistence & scoping
@@ -177,6 +178,7 @@ tests/
 ├── test_orgs.py                 # Multi-tenant organization isolation & seat limits
 ├── test_policies.py             # Sub-millisecond Tier-0 policy engine rules
 ├── test_reports.py              # 24-hour daily summary report generators
+├── test_rule_synthesizer.py     # Dynamic Sigma/YARA synthesis & Wilson score metrics
 ├── test_server.py               # FastAPI REST endpoints & SSE streaming bus
 ├── test_terminus_enterprise.py  # Guardrails, deobfuscator, IOC extractor, stitcher
 └── workflows/
@@ -190,7 +192,7 @@ tests/
     └── test_phase8_e2e.py       # Complete E2E workflow lifecycles & approval gates
 ```
 
-All 127 tests execute synchronously via:
+All 133 tests execute synchronously via:
 ```bash
 uv run pytest -q
 ```

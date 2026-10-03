@@ -1,4 +1,4 @@
-"""Ingestion subsystem for Terminus 2.0."""
+"""Ingestion subsystem for Terminus."""
 
 from terminus.ingestion.buffer import IngestionBuffer
 from terminus.ingestion.ioc import ExtractedIocs, IocExtractor

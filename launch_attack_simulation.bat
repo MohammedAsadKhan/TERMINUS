@@ -5,7 +5,7 @@ title TERMINUS Live Adversary Attack Simulation & Telemetry Stream
 set "PYTHONPATH=%~dp0src;%PYTHONPATH%"
 
 echo ===============================================================================
-echo   TERMINUS 2.0 - LIVE ADVERSARY ATTACK SIMULATION STREAM
+echo   TERMINUS - LIVE ADVERSARY ATTACK SIMULATION STREAM
 echo ===============================================================================
 echo   [+] Target Service: http://127.0.0.1:8000
 echo   [+] Telemetry Route: POST /webhook/wazuh & POST /webhook/alert

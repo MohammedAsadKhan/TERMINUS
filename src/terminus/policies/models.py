@@ -1,4 +1,4 @@
-"""Configurable Multi-Tenant Policy Engine Models for TERMINUS 2.0."""
+"""Configurable Multi-Tenant Policy Engine Models for TERMINUS."""
 
 from __future__ import annotations
 

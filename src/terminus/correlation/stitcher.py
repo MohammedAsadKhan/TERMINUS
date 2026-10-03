@@ -1,4 +1,4 @@
-"""Temporal Attack Campaign Stitching Engine for TERMINUS 2.0.
+"""Temporal Attack Campaign Stitching Engine for TERMINUS.
 
 Correlates sequential alerts across time windows into unified attack campaigns,
 eliminating ticket duplication and enabling end-to-end kill-chain analysis.

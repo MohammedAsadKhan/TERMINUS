@@ -1,4 +1,4 @@
-"""Node schemas, types, and registry for TERMINUS 2.0 Workflows.
+"""Node schemas, types, and registry for TERMINUS Workflows.
 
 Defines the exact 8 allowed node types (D1), their strict Pydantic config schemas,
 and their valid output handles (D8).

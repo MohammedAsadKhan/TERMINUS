@@ -1,4 +1,4 @@
-"""Closed-Loop Detection Engineering Advisor ("Self-Tuning SOC") for TERMINUS 2.0.
+"""Closed-Loop Detection Engineering Advisor ("Self-Tuning SOC") for TERMINUS.
 
 Automatically analyzes resolved False Positive incidents and generates tuned
 Sigma detection rules and Wazuh XML rule adjustments to eliminate future noise.

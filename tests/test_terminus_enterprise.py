@@ -1,4 +1,4 @@
-"""Comprehensive Enterprise Test Suite for TERMINUS 2.0.
+"""Comprehensive Enterprise Test Suite for TERMINUS.
 
 Validates all 25 production capabilities:
 - Persistent SQLite Storage & Repositories
