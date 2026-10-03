@@ -1,0 +1,8 @@
+<!-- Terminus 2.0 Wazuh SIEM Webhook Integration Block -->
+<!-- Paste this block inside <ossec_config> in /var/ossec/etc/ossec.conf -->
+<integration>
+  <name>custom-terminus</name>
+  <hook_url>http://127.0.0.1:8000/webhook/wazuh</hook_url>
+  <level>5</level>
+  <alert_format>json</alert_format>
+</integration>

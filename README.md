@@ -2,7 +2,7 @@
 
 [![Python 3.12](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg)](https://fastapi.tiangolo.com)
-[![Pytest](https://img.shields.io/badge/pytest-127%20passed-brightgreen.svg)](https://docs.pytest.org/)
+[![Pytest](https://img.shields.io/badge/pytest-133%20passed-brightgreen.svg)](https://docs.pytest.org/)
 [![License](https://img.shields.io/badge/license-Enterprise-blue.svg)](LICENSE)
 [![Architecture](https://img.shields.io/badge/Architecture-Dual--Engine%20SOC-purple.svg)](ARCHITECTURE.md)
 
@@ -143,6 +143,7 @@ terminus/
 ├── setup_terminus.bat       # Interactive CLI Setup & Environment Builder
 ├── run_demo_service.bat     # Launches the Standalone Autonomous SOC Service Daemon
 ├── launch_attack_simulation.bat # Live Multi-Stage Adversary Attack Telemetry Streamer
+├── uninstall_terminus.bat   # Interactive Platform Uninstaller & Reset Tool
 ├── src/terminus/            # Core Python Platform Package
 │   ├── agent/               # ReAct Forensic Investigation Swarms & Scoped Tools
 │   ├── auth/                # Session Tokens & Timing-Safe Password Hashing
