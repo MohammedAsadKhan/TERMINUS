@@ -1,0 +1,133 @@
+# Terminus team execution checklist
+
+Planning baseline: October 3, 2026. Read [PRD](PRD.md) and [MVP scope](MVP_RELEASE.md) before implementation. These boxes start unchecked: earlier tests and source files do not establish completion of the new release requirements.
+
+## Working rules
+
+Team implementation tasks are up for grabs. Role labels describe relevant expertise, not reserved assignments. Mohammed retains the agreed PM, local-lab and AWS responsibilities; teammates may claim supporting implementation work. A claimed task has one accountable teammate, dependencies, a linked change and verification evidence. Use statuses `not started`, `in progress`, `blocked`, `in review`, `verified`; checkboxes mean verified. Never place API keys in this document.
+
+Task record: `ID | claimed by | agent/tool | status | dependencies | issue/PR/commit | verification | blocker`. This checklist is the shared completion record. Architecture changes require updating PRD/MVP and the decision log before dependent work proceeds.
+
+## Instructions for teammates and their coding agents
+
+1. Read the PRD, MVP scope, this checklist and applicable repository instructions before choosing work. Select an unclaimed task with satisfied dependencies. Ask the teammate for their name if it is not known; do not invent their identity.
+2. Before editing implementation files, add a claim to the table below: task ID, teammate name, agent/tool, date and `in progress`. Share that claim through the team's normal collaboration process so others see it. Check current claims before starting; a local document edit is not a distributed lock. Resolve conflicting claims with the teammates instead of duplicating work.
+3. Stay within the task's scope and agreed contracts. Record blockers rather than bypassing dependencies or changing acceptance criteria. Supporting subtasks can be claimed separately if their boundaries are documented.
+4. Complete the task and its stated acceptance checks. Preserve existing behavior, run appropriate validation and attach concrete evidence. Do not mark a real lab/provider requirement complete using only mocks, a file's existence or an untested agent claim.
+5. When verified, change that task's checkbox from `- [ ]` to `- [x]` and append `Done by - <teammate name> | Agent - <agent/tool> | Date - YYYY-MM-DD | Change - <PR/commit or file reference> | Verified - <checks and evidence reference>` to the task entry. Update its claim-table status to `verified`.
+6. If unfinished, leave the checkbox unchecked and record `in progress` or `blocked`, remaining work and the blocker. If a verified task later fails, reopen it and record why, preserving the earlier completion note.
+7. Update this document in the same change as the implementation so completion is reviewable. Do not push, merge, provision cloud resources, run attacks or use credentials solely because this checklist mentions them; follow the human teammate's authorized scope and environment instructions.
+
+Completion example (format only; does not complete any real task):
+
+```text
+- [x] TASK-ID Task description and acceptance criteria. Done by - Teammate Name | Agent - Tool Name | Date - YYYY-MM-DD | Change - PR link | Verified - Test results and evidence link
+```
+
+### Shared task claims
+
+Add one row per claimed task. Re-read the current shared version before claiming work. All unlisted team implementation tasks remain available.
+
+| Task ID | Claimed by | Agent or tool | Claimed date | Status | Change and verification | Blocker or handoff |
+| --- | --- | --- | --- | --- | --- | --- |
+
+## Phase 0 Scope and contracts
+
+- [ ] P00 Confirm presentation date and team availability. Owner: Mohammed. Exit: actual date and allocated capacity recorded; readiness target rechecked.
+- [ ] P01 Ratify PRD, seven core roles, B's possible application specialist, gates and exclusions. Owner: Mohammed + technical lead. Depends: P00. Exit: reviewed baseline and agreed claim process; tasks remain available for teammates to claim.
+- [ ] P02 Map current routes to stores and live integration paths. Owner: backend lead. Exit: findings for Wazuh payload/API boundaries, canonical incident IDs, identity and current workflow tools.
+- [ ] P03 Agree schemas for task/run/evidence/help request/model connection/usage/action attempt and public API states. Owner: technical lead. Depends: P01,P02. Exit: schema examples and ownership/idempotency rules reviewed by backend/frontend.
+- [ ] P04 Record scheduler topology, limits, storage, secret management and source-auth decisions. Owner: technical lead. Depends: P03. Exit: durable recovery plan and bounded execution contract; no competing schedulers by accident.
+
+## Phase 1 Your first local execution tasks
+
+- [ ] L01 Keep existing Kali; import official Wazuh OVA (8 GB/4 vCPU/50 GB); create Ubuntu Server target A (2 GB/2 vCPU/25 GB). Owner: Mohammed. Exit: machine inventory and versions recorded. Confirm host performance; no need to reinstall Kali.
+- [ ] L02 Create internal `terminus-lab` attack/telemetry network and separate host-only management path. Kali uses lab network; Wazuh/targets have required management connections. Owner: Mohammed. Depends: L01. Exit: addressing table, route checks, management exclusions; no target bridging or interface forwarding. Temporary update access disconnected for attack rehearsal.
+- [ ] L03 Install/enroll Wazuh endpoint agent; configure actual SSH auth-log collection. Owner: Mohammed + SIEM owner. Depends: L02. Exit: target connected and a real failed-login event visible in Wazuh.
+- [ ] L04 Snapshot clean and monitoring-configured states; record restore procedure. Owner: Mohammed. Depends: L03. Exit: restore tested; unique endpoint identities and clocks remain correct.
+- [ ] L05 Set up dedicated lab accounts/fake data and an independent management check. Owner: Mohammed. Depends: L02. Exit: attacker and administrator paths distinguishable; response cannot target management addresses.
+
+## Phase 2 Thin live defense A
+
+- [ ] A01 Authenticate Wazuh alert delivery and normalize real lab payloads. Owner: backend/SIEM lead. Depends: L03,P03. Exit: source IP, endpoint ID, rule/time/evidence preserved; tenant derived from credential; schema and negative tests pass.
+- [ ] A02 Make incident identity/evidence linkage durable across ingestion, workflow and UI. Owner: backend lead. Depends: A01,P03. Exit: same incident ID across records; duplicate alert yields explicit single ownership.
+- [ ] A03 Implement scoped action proposal and approval binding; protected target checks. Owner: response lead. Depends: P03,L05,A02. Exit: altered target/expiry invalidates approval; denial produces no dispatch.
+- [ ] A04 Implement Wazuh-backed temporary IP-block connector for the installed version. Owner: response lead. Depends: A03. Exit: actual endpoint response evidence, timeout/unknown state handling, least-privileged credentials; no generic remote shell.
+- [ ] A05 Verify block, management health, expiry and explicit undo independently. Owner: QA/response lead. Depends: A04. Exit: endpoint rule evidence plus attacker connectivity result and successful restore; acknowledgement alone fails gate.
+- [ ] A06 Rehearse thin A before orchestration expansion. Owner: Mohammed + QA. Depends: A05,L04. Exit: real detection-to-approved-response timeline; Wazuh automatic response does not preempt Terminus.
+
+## Phase 3 Parallel work after contracts
+
+### Backend orchestration and persistence lane
+
+- [ ] O01 Add migrations/repositories for durable tasks, agent runs, evidence, help requests and action attempts. Preserve currently dropped investigation citations through report/storage/UI. Owner: backend lead. Depends: P04. Exit: upgrade preserves existing records; schema tests use isolated databases; every cited finding resolves to source evidence.
+- [ ] O02 Wire durable users/memberships/incident history and configured hosted admin/session lifecycle. Owner: backend lead. Depends: P02. Exit: actual service-path restart and tenant denial tests; no fixed hosted demo credentials.
+- [ ] O03 Implement scheduler claims/leases/heartbeats, priority, bounded concurrency, cancellation and retry. Owner: orchestration lead. Depends: O01. Exit: two claimers cannot own one task; stale work recovers; uncertain action reconciled before retry.
+- [ ] O04 Implement main and lazy area coordinators with objective/result contracts. Owner: orchestration lead. Depends: O03,P03. Exit: five areas supported logically; unnecessary areas/model calls not created.
+- [ ] O05 Implement seven specialists with role-scoped real tools and actual configured-agent resolution; connect workflow AI nodes to recorded specialist runs. Owner: investigation lead. Depends: O04,A02. Exit: each role has fixture and lab evidence tests; missing telemetry returns explicit gaps; seeded status labels or prompts cannot substitute for execution.
+- [ ] O06 Add structured collaboration and help-request admission. Owner: orchestration lead. Depends: O05. Exit: useful peer task shares evidence; duplicate/unbounded delegation rejected; cross-area ownership visible.
+
+### Model gateway lane
+
+- [ ] M01 Build named credential/connection registry, secret protection and masked settings. Owner: model/backend lead. Depends: P03,P04. Exit: multiple keys supported, tenant/role access tested, no credential leakage.
+- [ ] M02 Add OpenAI-compatible/OpenRouter/direct DeepSeek/local endpoint and Anthropic/Gemini adapters. Owner: model lead. Depends: M01. Exit: provider-specific tool/structured-output contracts tested; configurable catalog contains all agreed families.
+- [ ] M03 Implement permission/data-locality/redaction checks before every call/fallback. Owner: model/security lead. Depends: M02. Exit: local-only evidence cannot reach hosted provider; unapproved connection denied; private endpoint verified.
+- [ ] M04 Implement capability-based explicit routing and bounded approved fallback. Owner: model lead. Depends: M03. Exit: task model/rationale/provenance recorded; unsupported tools excluded; no silent scripted fallback.
+- [ ] M05 Add atomic budget reservations, usage ledger and reconciliation. Owner: model/backend lead. Depends: M04,O01. Exit: concurrent requests cannot exceed admission budget; unknown cost is labeled; retry/key use cannot bypass org limits.
+- [ ] M06 Evaluate configured models on incident tasks; record live versus contract-only coverage. Owner: model lead + QA. Depends: M05,O05. Exit: selected demo models pass real schemas/tools; missing credentials recorded; available local endpoint verified if configured.
+
+### Frontend lane
+
+- [ ] U01 Build activity tree/list against task API with queued/running/waiting/failed/cancelled/completed states. Owner: frontend lead. Depends: P03. Can use labeled development fixtures until O01/O03 integration. Exit: task identities, parents, endpoint and timestamps visible.
+- [ ] U02 Show tool activity, cited evidence, findings, model/usage and help requests. Owner: frontend lead. Depends: U01,O05,M05. Exit: actual records drive display; no internal chain-of-thought or invented events.
+- [ ] U03 Integrate scoped approval and response execution/verification states. Owner: frontend lead. Depends: U01,A05. Exit: denied/expired/unknown/not-configured states understandable; status cannot imply verified success prematurely.
+- [ ] U04 Add admin model settings and endpoint capability/health states. Owner: frontend lead. Depends: M01,A01. Exit: secrets masked; inventory distinct from connected/protected devices.
+- [ ] U05 Verify reconnection, error paths, keyboard access and existing routes. Owner: QA/frontend lead. Depends: U02,U03,U04. Exit: durable catch-up after disconnect, production build, browser regression evidence.
+
+## Phase 4 Main showcase B
+
+- [ ] B01 Select one exact service version, known lab exploit and observable behavior; confirm instrumentation supports it. Owner: Mohammed + investigation/SIEM leads. Depends: A06. Exit: pinned target/exploit record and evidence-to-response mapping; no unsupported legacy endpoint assumption.
+- [ ] B02 Build disposable target B (starting 4 GB/2 vCPU/30 GB), enroll sensor and collect application/process/file/network evidence as needed. Owner: Mohammed + SIEM owner. Depends: B01. Exit: actual expected events visible and reset snapshot verified.
+- [ ] B03 Demonstrate controlled exploit and harmless follow-on activity with lab accounts/fake data. Owner: Mohammed + QA. Depends: B02. Exit: timestamped observed behavior; no claim of detection until rule verified.
+- [ ] B04 Add required detection and specialist tools; enable application specialist if evidence needs it. Owner: investigation/SIEM lead. Depends: B03,O06. Exit: source-linked findings and meaningful cross-specialty help request.
+- [ ] B05 Select and implement action that interrupts observed behavior. Owner: response lead. Depends: B04,A05. Exit: existing shell/local persistence cannot be claimed stopped solely by initial-source IP block; action and rollback tested.
+- [ ] B06 Integrate complete B and independently verify service health, stopped behavior and reset. Owner: QA + Mohammed. Depends: B05,U05,M06. Exit: complete incident/task/action evidence package.
+- [ ] A07 Integrate tracked agents/model gateway into A. Owner: QA + orchestration lead. Depends: O06,U05,M06,A06. Exit: A no longer only a thin connector rehearsal; full release flow verified.
+
+## Phase 5 Your AWS execution tasks
+
+- [ ] C01 Verify account plan, allowed instance types, credit balance/expiry and region; estimate compute/storage/network/AI spending separately. Owner: Mohammed. Depends: P01. Exit: proposed cost and reserve approved before provisioning; no automatic plan upgrade assumption.
+- [ ] C02 Define private lab networking and protected operator access, endpoint/management exclusions and secure secrets. Owner: Mohammed + technical lead. Depends: C01,P04. Exit: reviewed diagram/address plan; vulnerable services not publicly exposed.
+- [ ] C03 Reproduce versioned local deployment on AWS using documented configuration and persistent storage. Owner: Mohammed. Depends: A07,B06,O02,C02. Exit: identity/data survive tested restart, same source revision, correct model and Wazuh connectivity.
+- [ ] C04 Create and test lab start/stop, health, backup/restore and cleanup procedures. Owner: Mohammed. Depends: C03. Exit: stopped compute confirmed; retained disk/IP/network costs listed; no credentials in scripts or repo.
+- [ ] C05 Rehearse A and B through the presentation access path. Owner: Mohammed + QA. Depends: C04. Exit: remote end-to-end evidence and credible latency measurements; desktop RDP and recording contingency documented.
+
+## Phase 6 Release gates and packaging
+
+- [ ] Q01 Test duplicate alerts/tasks, denied/expired approval, cross-tenant access, provider timeout, missing connector, malformed output, budget exhaustion and task cancellation. Owner: QA. Depends: A07,B06. Exit: negative-case results linked; no duplicated consequential action.
+- [ ] Q02 Test restart during investigation and around response dispatch; reconcile uncertain outcomes and recover durable work. Owner: QA/backend lead. Depends: O02,A07,B06. Exit: no accepted work silently lost; no blind response replay.
+- [ ] Q03 Run three consecutive reset rehearsals for each mandatory scenario locally and on AWS. Owner: QA + Mohammed. Depends: C05,Q01,Q02. Exit: six successful runs per environment; timings/evidence recorded, all blockers resolved.
+- [ ] Q04 Verify clean installation and setup configuration; update source ZIP, prebuilt UI, DOCX/PDF manual and runbook. Owner: delivery/QA lead. Depends: Q03. Exit: fresh extraction works; secrets/databases excluded; manuals inside ZIP and version stated.
+- [ ] Q05 Record clearly labeled fallback demonstration; prepare architecture and incident timeline presentation. Owner: Mohammed. Depends: Q03. Exit: recording usable without remote access; live-versus-recorded distinction explicit.
+- [ ] Q06 Freeze features and sign off MVP gates by provisional November 10 target. Owner: Mohammed + technical/QA leads. Depends: Q04,Q05. Exit: exact commit, known issues, scenario evidence and approved presentation claims.
+
+## Gated extensions
+
+- [ ] X01 SYN-flood extension: choose sensor/metrics, bounded rate/duration, supported mitigation and independent recovery checks. Owner: network/QA lead + Mohammed. Depends: Q03 and PM capacity approval. Exit: controlled lab traffic affects no unrelated systems; real telemetry and mitigation proof. No unconditional flood-resistance claim.
+- [ ] X02 Optional Windows/Atomic Red Team scenario: reviewed selected tests, telemetry and reversible response. Owner: endpoint/QA lead. Depends: Q06 and PM approval. Exit: actual detection/response/cleanup proof; does not delay A/B.
+- [ ] X03 Native Watcher and remaining specialist catalog. Status: deferred; no implementation in this release without rebaseline.
+
+## Decision and ownership register
+
+| Decision | Owner | Current status |
+| --- | --- | --- |
+| Presentation date and actual capacity | Mohammed | Pending |
+| Backend/orchestration/model/frontend/response/SIEM/QA task claims | Team | Up for grabs; record claimant before work; roles may be combined |
+| A target | Mohammed | Ubuntu Server 24.04 proposed; confirm installed version |
+| B service, exploit, telemetry and action | Mohammed + technical lead | Pending |
+| Scheduler process topology and measured limits | Technical lead | Single-host SQL-backed scheduler proposed |
+| Credentials, encryption and data retention | Technical lead + Mohammed | Pending |
+| Models, role pools, spend limits and evaluation cases | Model lead + Mohammed | Pending; full catalog retained |
+| AWS plan eligibility, sizes, cost and protected access | Mohammed | Pending; no resources authorized by this document |
+
+Update this register when a choice is made, including date, rationale and affected requirement IDs. Keep unresolved choices visible rather than substituting assumptions into implementation.

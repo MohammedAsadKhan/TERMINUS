@@ -1,5 +1,7 @@
 # Terminus delivery plan
 
+> Historical plan. As of October 3, 2026, the current delivery authority is [PRD](PRD.md), [first-release MVP](MVP_RELEASE.md), and [execution checklist](EXECUTION_CHECKLIST.md). Their live-defense requirements, local-first/AWS sequence, orchestration hierarchy and provider scope supersede conflicting recommendations below.
+
 Planning date: October 2, 2026. Status: proposed working baseline for PM review.
 
 ## 1. Delivery objective
