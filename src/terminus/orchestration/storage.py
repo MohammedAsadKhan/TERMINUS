@@ -94,13 +94,8 @@ class OrchestrationStore:
 
     @contextmanager
     def _transaction(self) -> Generator[None]:
-        _ = self.db.execute("BEGIN IMMEDIATE")
-        try:
+        with self.db.transaction():
             yield
-            _ = self.db.execute("COMMIT")
-        except BaseException:
-            _ = self.db.execute("ROLLBACK")
-            raise
 
     def _get(self, model: type[Record], org_id: str, record_id: str) -> Record:
         _ = _IDENTIFIER.validate_python(org_id, strict=True)

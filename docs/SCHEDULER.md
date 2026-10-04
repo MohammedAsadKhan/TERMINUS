@@ -22,7 +22,7 @@ After deploying real handler code, the command shape is:
 uv run --frozen python -m terminus.orchestration.scheduler_cli --database C:\path\to\terminus.db --handler triage=your_deployed_handlers:triage --workers 4 --global-limit 4 --per-org-limit 2 --timeout 60
 ```
 
-The database path and module in that example must be replaced with the actual deployment configuration. Handler modules are trusted operator-installed Python code; HTTP clients cannot choose imports. No specialist, model, shell or containment handlers are bundled in this change. The CLI refuses to start without a handler, while the library supports an empty registry for configuration tests.
+The database path and module in that example must be replaced with the actual deployment configuration. Handler modules are trusted operator-installed Python code; HTTP clients cannot choose imports. No specialist, model, shell or containment handlers are bundled. The optional `--coordination` flag registers deterministic main/area delegation handlers described in [coordination operations](COORDINATION.md). Without that flag the CLI refuses to start without an explicit handler, while the library supports an empty registry for configuration tests.
 
 Handlers are async functions receiving `JobContext` and returning finite, bounded JSON. The context provides the canonical task, tracked run, cancellation event and `await context.checkpoint()` ownership check. Future tool adapters must check ownership and approvals and persist an action-dispatch record before consequential effects. Handlers must cooperate with cancellation and avoid blocking the event loop. This interface is not a sandbox for untrusted code.
 
