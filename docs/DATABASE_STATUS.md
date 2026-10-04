@@ -46,3 +46,8 @@ For hosting, set `TERMINUS_DEPLOYMENT_MODE=hosted`, a stable `TERMINUS_LICENSE_S
 ## Named model connection storage (M01, October 4)
 
 `model_connections` stores organization-scoped provider metadata, versioned settings and authenticated encrypted credential envelopes. `model_connection_audit` stores immutable bounded mutation records without request bodies or credentials. Additive schema installation participates in surrounding SQLite transactions. The separate `TERMINUS_MODEL_CREDENTIALS_KEY` is never stored in SQLite and must be backed up outside the database; no automatic key or legacy credential import is performed. See [model connection setup and handoff](MODEL_CONNECTIONS.md). Configuration is unverified and does not enable provider execution.
+
+
+## Model permission storage (M03, October 4)
+
+The policy store adds organization-scoped versioned grants and hash-bound evidence classifications with immutable mutation audits. Model admission adds an immutable metadata-only audit; prepared execution bindings are deliberately process-local, so restart requires fresh admission. Additive SQLite schema setup remains transactional. Neither credentials nor raw model prompts are stored in these audits. See [model policy](MODEL_POLICY.md) for fixture-only boundaries and pending M04/M05 integration.

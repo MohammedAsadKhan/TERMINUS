@@ -189,6 +189,8 @@ TERMINUS/
 | [Team execution checklist](docs/EXECUTION_CHECKLIST.md) | What remains, who claimed it, and what proves completion? |
 | [Toolkit contracts](docs/TOOLKIT_CONTRACTS.md) | Which tools, permissions and evidence does each specialty need? |
 | [Future scope](docs/FUTURE_SCOPE.md) | How does the defensive catalog expand beyond 1.0? |
+| [Model permission and data policy](docs/MODEL_POLICY.md) | How are model grants, evidence locality and fixture admission enforced? |
+| [Claude continuation prompt](docs/CLAUDE_HANDOFF_AFTER_M03.md) | How can another agent continue after M03? |
 | [Architecture decisions](docs/ARCHITECTURE_DECISIONS.md) | What is implemented, and where are the remaining gaps? |
 
 ---
