@@ -9,9 +9,12 @@ run context; node configuration may only select a role.
 
 from __future__ import annotations
 
+import logging
+import os
 from collections.abc import Collection, Mapping
 from dataclasses import dataclass
-from typing import Literal, final
+from pathlib import Path
+from typing import Literal, cast, final
 
 from pydantic import JsonValue
 
@@ -26,6 +29,11 @@ from terminus.orchestration.storage import (
 from terminus.storage.db import Database
 
 CORE_ROLES: dict[str, str] = {spec.role: spec.area for spec in DEFAULT_CATALOG}
+
+_LOGGER = logging.getLogger(__name__)
+ROLES_ENV = "TERMINUS_SPECIALIST_ROLES"
+DATABASE_ENV = "TERMINUS_SPECIALIST_DATABASE"
+TERMINAL_TASK_STATUSES = frozenset({"completed", "failed", "cancelled"})
 
 BridgeState = Literal[
     "completed",
@@ -112,6 +120,17 @@ class SpecialistBridge:
             None if handler_roles is None else frozenset(handler_roles)
         )
 
+    def workflow_task_key(self, run_id: str, node_id: str) -> str:
+        return f"workflow:{run_id}:{node_id}"
+
+    def task_status(self, org_id: str, run_id: str, node_id: str) -> str | None:
+        """Status of the specialist task admitted for a node (tenant-scoped), else None."""
+        row = self.db.fetchone(
+            "SELECT status FROM orchestration_tasks WHERE org_id=? AND idempotency_key=?",
+            (org_id, self.workflow_task_key(run_id, node_id)),
+        )
+        return None if row is None else str(cast("object", row["status"]))
+
     def _terminal_run(self, org_id: str, task_id: str) -> AgentRun | None:
         runs = self.records.list_agent_runs(org_id, task_id=task_id, limit=50)
         terminal = [r for r in runs if r.status in {"completed", "failed", "cancelled"}]
@@ -145,7 +164,7 @@ class SpecialistBridge:
                 role=role,
                 gap=f"No specialist handler is registered for role '{role}'; nothing ran.",
             )
-        key = f"workflow:{run_id}:{node_id}"
+        key = self.workflow_task_key(run_id, node_id)
         try:
             task = self._admit(org_id, incident_id, role, key, workflow_id, node_id)
         except OrchestrationNotFoundError:
@@ -223,3 +242,38 @@ class SpecialistBridge:
         )
         _ = self.scheduler.enqueue_task(org_id, task.task_id)
         return self.records.get_task(org_id, task.task_id)
+
+
+def specialist_bridge_from_environ(
+    db: Database, environ: Mapping[str, str] | None = None
+) -> SpecialistBridge | None:
+    """Build a bridge only when specialist handlers are declared as deployed.
+
+    The scheduler runs in a separate process, so the only honest signal is an
+    explicit declaration: ``TERMINUS_SPECIALIST_ROLES`` lists the core roles whose
+    handlers are deployed (``scheduler_cli --handler ROLE=...``). Unset or empty
+    means legacy behavior (no bridge). Unknown role names are ignored. If
+    ``TERMINUS_SPECIALIST_DATABASE`` is set and names a different file than ``db``
+    the scheduler would never see the queued tasks, so no bridge is built.
+    """
+    env = os.environ if environ is None else environ
+    declared = {r.strip() for r in env.get(ROLES_ENV, "").split(",") if r.strip()}
+    if not declared:
+        return None
+    roles = declared & CORE_ROLES.keys()
+    if declared - roles:
+        _LOGGER.warning("Ignoring unknown specialist roles: %s", sorted(declared - roles))
+    if not roles:
+        return None
+    scheduler_db = env.get(DATABASE_ENV, "").strip()
+    if (
+        scheduler_db
+        and scheduler_db != ":memory:"
+        and Path(scheduler_db).resolve() != Path(db.db_path).resolve()
+    ):
+        _LOGGER.error(
+            "%s differs from the application database; specialist bridge disabled",
+            DATABASE_ENV,
+        )
+        return None
+    return SpecialistBridge(db, handler_roles=roles)

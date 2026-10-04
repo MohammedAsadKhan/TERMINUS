@@ -1093,6 +1093,21 @@ class SqliteWorkflowRunRepository:
         rows = self.db.fetchall(sql, (cutoff_iso,))
         return [self._format_run(r) for r in rows]
 
+    def list_waiting_specialist_runs(self, limit: int = 50) -> list[dict[str, Any]]:
+        """Oldest-checked WAITING_SPECIALIST runs across tenants (each row carries its org_id)."""
+        sql = "SELECT * FROM workflow_runs WHERE status = 'WAITING_SPECIALIST' ORDER BY heartbeat_at ASC LIMIT ?"
+        return [self._format_run(r) for r in self.db.fetchall(sql, (max(1, min(int(limit), 500)),))]
+
+    def claim_waiting_specialist_run(self, org_id: str, run_id: str) -> bool:
+        """Atomically move WAITING_SPECIALIST -> RUNNING; True for exactly one caller."""
+        now_iso = datetime.now(UTC).isoformat()
+        cur = self.db.execute(
+            "UPDATE workflow_runs SET status = 'RUNNING', heartbeat_at = ? "
+            "WHERE run_id = ? AND org_id = ? AND status = 'WAITING_SPECIALIST'",
+            (now_iso, run_id, str(org_id)),
+        )
+        return cur.rowcount > 0
+
     def _format_run(self, row: dict[str, Any]) -> dict[str, Any]:
         d = dict(row)
         d["side_effects_executed"] = bool(d.get("side_effects", 0))

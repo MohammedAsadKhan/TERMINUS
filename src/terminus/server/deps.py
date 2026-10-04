@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import secrets
 from typing import Annotated
 
@@ -34,6 +35,12 @@ from terminus.orgs.storage import SqliteMembershipStore, SqliteOrganizationStore
 from terminus.orgs.store import MembershipStore, OrganizationStore
 from terminus.pipeline.deployment import PipelineDeployment
 from terminus.pipeline.runner import PipelineRunner
+from terminus.pipeline.specialist_bridge import (
+    DATABASE_ENV,
+    ROLES_ENV,
+    SpecialistBridge,
+    specialist_bridge_from_environ,
+)
 from terminus.pipeline.workflow_engine import WorkflowEngine
 from terminus.policies.engine import PolicyEngine
 from terminus.siem.unavailable import UnavailableSiemClient
@@ -309,7 +316,25 @@ def get_pipeline_runner(
         ticket_store=_sqlite_incident_repo,
         external_ticket_store=external_ticket_store,
     )
-    return PipelineRunner(deployment, workflow_engine=WorkflowEngine(), stitcher=_campaign_stitcher)
+    workflow_engine = WorkflowEngine(specialist_bridge=_specialist_bridge())
+    return PipelineRunner(deployment, workflow_engine=workflow_engine, stitcher=_campaign_stitcher)
+
+
+_BRIDGE_CACHE: dict[tuple[int, str], SpecialistBridge | None] = {}
+
+
+def _specialist_bridge() -> SpecialistBridge | None:
+    """Bridge only when TERMINUS_SPECIALIST_ROLES declares deployed handlers (else legacy).
+
+    Cached per database and declaration. Never starts a scheduler; handlers run in
+    the separate scheduler process.
+    """
+    db = Database.get_instance()
+    key = (id(db), os.environ.get(ROLES_ENV, "") + "|" + os.environ.get(DATABASE_ENV, ""))
+    if key not in _BRIDGE_CACHE:
+        _BRIDGE_CACHE.clear()
+        _BRIDGE_CACHE[key] = specialist_bridge_from_environ(db)
+    return _BRIDGE_CACHE[key]
 
 
 # ─── Auth & Multi-Tenancy Dependencies ─────────────────────────────────────────────

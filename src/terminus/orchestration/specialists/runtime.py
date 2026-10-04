@@ -13,6 +13,7 @@ import json
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime
 from typing import cast
 
 from pydantic import JsonValue, ValidationError
@@ -46,8 +47,22 @@ MAX_EVIDENCE_IDS = 60
 MAX_FINDINGS = 8
 MAX_GAPS = 30
 
-QueryBuilder = Callable[[Task], ReadQuery]
+
+@dataclass(frozen=True)
+class QueryContext:
+    """Trusted facts for query builders; never derived from model output.
+
+    ``incident_time`` is the source timestamp of the durable incident record
+    (None when unknown, in which case builders anchor on claim time).
+    """
+
+    incident_time: datetime | None = None
+
+
+QueryBuilder = Callable[[Task, QueryContext], ReadQuery]
 ReadServiceResolver = Callable[[str], InvestigationReadService | None]
+# (org_id, incident_id) -> incident source timestamp from the durable record.
+IncidentTimeResolver = Callable[[str, str], datetime | None]
 
 
 @dataclass(frozen=True)
@@ -72,6 +87,7 @@ class SpecialistDeps:
     actor_user_id: str
     routing: ModelRoutingService | None = None
     client_for: ClientFactory | None = None
+    incident_time_for: IncidentTimeResolver | None = None
 
 
 def _gap(code: GapCode, tool_id: str | None = None, detail: str = "") -> SpecialistGap:
@@ -95,6 +111,19 @@ def _classify(result: ToolResult) -> list[SpecialistGap]:
     ):
         return [_gap("coverage_partial", tool, detail)]
     return []
+
+
+def _incident_time(deps: SpecialistDeps, org_id: str, incident_id: str) -> datetime | None:
+    if deps.incident_time_for is None:
+        return None
+    try:
+        stamp = deps.incident_time_for(org_id, incident_id)
+    except Exception:
+        _LOGGER.warning("incident time lookup failed", exc_info=True)
+        return None
+    if stamp is None or stamp.tzinfo is None or stamp.utcoffset() is None:
+        return None
+    return stamp
 
 
 def _finalize(  # noqa: C901
@@ -226,8 +255,9 @@ def make_specialist_handler(  # noqa: C901, PLR0915
             if service is None:
                 break
             await ctx.checkpoint()  # refreshes ctx.lease; never reuse contexts
+            qctx = QueryContext(_incident_time(deps, org_id, ctx.lease.incident_id))
             try:
-                query = step.build_query(ctx.task)
+                query = step.build_query(ctx.task, qctx)
             except (ValueError, TypeError, LookupError):
                 gaps.append(_gap("query_unavailable", step.tool_id, "query not built"))
                 continue

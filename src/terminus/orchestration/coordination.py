@@ -13,8 +13,10 @@ from typing import cast
 
 from pydantic import JsonValue
 
+from terminus.orchestration.collaboration import CollaborationService
 from terminus.orchestration.coordination_models import (
     AreaObjective,
+    HelpRequestSpec,
     IncidentObjective,
     MainObjective,
     SpecialistDefinition,
@@ -82,6 +84,7 @@ class CoordinationService:
         self.records = OrchestrationStore(db)
         self.scheduler = SchedulerStore(db)
         self.catalog = {spec.role: spec.area for spec in specs}
+        self.collaboration = CollaborationService(self)
 
     def _incident(self, org_id: str, incident_id: str) -> None:
         if not self.db.fetchone(
@@ -280,6 +283,16 @@ class CoordinationService:
             "help_request_id": plan.help_request_id,
         }
 
+    def request_help(
+        self, org_id: str, requester_task_id: str, spec: HelpRequestSpec
+    ) -> dict[str, object]:
+        """Structured peer-help admission; see ``collaboration.py``."""
+        return self.collaboration.request_help(org_id, requester_task_id, spec)
+
+    def get_help_context(self, org_id: str, task_id: str) -> dict[str, object]:
+        """Request contract and shared evidence for a help-delegated task."""
+        return self.collaboration.get_help_context(org_id, task_id)
+
     def assign_help(self, org_id: str, help_request_id: str) -> Task:
         """Admit one request through its responsible area's scheduled callback.
 
@@ -443,6 +456,10 @@ class CoordinationService:
             runs=[run.model_dump(mode="json") for run in runs],
             evidence=[record.model_dump(mode="json") for record in evidence],
             help_requests=[record.model_dump(mode="json") for record in help_requests],
+            help_ownership=[
+                self.collaboration.ownership(task.org_id, record.help_request_id)
+                for record in help_requests
+            ],
             gaps=gaps,
             delegation_only=task.role in {"main_orchestrator", "area_orchestrator"},
             aggregate_status=self._aggregate(task, children, gaps),

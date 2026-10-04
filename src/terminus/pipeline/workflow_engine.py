@@ -63,7 +63,7 @@ class WorkflowExecutionContext:
     org_id: str
     alert: SiemAlert
     report: InvestigationReport
-    status: str = "RUNNING"  # RUNNING, WAITING_APPROVAL, COMPLETED, FAILED, INTERRUPTED
+    status: str = "RUNNING"  # RUNNING, WAITING_APPROVAL, WAITING_SPECIALIST, COMPLETED, FAILED, INTERRUPTED
     outcome: str = "HANDLED"  # HANDLED, WAITING_APPROVAL, FAILED_BEFORE_SIDE_EFFECTS, FAILED_AFTER_SIDE_EFFECTS, INTERRUPTED
     side_effects_executed: bool = False
     unknown_outcome: bool = False
@@ -641,7 +641,7 @@ class WorkflowEngine:
                 unknown_outcome=ctx.unknown_outcome,
                 edge_states=ctx.edge_states,
                 errors=ctx.errors,
-                completed_at=now_iso if ctx.status != "WAITING_APPROVAL" else None,
+                completed_at=None if ctx.status in ("WAITING_APPROVAL", "WAITING_SPECIALIST") else now_iso,
             )
             try:
                 from terminus.server.streaming import broadcast_to_org

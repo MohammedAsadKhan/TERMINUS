@@ -13,7 +13,7 @@ from terminus.orchestration.scheduler_cli import load_handlers
 from terminus.orchestration.specialists import deploy
 from terminus.orchestration.specialists.factory import build_specialist_handlers
 from terminus.orchestration.specialists.roles import ROLE_SPECS
-from terminus.orchestration.specialists.runtime import MAX_TOOL_CALLS, SpecialistDeps
+from terminus.orchestration.specialists.runtime import MAX_TOOL_CALLS, QueryContext, SpecialistDeps
 from terminus.toolkit.catalog import CORE_ROLES, load_catalog
 from tests.test_investigation_read_service import setup as read_setup  # noqa: F401
 from tests.test_specialist_runtime import deps_for, job_context, parse
@@ -100,7 +100,7 @@ def test_queries_come_from_the_task_only(read_setup):
     _, lease = make()
     for spec in ROLE_SPECS.values():
         for step in spec.plan:
-            q = step.build_query(lease.task)
+            q = step.build_query(lease.task, QueryContext())
             assert q.resource_id in {"incident-ref", "endpoint-ref"}
             assert (q.end - q.start).total_seconds() <= 3600
 

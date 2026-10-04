@@ -55,6 +55,7 @@ Add one row per claimed task. Re-read the current shared version before claiming
 | M05 | Mohammed | Claude Code orchestrator with Claude Sonnet subagents | 2026-10-04 | verified | [Budgets and ledger](MODEL_BUDGETS.md); 831 isolated tests pass | Production transport, settings API/UI, stale-recovery runner remain pending |
 | M06 | Mohammed | Claude Code orchestrator with Claude Sonnet subagents | 2026-10-04 | in progress | [Evaluation and coverage](MODEL_EVALUATION.md); 877 isolated tests pass | Contract-only: no live model verified (no transport, credentials or O05 handlers); `demo_ready` false. Task stays open for live evaluation |
 | O05 | Mohammed | Claude Code orchestrator with Claude Sonnet subagents | 2026-10-04 | in progress | [Specialists](SPECIALISTS.md); 959 isolated tests pass (three runs) | Fixture-level only: no lab evidence, no live model transport; uninstalled tools reported as gaps. Task stays open; production bridge wiring remains |
+| O06 | Mohammed | Claude Code orchestrator with Claude Sonnet subagents | 2026-10-04 | in progress | [Collaboration](COORDINATION.md), [wiring](SPECIALISTS.md); 988 isolated tests pass (two runs) | Fixture-level, no lab evidence. Task stays open: legacy `assign_help` bypasses new rules; O05 specialists not yet using `get_help_context`; no UI |
 
 ## Phase 0 Scope and contracts
 

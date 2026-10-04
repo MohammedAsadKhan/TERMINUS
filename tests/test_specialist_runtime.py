@@ -66,7 +66,7 @@ def job_context(store, lease) -> JobContext:
 
 def plan_of(*tool_ids, resource="endpoint-ref", kind="evidence"):
     return tuple(
-        PlannedCall(t, lambda task, r=resource, k=kind: query(r, k)) for t in tool_ids
+        PlannedCall(t, lambda task, qc, r=resource, k=kind: query(r, k)) for t in tool_ids
     )
 
 
@@ -127,8 +127,8 @@ async def test_plan_runs_only_through_gateway_with_real_audit(read_setup):
     spec = RoleSpec(
         "triage",
         (
-            PlannedCall("incident.get", lambda t: query("incident-ref")),
-            PlannedCall("alerts.search", lambda t: query()),
+            PlannedCall("incident.get", lambda t, qc: query("incident-ref")),
+            PlannedCall("alerts.search", lambda t, qc: query()),
         ),
     )
     out = await make_specialist_handler(spec, deps_for(service))(
@@ -584,9 +584,9 @@ async def test_evidence_tool_cites_only_run_collected_ids(setup):
     spec = RoleSpec(
         "triage",
         (
-            PlannedCall("alerts.search", lambda t: query()),
+            PlannedCall("alerts.search", lambda t, qc: query()),
             PlannedCall(
-                "evidence.get", lambda t: query("incident-ref"), cite_run_evidence=True
+                "evidence.get", lambda t, qc: query("incident-ref"), cite_run_evidence=True
             ),
         ),
     )

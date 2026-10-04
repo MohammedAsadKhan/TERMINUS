@@ -20,7 +20,11 @@ from datetime import timedelta
 from typing import Final
 
 from terminus.orchestration.models import Task
-from terminus.orchestration.specialists.runtime import PlannedCall, RoleSpec
+from terminus.orchestration.specialists.runtime import (
+    PlannedCall,
+    QueryContext,
+    RoleSpec,
+)
 from terminus.toolkit.models import ReadQuery
 
 INCIDENT_RESOURCE_ID: Final = "incident-ref"
@@ -29,9 +33,13 @@ _BEFORE = timedelta(minutes=55)
 _AFTER = timedelta(minutes=5)  # total window is exactly the one-hour read limit
 
 
-def _query(task: Task, resource_id: str, kind: str) -> ReadQuery:
-    """Window anchored on the lease's claim time (task creation if unclaimed)."""
-    anchor = task.started_at or task.created_at
+def _query(task: Task, context: QueryContext, resource_id: str, kind: str) -> ReadQuery:
+    """Window anchored on the durable incident timestamp (claim time if unknown).
+
+    The window is always exactly the one-hour read limit (55 minutes before the
+    anchor, 5 after), so an old alert yields a valid window around its own time.
+    """
+    anchor = context.incident_time or task.started_at or task.created_at
     return ReadQuery.model_validate(
         {
             "resource_id": resource_id,
@@ -47,7 +55,7 @@ def _call(
 ) -> PlannedCall:
     return PlannedCall(
         tool_id,
-        lambda task: _query(task, resource_id, kind),
+        lambda task, context: _query(task, context, resource_id, kind),
         cite_run_evidence=cite,
     )
 

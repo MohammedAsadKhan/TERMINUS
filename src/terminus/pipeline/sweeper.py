@@ -3,6 +3,8 @@
 Runs on server startup and every 60 seconds to:
 1. Detect stale RUNNING workflows (heartbeat_at > 5 min old) and transition them to INTERRUPTED.
 2. Detect expired PENDING approvals and resolve them as EXPIRED ('system:expired'), resuming the run.
+3. Resume WAITING_SPECIALIST runs whose specialist tasks are all terminal (only when the
+   engine has a specialist bridge, i.e. specialist handlers are declared deployed).
 """
 
 from __future__ import annotations
@@ -12,6 +14,10 @@ import logging
 from datetime import UTC, datetime
 
 from terminus.pipeline.deployment import PipelineDeployment
+from terminus.pipeline.specialist_bridge import (
+    TERMINAL_TASK_STATUSES,
+    specialist_bridge_from_environ,
+)
 from terminus.pipeline.workflow_engine import WorkflowEngine
 from terminus.storage.db import Database
 from terminus.storage.repositories import (
@@ -22,8 +28,60 @@ from terminus.storage.repositories import (
 
 logger = logging.getLogger("terminus.pipeline.sweeper")
 
+MAX_SPECIALIST_SCAN_PER_PASS = 50
+MAX_SPECIALIST_RESUMES_PER_PASS = 20
 
-async def run_sweeper_cycle(
+
+async def resume_ready_specialist_runs(
+    run_repo: SqliteWorkflowRunRepository,
+    workflow_engine: WorkflowEngine,
+    claim_repo: SqliteAlertClaimRepository | None = None,
+    deployment: PipelineDeployment | None = None,
+) -> int:
+    """Resume WAITING_SPECIALIST runs whose specialist tasks have all reached a terminal state.
+
+    Bounded per pass, tenant-scoped (task lookups use the run's own org_id) and
+    idempotent: an atomic WAITING_SPECIALIST -> RUNNING claim lets exactly one
+    sweeper resume a run. Runs that are not ready have their heartbeat touched so
+    the oldest-checked ordering rotates and none can starve the others.
+    """
+    bridge = workflow_engine.specialist_bridge
+    if bridge is None:
+        return 0
+    resumed = 0
+    for run in run_repo.list_waiting_specialist_runs(limit=MAX_SPECIALIST_SCAN_PER_PASS):
+        if resumed >= MAX_SPECIALIST_RESUMES_PER_PASS:
+            break
+        org_id, run_id = str(run["org_id"]), str(run["run_id"])
+        try:
+            latest: dict[str, str] = {}
+            for nr in run_repo.get_node_runs(org_id, run_id):
+                latest[str(nr["node_id"])] = str(nr["status"])
+            waiting = [n for n, st in latest.items() if st == "WAITING_SPECIALIST"]
+            statuses = [bridge.task_status(org_id, run_id, n) for n in waiting]
+            if not waiting or any(st not in TERMINAL_TASK_STATUSES for st in statuses):
+                run_repo.update_heartbeat(org_id, run_id)
+                continue
+            if not run_repo.claim_waiting_specialist_run(org_id, run_id):
+                continue  # another sweeper owns this resume
+            ctx = await workflow_engine.resume_run(run_id=run_id, org_id=org_id, deployment=deployment, actor="system:specialist")
+            resumed += 1
+            if ctx is not None and claim_repo and run.get("alert_id"):
+                claim_repo.update_claim_status(
+                    org_id=org_id,
+                    alert_id=str(run["alert_id"]),
+                    status=ctx.status,
+                    outcome=ctx.outcome,
+                    side_effects=1 if ctx.side_effects_executed else 0,
+                    report=ctx.report,
+                    incident_id=ctx.incident_id,
+                )
+        except Exception as e:
+            logger.error(f"Error resuming specialist-waiting run {run_id}: {e}")
+    return resumed
+
+
+async def run_sweeper_cycle(  # noqa: C901
     run_repo: SqliteWorkflowRunRepository,
     approval_repo: SqliteApprovalRepository,
     workflow_engine: WorkflowEngine,
@@ -125,9 +183,17 @@ async def run_sweeper_cycle(
     except Exception as e:
         logger.error(f"Error sweeping expired approvals: {e}")
 
+    # 3. Resume runs whose specialist tasks finished
+    specialist_resumes = 0
+    try:
+        specialist_resumes = await resume_ready_specialist_runs(run_repo, workflow_engine, claim_repo, deployment)
+    except Exception as e:
+        logger.error(f"Error resuming specialist-waiting runs: {e}")
+
     return {
         "interrupted_runs": interrupted_runs_count,
         "expired_approvals": expired_approvals_count,
+        "specialist_resumes": specialist_resumes,
     }
 
 
@@ -141,7 +207,7 @@ async def sweeper_background_task(
     run_repo = SqliteWorkflowRunRepository(database)
     approval_repo = SqliteApprovalRepository(database)
     claim_repo = SqliteAlertClaimRepository(database)
-    workflow_engine = WorkflowEngine(db=database)
+    workflow_engine = WorkflowEngine(db=database, specialist_bridge=specialist_bridge_from_environ(database))
 
     # Initial sweep at startup
     await run_sweeper_cycle(

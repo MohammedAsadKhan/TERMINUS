@@ -13,10 +13,17 @@ Implemented October 4, 2026 by Mohammed with Claude Code (orchestrator) and Clau
 
 `incident.get`, `alerts.search`, `collection.coverage`, `endpoint.agent`, `identity.auth_events` and the three evidence tools. Network, application, process, file, reputation and verification/reporting tools are descriptors only, so those roles report `tool_not_installed` gaps.
 
+## Production wiring (added October 4, 2026)
+
+- **Configuration signal.** The scheduler is a separate process, so the API and sweeper cannot introspect its handlers. `TERMINUS_SPECIALIST_ROLES` (comma-separated core roles) declares which handlers are deployed with `scheduler_cli --handler`. Unset or empty means the exact legacy path (`legacy_unrecorded`, no bridge). Unknown names are ignored. If `TERMINUS_SPECIALIST_DATABASE` is set and differs from the application database, no bridge is built (tasks would never be seen by the scheduler). The bridge's `handler_roles` are the declared roles, so an undeclared role returns `NOT_EXECUTED` instead of waiting forever. Wiring: `server/deps.get_pipeline_runner` (cached per database and declaration) and `sweeper_background_task`, both via `specialist_bridge_from_environ`. FastAPI never starts a scheduler.
+- **WAITING_SPECIALIST** is in `WorkflowRunStatus`, `RunOutcome` and `NodeRunStatus`; a waiting run keeps `completed_at` empty and is returned by run listing and the claim record unchanged.
+- **Automatic resume.** Each sweeper pass (`resume_ready_specialist_runs`) scans up to 50 `WAITING_SPECIALIST` runs (oldest heartbeat first), resumes at most 20 whose specialist tasks (looked up by the run's own org and key `workflow:{run}:{node}`) are all terminal (completed, failed, cancelled), and updates the alert claim. An atomic `WAITING_SPECIALIST -> RUNNING` claim makes it idempotent across sweepers; unready runs get their heartbeat touched so they rotate. A crash mid-resume is handled by the existing stale-RUNNING sweep. Latency is the sweeper interval (60 s).
+- **Time window.** `QueryBuilder` is `(Task, QueryContext) -> ReadQuery`. The deployed runtime resolves `QueryContext.incident_time` from the durable incident record (`raw_payload_json.timestamp`, the same field `incident.get` checks, tenant-scoped; never from model output) and the window is exactly 55 minutes before to 5 after it (the one-hour read limit). Without a resolver or timestamp, builders fall back to claim time.
+- **Missing configuration.** `SpecialistDeploymentError.retryable = False`; the scheduler honors `retryable=False` on handler exceptions, so the job fails terminally without consuming retries.
+
 ## Remaining
 
 1. Lab evidence per role (L01-L05, A01-A02), and real connectors for the uninstalled tools.
-2. Production wiring of the bridge into `server/deps.py` and `sweeper.py`, passing deployed handler roles; automatic resume when a specialist run finishes; add `WAITING_SPECIALIST` to the run status enums if anything validates them.
-3. Per-incident time window passed by the runtime (current window is claim time minus 55 minutes to plus 5), and a decision on whether failing missing configuration should consume retries.
-4. Model step with a live transport (M06), and O06 collaboration/help requests.
-5. Retiring the legacy `InvestigationAgent` path from the default workflow.
+2. Frontend: show `WAITING_SPECIALIST` status (web/src types are open strings; no tag styling yet).
+3. Model step with a live transport (M06), and O06 collaboration/help requests.
+4. Retiring the legacy `InvestigationAgent` path from the default workflow.

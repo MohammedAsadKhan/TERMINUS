@@ -403,7 +403,13 @@ class SchedulerRuntime:
             context._abort("interrupted")
             await self._persist_abort(context)
         except Exception as exc:
-            await self._call(self.store.fail, context.lease, self._error(exc))
+            # An exception may declare ``retryable = False`` (terminal, no retry).
+            await self._call(
+                self.store.fail,
+                context.lease,
+                self._error(exc),
+                retryable=getattr(exc, "retryable", True) is not False,
+            )
         else:
             # Re-check cancellation/ownership after a handler returns.
             await context.checkpoint()

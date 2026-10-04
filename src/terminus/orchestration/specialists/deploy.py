@@ -7,7 +7,8 @@ Configuration is explicit and read lazily on the first leased task:
   organization membership authorizes reads (it must be an operator member).
 
 If either is missing the handler raises ``SpecialistDeploymentError`` so the run
-fails with a clear message; it never fabricates a result. No model transport is
+fails with a clear message (non-retryable, so it does not consume retries); it
+never fabricates a result. No model transport is
 configured, so runs are ``tools_only``.
 
 Connector credentials: the repository has no production wiring for per-org Wazuh
@@ -22,10 +23,12 @@ settings must name that organization, which ``InvestigationReadService`` checks.
 
 from __future__ import annotations
 
+import json
 import os
 import threading
 from collections.abc import Callable, Mapping
-from datetime import datetime
+from datetime import UTC, datetime
+from typing import cast
 
 from pydantic import JsonValue
 
@@ -51,7 +54,13 @@ _CONNECTORS: list[ConnectorFactory] = []
 
 
 class SpecialistDeploymentError(RuntimeError):
-    """Required specialist deployment configuration is missing or invalid."""
+    """Required specialist deployment configuration is missing or invalid.
+
+    ``retryable`` is False: the scheduler records a terminal failure instead of
+    consuming retry attempts, because retrying cannot fix missing configuration.
+    """
+
+    retryable: bool = False
 
 
 def configure_connectors(factory: ConnectorFactory | None) -> None:
@@ -99,7 +108,26 @@ def build_deployment_deps(
             services[org_id] = service
             return service
 
-    return SpecialistDeps(read_service_for=read_service_for, actor_user_id=actor)
+    def incident_time_for(org_id: str, incident_id: str) -> datetime | None:
+        """Source timestamp of the durable incident record (same field incident.get reads)."""
+        row = db.fetchone(
+            "SELECT raw_payload_json FROM incidents WHERE org_id=? AND ticket_id=?",
+            (org_id, incident_id),
+        )
+        if row is None:
+            return None
+        try:
+            payload = cast("dict[str, object]", json.loads(str(cast("object", row["raw_payload_json"]))))
+            stamp = datetime.fromisoformat(str(payload["timestamp"]))
+        except (ValueError, TypeError, KeyError):
+            return None
+        return stamp if stamp.tzinfo is not None else stamp.replace(tzinfo=UTC)
+
+    return SpecialistDeps(
+        read_service_for=read_service_for,
+        actor_user_id=actor,
+        incident_time_for=incident_time_for,
+    )
 
 
 def _handlers() -> dict[str, JobHandler]:
