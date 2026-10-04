@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+from collections.abc import Callable
 from typing import Literal
 
 from pydantic import TypeAdapter, ValidationError
@@ -113,12 +114,17 @@ class ToolGateway:
         registry: ExecutableToolRegistry,
         validator: ToolContractValidator,
         audit: ToolInvocationStore,
+        *,
+        execution_authorizer: Callable[[ToolExecutionContext], None] | None = None,
     ) -> None:
         if validator.scheduler.db is not audit.db:
             raise ValueError("Validation and audit must use the same database")
         self.registry: ExecutableToolRegistry = registry
         self.validator: ToolContractValidator = validator
         self.audit: ToolInvocationStore = audit
+        self.execution_authorizer: Callable[[ToolExecutionContext], None] | None = (
+            execution_authorizer
+        )
 
     def _deny(
         self,
@@ -147,12 +153,20 @@ class ToolGateway:
         uncertain: bool = False,
     ) -> ToolResult:
         try:
-            invocation = self.audit.finish(
-                reservation,
-                context,
-                result,
-                uncertain=uncertain,
-            )
+            with self.audit.db.transaction():
+                if self.execution_authorizer is not None and not uncertain:
+                    try:
+                        self.execution_authorizer(context)
+                    except (ValueError, LookupError):
+                        result = _failure(
+                            result.tool_id, "denied", "authorization_changed"
+                        )
+                invocation = self.audit.finish(
+                    reservation,
+                    context,
+                    result,
+                    uncertain=uncertain,
+                )
         except Exception:
             # A reservation is already durably unknown; no unaudited data escapes.
             return _failure(result.tool_id, "unavailable", "audit_unavailable")
@@ -277,10 +291,12 @@ class ToolGateway:
                 return "complete"
             try:
                 self.validator.validate_request(descriptor, context, query)
+                if self.execution_authorizer is not None:
+                    self.execution_authorizer(context)
             except Exception:
                 return "ownership_lost"
 
-    async def execute(  # noqa: C901, PLR0911, PLR0912
+    async def execute(  # noqa: C901, PLR0911, PLR0912, PLR0915
         self,
         tool_id: str,
         arguments: ReadQuery | dict[str, object] | str,
@@ -323,9 +339,14 @@ class ToolGateway:
         except (ValueError, SchedulerLeaseError):
             return self._deny(context, tool_id, digest, "denied", "request_denied")
         try:
-            reservation = self.audit.reserve(descriptor, context, query)
+            with self.audit.db.transaction():
+                if self.execution_authorizer is not None:
+                    self.execution_authorizer(context)
+                reservation = self.audit.reserve(descriptor, context, query)
         except ToolAuditError as exc:
             return self._deny(context, tool_id, digest, "denied", exc.code)
+        except (ValueError, LookupError):
+            return self._deny(context, tool_id, digest, "denied", "request_denied")
         except Exception:
             return _failure(tool_id, "unavailable", "audit_unavailable")
 

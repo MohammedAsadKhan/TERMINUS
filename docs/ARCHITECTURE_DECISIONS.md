@@ -97,3 +97,10 @@ The registry accepts explicit trusted async read/local-analysis implementations,
 SQLite admission caps reservations at 20 per task across runs/restarts and denial audit at another 20. Reservations and completions are immutable; late/stale results cannot establish success. Fenced evidence writes require a matching pending invocation and current ownership/deadline. Read outcomes bind persisted evidence to invocation/query/resource/provenance. Unknown read execution has no fabricated dispatch identity; actual dispatch contracts retain their approval/intent requirements.
 
 This foundation adds no production adapter, credential access, model egress or response action. Model spend/redaction policy, authenticated context construction, real specialists and live lab checks remain pending. See [tool execution operations](TOOL_GATEWAY.md).
+
+
+## October 4: bounded readers and trusted read policies
+
+T03 introduces five explicitly installed internal readers and durable versioned administrator-controlled incident/resource policies. Contexts derive from canonical scheduler leases and current membership, not model arguments. An optional gateway authorization hook rechecks policy during execution and atomically with final audit. Policy revocation suppresses data; uncertain pending requests remain unknown. Manager endpoint context and indexer searches have separate org-scoped connections. Authentication requires the indexer; Sysmon remains optional future enrichment.
+
+Unconfigured SIEM and offline reputation now disclose unavailable/unknown instead of fabricated observations. Missing incident source timestamps cannot become ingestion-time freshness claims. Coverage is explicitly incomplete. See [implementation and integration handoff](INVESTIGATION_READERS.md). Five-reader fixture acceptance is complete (517 isolated tests); public execution routes, O05 handlers, model egress/redaction/budgets and live lab defense remain open.

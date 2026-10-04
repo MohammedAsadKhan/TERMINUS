@@ -54,19 +54,19 @@ class WazuhClient(SiemClient):
         """Fetch alert details from Wazuh API."""
         if not self._base_url:
             raise RuntimeError("Wazuh URL not configured")
-        token = await self._authenticate()
-        headers = {"Authorization": f"Bearer {token}"}
-        url = f"{self._base_url}/alerts/{alert_id}"
-        response = await self._client.get(url, headers=headers)
-        response.raise_for_status()
-        data: dict[str, Any] = response.json()
-        payload = data.get("data", {})
-        return SiemAlert.model_validate(payload)
+        raise NotImplementedError(
+            "Historical alerts require the separately authorized Wazuh indexer reader"
+        )
 
     async def get_agent(self, agent_id: AgentId) -> dict[str, Any]:
         """Fetch agent details from Wazuh API."""
         if not self._base_url:
-            return {"id": agent_id, "name": "unknown", "status": "disconnected"}
+            return {
+                "id": agent_id,
+                "status": "unavailable",
+                "coverage": "unknown",
+                "gaps": ["Wazuh manager is not configured"],
+            }
         try:
             token = await self._authenticate()
             headers = {"Authorization": f"Bearer {token}"}

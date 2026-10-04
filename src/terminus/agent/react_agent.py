@@ -46,8 +46,17 @@ def build_system_prompt(
     if persona_prompt and persona_prompt.strip():
         parts.append(f"AGENT PERSONA & MASTER INSTRUCTIONS:\n{persona_prompt.strip()}")
     if role_instructions and role_instructions.strip():
-        parts.append(f"SPECIALIZED WORKFLOW ROLE INSTRUCTIONS:\n{role_instructions.strip()}")
+        parts.append(
+            f"SPECIALIZED WORKFLOW ROLE INSTRUCTIONS:\n{role_instructions.strip()}"
+        )
     return "\n\n".join(parts)
+
+
+def _append_queried_citation(
+    citations: list[dict[str, Any]], citation: dict[str, Any]
+) -> None:
+    if citation.get("queried") is True:
+        citations.append(citation)
 
 
 class ReActAgent:
@@ -79,11 +88,13 @@ class ReActAgent:
         # 1. Prompt Injection Shield & PII Redaction
         raw_full_log = alert.full_log or alert.description
         if PromptInjectionSanitizer.check_for_injection(raw_full_log):
-            citations.append({
-                "source": "SecurityShield:PromptInjectionDetector",
-                "finding": "Prompt injection pattern detected and neutralized in untrusted telemetry.",
-                "confidence": "HIGH",
-            })
+            citations.append(
+                {
+                    "source": "SecurityShield:PromptInjectionDetector",
+                    "finding": "Prompt injection pattern detected and neutralized in untrusted telemetry.",
+                    "confidence": "HIGH",
+                }
+            )
 
         scrubbed_log = SecretRedactor.redact(raw_full_log)
 
@@ -98,12 +109,14 @@ class ReActAgent:
                 f"De-obfuscated ({deobf_result.encoding_type}): {deobf_result.deobfuscated[:300]}. "
                 f"Suspicious strings: {', '.join(deobf_result.suspicious_patterns_found)}"
             )
-            citations.append({
-                "source": "Tool:PayloadDeobfuscator",
-                "encoding": deobf_result.encoding_type,
-                "decoded_sample": deobf_result.deobfuscated[:120],
-                "suspicious_commands": deobf_result.suspicious_patterns_found,
-            })
+            citations.append(
+                {
+                    "source": "Tool:PayloadDeobfuscator",
+                    "encoding": deobf_result.encoding_type,
+                    "decoded_sample": deobf_result.deobfuscated[:120],
+                    "suspicious_commands": deobf_result.suspicious_patterns_found,
+                }
+            )
 
         # 4. Live Threat Intel Lookups
         ti_summaries: list[str] = []
@@ -112,15 +125,21 @@ class ReActAgent:
         for h in all_hashes:
             ti_res = await self.threat_intel.lookup(h, "hash")
             ti_summaries.append(f"Hash {h[:12]}...: {ti_res.details}")
-            citations.append(ti_res.to_citation())
+            citation = ti_res.to_citation()
+            _append_queried_citation(citations, citation)
 
         # Check IPs (external)
         for ip in iocs.ipv4s[:2]:
             ti_res = await self.threat_intel.lookup(ip, "ipv4")
             ti_summaries.append(f"IP {ip}: {ti_res.details}")
-            citations.append(ti_res.to_citation())
+            citation = ti_res.to_citation()
+            _append_queried_citation(citations, citation)
 
-        threat_intel_str = "\n".join(ti_summaries) if ti_summaries else "No external indicators identified."
+        threat_intel_str = (
+            "\n".join(ti_summaries)
+            if ti_summaries
+            else "No external indicators identified."
+        )
 
         # 5. Build Evidence Context
         context_notes = []
@@ -129,11 +148,14 @@ class ReActAgent:
         if deobf_summary:
             context_notes.append(f"Forensic De-obfuscation: {deobf_summary}")
         if citations:
-            context_notes.append(f"Verified Evidence Items: {len(citations)}")
+            context_notes.append(
+                f"Collected Context Items: {len(citations)}; independent verification pending"
+            )
 
         evidence = Evidence(
             alert=alert,
-            agent_name=alert.agent_name or (str(alert.agent_id) if alert.agent_id else "Unknown Endpoint"),
+            agent_name=alert.agent_name
+            or (str(alert.agent_id) if alert.agent_id else "Unknown Endpoint"),
             threat_intel=threat_intel_str,
             context_notes="\n".join(context_notes),
         )
@@ -167,22 +189,36 @@ Respond ONLY with a JSON object containing:
 
         return verdict, citations, evidence
 
-    def _fallback_verdict(self, alert: SiemAlert, citations: list[dict[str, Any]]) -> Verdict:
+    def _fallback_verdict(
+        self, alert: SiemAlert, citations: list[dict[str, Any]]
+    ) -> Verdict:
         malicious_hits = sum(1 for c in citations if c.get("malicious") is True)
         if alert.level >= 10 or malicious_hits > 0:
             sev = Severity.CRITICAL
             conf = Confidence.HIGH if malicious_hits else Confidence.MEDIUM
             summary = f"High-priority alert on host '{alert.agent_name}' (rule level {alert.level}): {alert.description}. Confirm impact from source telemetry before treating this as a compromise."
-            actions = ["Review the raw event and affected host", "Validate whether the attempt succeeded", "Consider containment only after impact review"]
+            actions = [
+                "Review the raw event and affected host",
+                "Validate whether the attempt succeeded",
+                "Consider containment only after impact review",
+            ]
         elif alert.level >= 6:
             sev = Severity.HIGH
             conf = Confidence.MEDIUM
             summary = f"Alert on host '{alert.agent_name}' (rule level {alert.level}): {alert.description}. Review the event to determine whether this is malicious activity."
-            actions = ["Inspect the associated raw event", "Check related host and authentication activity"]
+            actions = [
+                "Inspect the associated raw event",
+                "Check related host and authentication activity",
+            ]
         else:
             sev = Severity.MEDIUM
             conf = Confidence.MEDIUM
             summary = f"TRIAGE FINDING: Routine operational alert '{alert.description}' evaluated."
-            actions = ["Monitor endpoint activity", "Verify normal administrative execution"]
+            actions = [
+                "Monitor endpoint activity",
+                "Verify normal administrative execution",
+            ]
 
-        return Verdict(severity=sev, confidence=conf, summary=summary, recommended_actions=actions)
+        return Verdict(
+            severity=sev, confidence=conf, summary=summary, recommended_actions=actions
+        )

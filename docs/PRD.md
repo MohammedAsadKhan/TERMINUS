@@ -151,3 +151,8 @@ Deferred: native Watcher, full 24-role activation, autonomous production contain
 Decisions still required: exact presentation date; teammate capacity and named owners; B vulnerability/version and response; source/management CIDRs; Wazuh manager/indexer endpoints and versions; agent telemetry access; model IDs and credentials; budget values and data retention; supported scheduler process topology; AWS sizes/network access/plan eligibility. Track decisions in `EXECUTION_CHECKLIST.md`. This PRD and `MVP_RELEASE.md` supersede conflicting scope in earlier planning documents.
 
 References: [Wazuh architecture](https://documentation.wazuh.com/current/getting-started/architecture.html), [SSH response use case](https://documentation.wazuh.com/current/user-manual/capabilities/active-response/ar-use-cases/blocking-ssh-brute-force.html), [MITRE D3FEND](https://d3fend.mitre.org/), [Atomic Red Team](https://github.com/redcanaryco/atomic-red-team). Pin deployed versions and verify interfaces before implementation.
+
+
+## October 4 investigation-reader implementation update
+
+The [bounded investigation readers and handoff](INVESTIGATION_READERS.md) implement T03: five explicitly installed internal readers, separate manager/indexer connections, versioned server-derived permissions and conservative evidence collection. Fabricated production host/history/reputation fallbacks are removed. Fixture acceptance does not establish live telemetry or specialist execution. Next dependencies are named credential storage, data policy/redaction and durable model budgets before O05 integration; lab and approval-bound response gates remain open. The default contract catalog and future specialties remain unavailable.

@@ -73,3 +73,8 @@ Lab source authentication, Wazuh version/permissions and collected event types m
 ## Validation
 
 Contract tests use temporary SQLite databases and explicit synthetic fixtures. They validate all 60 mappings, eight bundles, 18 families, reference integrity, dormant catalog state, future grant denial, hostile arguments, bounded outcomes, copied-model scope bypasses, lease/cancellation, cross-incident evidence/hash checks, restart reads, approval expiry/digest and acknowledgement-versus-independent verification. The read-foundation tests additionally exercise invocation persistence, callback deadlines, durable task quotas and evidence binding. Fixtures do not establish live investigation or response verification; adapters, model budgets and production integration remain later acceptance tests.
+
+
+## October 4 investigation-reader implementation update
+
+The [bounded investigation readers and handoff](INVESTIGATION_READERS.md) implement T03: five explicitly installed internal readers, separate manager/indexer connections, versioned server-derived permissions and conservative evidence collection. Fabricated production host/history/reputation fallbacks are removed. Fixture acceptance does not establish live telemetry or specialist execution. Next dependencies are named credential storage, data policy/redaction and durable model budgets before O05 integration; lab and approval-bound response gates remain open. The default contract catalog and future specialties remain unavailable.

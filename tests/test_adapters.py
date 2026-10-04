@@ -93,4 +93,5 @@ async def test_wazuh_client_unconfigured_raises_error() -> None:
         await client.get_alert("123")
 
     agent = await client.get_agent(AgentId("001"))
-    assert agent["status"] == "disconnected"
+    assert agent["status"] == "unavailable"
+    assert agent["coverage"] == "unknown"

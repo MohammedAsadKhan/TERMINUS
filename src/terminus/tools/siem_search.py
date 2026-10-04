@@ -17,19 +17,24 @@ class SiemForensicsTool:
     async def get_host_context(self, agent_id: AgentId | str) -> dict[str, Any]:
         """Fetch endpoint host telemetry and registration status."""
         try:
-            return await self.siem.get_agent(AgentId(str(agent_id)))
-        except Exception:
-            return {"id": str(agent_id), "name": "srv-prod-node", "status": "active", "os": "Linux 6.8 Enterprise"}
+            host = await self.siem.get_agent(AgentId(str(agent_id)))
+        except Exception as exc:
+            return {
+                "id": str(agent_id),
+                "query_status": "unavailable",
+                "gaps": [f"Endpoint context query failed: {type(exc).__name__}"],
+            }
+        return {**host, "query_status": "available", "gaps": []}
 
     async def query_prior_events(
         self,
         agent_id: AgentId | str,
         time_window_minutes: int = 30,
-    ) -> list[dict[str, Any]]:
-        """Simulate/execute historical event correlation query for the target host."""
-        # Returns chronological event log sequence around alert timestamp
-        return [
-            {"offset_min": -15, "rule": "User Authentication Succeeded", "src_ip": "10.0.1.45"},
-            {"offset_min": -5, "rule": "Network Connection Outbound", "dst_ip": "45.33.32.156:443"},
-            {"offset_min": 0, "rule": "Alert Trigger Point", "event": "Triggering Log Line"},
-        ]
+    ) -> dict[str, Any]:
+        """Return an explicit gap until historical event querying is configured."""
+        del agent_id, time_window_minutes
+        return {
+            "status": "unavailable",
+            "events": [],
+            "gaps": ["Historical event querying is not configured for this SIEM client."],
+        }

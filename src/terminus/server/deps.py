@@ -36,7 +36,7 @@ from terminus.pipeline.deployment import PipelineDeployment
 from terminus.pipeline.runner import PipelineRunner
 from terminus.pipeline.workflow_engine import WorkflowEngine
 from terminus.policies.engine import PolicyEngine
-from terminus.siem.static import StaticSiemClient
+from terminus.siem.unavailable import UnavailableSiemClient
 from terminus.siem.wazuh import WazuhClient
 from terminus.storage.db import Database
 from terminus.storage.repositories import (
@@ -271,7 +271,7 @@ def get_pipeline_runner(
             password=settings.wazuh_password,
         )
     else:
-        siem = StaticSiemClient()
+        siem = UnavailableSiemClient()
 
     notifiers = [LogNotifier()]
     if settings.slack_webhook:

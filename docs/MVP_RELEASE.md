@@ -78,3 +78,8 @@ The internal [read-only tool foundation](TOOL_GATEWAY.md) is implemented with ex
 PM and technical/demo owners sign off only when mandatory slices pass. Record commit, environment/version, test evidence, known issues and exact scenario steps. Both mandatory scenarios pass three reset runs; denial, duplicate, timeout, missing connector and restart behavior pass. Source ZIP contains source, prebuilt UI and installation manual in DOCX/PDF. No secrets, live databases or unlabelled mock results are submitted.
 
 If a mandatory scenario cannot pass by the freeze date, the PM explicitly changes the release promise and presentation claims. Do not downgrade live defense to simulation without calling out that scope change.
+
+
+## October 4 investigation-reader implementation update
+
+The [bounded investigation readers and handoff](INVESTIGATION_READERS.md) implement T03: five explicitly installed internal readers, separate manager/indexer connections, versioned server-derived permissions and conservative evidence collection. Fabricated production host/history/reputation fallbacks are removed. Fixture acceptance does not establish live telemetry or specialist execution. Next dependencies are named credential storage, data policy/redaction and durable model budgets before O05 integration; lab and approval-bound response gates remain open. The default contract catalog and future specialties remain unavailable.

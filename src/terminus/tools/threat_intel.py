@@ -19,13 +19,22 @@ class ThreatIntelResult:
     is_malicious: bool | None
     reputation_score: float | None  # 0.0 to 1.0 when checked; None when unknown
     threat_names: list[str] = field(default_factory=list)
-    confidence: str = "HIGH"
-    provider: str = "Terminus Intelligence Engine"
+    confidence: str = "UNKNOWN"
+    provider: str = "No external provider queried"
     details: str = ""
 
     def to_citation(self) -> dict[str, Any]:
+        if self.provider == "No external provider queried":
+            return {
+                "status": "not_assessed",
+                "queried": False,
+                "indicator": self.indicator,
+                "type": self.indicator_type,
+                "summary": self.details,
+            }
         return {
             "source": f"ThreatIntel:{self.provider}",
+            "queried": True,
             "indicator": self.indicator,
             "type": self.indicator_type,
             "malicious": self.is_malicious,
@@ -135,40 +144,7 @@ class ThreatIntelClient:
             except Exception as e:
                 logger.warning(f"AbuseIPDB lookup error for {indicator}: {e}")
 
-        # 3. Deterministic / Offline CTI Knowledge Base
-        indicator_upper = indicator.upper()
-
-        # Known Threat Vectors / Signatures
-        if any(k in indicator_upper for k in ("44228", "LOG4J", "JNDI")):
-            return ThreatIntelResult(
-                indicator=indicator,
-                indicator_type=indicator_type,
-                is_malicious=True,
-                reputation_score=0.98,
-                threat_names=["Log4Shell / CVE-2021-44228", "RCE Weaponization"],
-                provider="Terminus CTI Signature Database",
-                details="Known critical remote code execution vector weaponized via JNDI injection.",
-            )
-        if any(k in indicator_upper for k in ("1003", "LSASS", "MIMIKATZ", "PROCDUMP")):
-            return ThreatIntelResult(
-                indicator=indicator,
-                indicator_type=indicator_type,
-                is_malicious=True,
-                reputation_score=0.95,
-                threat_names=["Mimikatz / LSASS Memory Dumper", "Credential Access"],
-                provider="Terminus CTI Signature Database",
-                details="Credential harvesting utility accessing Local Security Authority Subsystem Service (LSASS).",
-            )
-        if any(k in indicator_upper for k in ("RANSOMWARE", "LOCKBIT", "BLACKCAT", "1486")):
-            return ThreatIntelResult(
-                indicator=indicator,
-                indicator_type=indicator_type,
-                is_malicious=True,
-                reputation_score=1.0,
-                threat_names=["Ransomware Cryptor", "Impact / Data Encryption"],
-                provider="Terminus CTI Signature Database",
-                details="High-impact cryptographic ransomware strain executing bulk data destruction.",
-            )
+        # Local string matches are context only; they cannot establish reputation.
         if indicator_type == "ipv4":
             # Check private RFC 1918
             parts = indicator.split(".")
@@ -183,8 +159,11 @@ class ThreatIntelClient:
                     is_malicious=None,
                     reputation_score=None,
                     threat_names=[],
-                    provider="RFC 1918 Internal Network Classifier",
-                    details="Private network address. No reputation check was performed.",
+                    provider="No external provider queried",
+                    details=(
+                        "Private network address classification only. No external "
+                        "reputation check was performed; malicious reputation is unknown."
+                    ),
                 )
             return ThreatIntelResult(
                 indicator=indicator,
@@ -192,7 +171,7 @@ class ThreatIntelClient:
                 is_malicious=None,
                 reputation_score=None,
                 threat_names=[],
-                provider="Offline address classifier",
+                provider="No external provider queried",
                 details="Public IP address. No external reputation check was performed; malicious reputation is unknown.",
             )
 
@@ -202,6 +181,9 @@ class ThreatIntelClient:
             is_malicious=None,
             reputation_score=None,
             threat_names=[],
-            provider="Offline indicator classifier",
-            details="No external reputation check was performed; malicious reputation is unknown.",
+            provider="No external provider queried",
+            details=(
+                "No external reputation check was performed; malicious reputation "
+                "is unknown. Local string matches, if any, are unverified context only."
+            ),
         )

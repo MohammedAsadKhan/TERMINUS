@@ -814,8 +814,7 @@
         "identity"
       ],
       "connector_ids": [
-        "wazuh_indexer",
-        "sysmon_logs"
+        "wazuh_indexer"
       ],
       "input_contract": "read_query",
       "output_contract": "tool_result",
@@ -836,7 +835,8 @@
         "Return source event IDs, UTC timestamps and collection provenance for every cited record.",
         "Enforce time, pagination, timeout and byte limits; report truncation and collection gaps explicitly.",
         "Missing credentials, permission denial, stale telemetry and provider errors return gaps; never synthetic success.",
-        "Resolve stable principal/device IDs; missing audit categories cannot mean no compromise."
+        "Resolve stable principal/device IDs; missing audit categories cannot mean no compromise.",
+        "Wazuh authentication groups must be verified in the installed lab; Sysmon is an optional future supplemental source, not a required connector for this reader."
       ],
       "expected_evidence": [
         "Authentication event ID, principal, source, outcome and UTC time."
