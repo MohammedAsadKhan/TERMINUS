@@ -237,7 +237,7 @@ async def test_five_lazy_areas_and_unavailable_specialty_gaps(
     try:
         await _until(
             lambda: (
-                len(_tasks(service)) == 13
+                len(_tasks(service)) == 14
                 and all(
                     task.status == "completed"
                     for task in _tasks(service)
@@ -258,13 +258,14 @@ async def test_five_lazy_areas_and_unavailable_specialty_gaps(
             "response_planner",
             "verification",
             "evidence_reporting",
+            "application_api",
         }
         tree = service.get_incident_tree("a", "incident-a")
         node = tree["roots"][0]
         empty = [
             child
             for child in node["children"]
-            if child["area"] in {"infrastructure", "applications_data"}
+            if child["area"] == "infrastructure"
         ]
         assert all(
             child["aggregate_status"] == "incomplete" and child["gaps"]
@@ -425,10 +426,10 @@ async def test_help_bound_is_per_incident_even_after_repeated_assignment(
 
 
 @pytest.mark.asyncio
-async def test_optional_application_specialty_requires_explicit_enable(
+async def test_application_specialty_is_enabled_by_default(
     service: CoordinationService,
 ) -> None:
-    enabled = CoordinationService(service.db, enable_application_api=True)
+    enabled = CoordinationService(service.db)
     enabled.start_incident("a", "incident-a", _request(areas=["applications_data"]))
     main = _claim(enabled, "main_orchestrator")
     enabled.scheduler.complete(

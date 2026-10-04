@@ -8,7 +8,7 @@ An incident objective creates a scheduled `main_orchestrator` task. Its handler 
 
 A completed coordinator means its delegation pass finished. It does not mean the specialist tasks finished, the incident was closed, or an endpoint was protected. Incident-tree inspection returns actual persisted task/run/evidence records and a separate aggregate. No incident closure or action verification is inferred from a summary.
 
-The five areas are `alert_handling`, `investigation`, `infrastructure`, `applications_data`, and `response_improvement`. The initial specialty catalog covers triage, identity, endpoint, network, response planning, verification, and evidence/reporting. Application/API expertise is an optional deployment capability. Additional cloud/container/repository capabilities require real handlers before they can claim coverage.
+The five areas are `alert_handling`, `investigation`, `infrastructure`, `applications_data`, and `response_improvement`. The initial specialty catalog covers eight default roles: triage, identity, endpoint, network, response planning, verification, evidence/reporting, and Application & API Security Analyst (`application_api`). Selecting `applications_data` now delegates to this specialist by default; its real tools and AI execution remain pending O05. Additional cloud/container/repository capabilities require real handlers before they can claim coverage.
 
 ## Deployment
 

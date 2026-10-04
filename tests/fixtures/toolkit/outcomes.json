@@ -1,0 +1,41 @@
+{
+  "fixture_kind": "synthetic_contract_fixture_not_live_telemetry",
+  "results": [
+    {
+      "tool_id": "fixture.read",
+      "version": "1.0",
+      "status": "unavailable",
+      "coverage": "unknown",
+      "error_code": "connector_timeout",
+      "gaps": [
+        "Connector timed out; collection was not established"
+      ]
+    },
+    {
+      "tool_id": "fixture.read",
+      "version": "1.0",
+      "status": "unsupported",
+      "coverage": "unknown",
+      "error_code": "telemetry_missing",
+      "gaps": [
+        "Process events are not collected"
+      ]
+    },
+    {
+      "tool_id": "fixture.read",
+      "version": "1.0",
+      "status": "empty",
+      "coverage": "complete"
+    },
+    {
+      "tool_id": "fixture.read",
+      "version": "1.0",
+      "status": "partial",
+      "coverage": "incomplete",
+      "truncated": true,
+      "gaps": [
+        "Page bound reached"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,4384 @@
+{
+  "connectors": [
+    {
+      "connector_id": "terminus_store",
+      "name": "Terminus incident and asset repositories",
+      "availability": "not_configured",
+      "capabilities": [
+        "incident.get",
+        "assets.get",
+        "application.inventory"
+      ],
+      "credential_scope": "organization",
+      "egress": "none",
+      "acceptance_checks": [
+        "Bind credentials to the authenticated organization and approved incident resources.",
+        "Prove least-privilege read access, TLS validation and credential redaction.",
+        "Record source version, event coverage, freshness and explicit gaps."
+      ]
+    },
+    {
+      "connector_id": "wazuh_manager",
+      "name": "Wazuh server / manager API",
+      "availability": "not_configured",
+      "capabilities": [
+        "collection.coverage",
+        "endpoint.agent",
+        "collection.tampering"
+      ],
+      "credential_scope": "organization",
+      "egress": "none",
+      "acceptance_checks": [
+        "Bind credentials to the authenticated organization and approved incident resources.",
+        "Prove least-privilege read access, TLS validation and credential redaction.",
+        "Record source version, event coverage, freshness and explicit gaps."
+      ]
+    },
+    {
+      "connector_id": "wazuh_indexer",
+      "name": "Wazuh indexer search API",
+      "availability": "planned",
+      "capabilities": [
+        "alerts.search",
+        "collection.coverage",
+        "identity.auth_events",
+        "endpoint.processes",
+        "endpoint.files",
+        "alerts.enrich",
+        "alerts.deduplicate",
+        "incident.scope",
+        "behavior.baseline_compare",
+        "collection.tampering",
+        "threat.campaign_correlate",
+        "threat.hunt",
+        "threat.ransomware_review",
+        "threat.persistence_lateral"
+      ],
+      "credential_scope": "organization",
+      "egress": "none",
+      "acceptance_checks": [
+        "Bind credentials to the authenticated organization and approved incident resources.",
+        "Prove least-privilege read access, TLS validation and credential redaction.",
+        "Record source version, event coverage, freshness and explicit gaps."
+      ]
+    },
+    {
+      "connector_id": "zeek_logs",
+      "name": "Zeek connection and protocol logs",
+      "availability": "planned",
+      "capabilities": [
+        "network.connections",
+        "network.dns",
+        "network.segmentation_review",
+        "network.dns_proxy_review",
+        "data.exfiltration_review"
+      ],
+      "credential_scope": "organization",
+      "egress": "none",
+      "acceptance_checks": [
+        "Bind credentials to the authenticated organization and approved incident resources.",
+        "Prove least-privilege read access, TLS validation and credential redaction.",
+        "Record source version, event coverage, freshness and explicit gaps."
+      ]
+    },
+    {
+      "connector_id": "suricata_logs",
+      "name": "Suricata EVE JSON",
+      "availability": "planned",
+      "capabilities": [
+        "network.connections"
+      ],
+      "credential_scope": "organization",
+      "egress": "none",
+      "acceptance_checks": [
+        "Bind credentials to the authenticated organization and approved incident resources.",
+        "Prove least-privilege read access, TLS validation and credential redaction.",
+        "Record source version, event coverage, freshness and explicit gaps."
+      ]
+    },
+    {
+      "connector_id": "application_logs",
+      "name": "Organization application, API gateway and WAF logs",
+      "availability": "not_configured",
+      "capabilities": [
+        "application.requests",
+        "application.inventory",
+        "network.dns_proxy_review"
+      ],
+      "credential_scope": "organization",
+      "egress": "none",
+      "acceptance_checks": [
+        "Bind credentials to the authenticated organization and approved incident resources.",
+        "Prove least-privilege read access, TLS validation and credential redaction.",
+        "Record source version, event coverage, freshness and explicit gaps."
+      ]
+    },
+    {
+      "connector_id": "sysmon_logs",
+      "name": "Windows Sysmon and Security event logs",
+      "availability": "planned",
+      "capabilities": [
+        "identity.auth_events",
+        "endpoint.processes",
+        "threat.persistence_lateral"
+      ],
+      "credential_scope": "organization",
+      "egress": "none",
+      "acceptance_checks": [
+        "Bind credentials to the authenticated organization and approved incident resources.",
+        "Prove least-privilege read access, TLS validation and credential redaction.",
+        "Record source version, event coverage, freshness and explicit gaps."
+      ]
+    },
+    {
+      "connector_id": "velociraptor_evidence",
+      "name": "Velociraptor collected artifact evidence",
+      "availability": "planned",
+      "capabilities": [
+        "malware.static_review",
+        "threat.ransomware_review"
+      ],
+      "credential_scope": "organization",
+      "egress": "none",
+      "acceptance_checks": [
+        "Bind credentials to the authenticated organization and approved incident resources.",
+        "Prove least-privilege read access, TLS validation and credential redaction.",
+        "Record source version, event coverage, freshness and explicit gaps."
+      ]
+    },
+    {
+      "connector_id": "volatility3_artifacts",
+      "name": "Volatility 3 results from authorized memory images",
+      "availability": "planned",
+      "capabilities": [
+        "forensics.memory_review"
+      ],
+      "credential_scope": "organization",
+      "egress": "none",
+      "acceptance_checks": [
+        "Bind credentials to the authenticated organization and approved incident resources.",
+        "Prove least-privilege read access, TLS validation and credential redaction.",
+        "Record source version, event coverage, freshness and explicit gaps."
+      ]
+    },
+    {
+      "connector_id": "disk_forensic_artifacts",
+      "name": "Sleuth Kit results from authorized disk images",
+      "availability": "planned",
+      "capabilities": [
+        "forensics.disk_review"
+      ],
+      "credential_scope": "organization",
+      "egress": "none",
+      "acceptance_checks": [
+        "Bind credentials to the authenticated organization and approved incident resources.",
+        "Prove least-privilege read access, TLS validation and credential redaction.",
+        "Record source version, event coverage, freshness and explicit gaps."
+      ]
+    },
+    {
+      "connector_id": "browser_artifacts",
+      "name": "Chromium artifact exports",
+      "availability": "planned",
+      "capabilities": [
+        "forensics.browser_review"
+      ],
+      "credential_scope": "organization",
+      "egress": "none",
+      "acceptance_checks": [
+        "Bind credentials to the authenticated organization and approved incident resources.",
+        "Prove least-privilege read access, TLS validation and credential redaction.",
+        "Record source version, event coverage, freshness and explicit gaps."
+      ]
+    },
+    {
+      "connector_id": "mail_audit",
+      "name": "Microsoft 365 message trace and security exports",
+      "availability": "planned",
+      "capabilities": [
+        "email.message_trace"
+      ],
+      "credential_scope": "organization",
+      "egress": "none",
+      "acceptance_checks": [
+        "Bind credentials to the authenticated organization and approved incident resources.",
+        "Prove least-privilege read access, TLS validation and credential redaction.",
+        "Record source version, event coverage, freshness and explicit gaps."
+      ]
+    },
+    {
+      "connector_id": "baseline_store",
+      "name": "Organization approved behavioral baselines",
+      "availability": "planned",
+      "capabilities": [
+        "alerts.prioritize",
+        "behavior.baseline_compare",
+        "threat.hunt",
+        "threat.insider_review"
+      ],
+      "credential_scope": "organization",
+      "egress": "none",
+      "acceptance_checks": [
+        "Bind credentials to the authenticated organization and approved incident resources.",
+        "Prove least-privilege read access, TLS validation and credential redaction.",
+        "Record source version, event coverage, freshness and explicit gaps."
+      ]
+    },
+    {
+      "connector_id": "detection_artifacts",
+      "name": "Sigma rules and replay evidence",
+      "availability": "planned",
+      "capabilities": [
+        "detection.replay_compare"
+      ],
+      "credential_scope": "organization",
+      "egress": "none",
+      "acceptance_checks": [
+        "Bind credentials to the authenticated organization and approved incident resources.",
+        "Prove least-privilege read access, TLS validation and credential redaction.",
+        "Record source version, event coverage, freshness and explicit gaps."
+      ]
+    },
+    {
+      "connector_id": "docker_engine",
+      "name": "Docker Engine read API",
+      "availability": "planned",
+      "capabilities": [
+        "container.inventory_review"
+      ],
+      "credential_scope": "organization",
+      "egress": "none",
+      "acceptance_checks": [
+        "Bind credentials to the authenticated organization and approved incident resources.",
+        "Prove least-privilege read access, TLS validation and credential redaction.",
+        "Record source version, event coverage, freshness and explicit gaps."
+      ]
+    },
+    {
+      "connector_id": "kubernetes_api",
+      "name": "Kubernetes API and audit exports",
+      "availability": "planned",
+      "capabilities": [
+        "kubernetes.audit_review"
+      ],
+      "credential_scope": "organization",
+      "egress": "none",
+      "acceptance_checks": [
+        "Bind credentials to the authenticated organization and approved incident resources.",
+        "Prove least-privilege read access, TLS validation and credential redaction.",
+        "Record source version, event coverage, freshness and explicit gaps."
+      ]
+    },
+    {
+      "connector_id": "exposure_inventory",
+      "name": "Organization approved asset and exposure inventory",
+      "availability": "planned",
+      "capabilities": [
+        "alerts.enrich",
+        "incident.scope",
+        "assets.exposure_review"
+      ],
+      "credential_scope": "organization",
+      "egress": "none",
+      "acceptance_checks": [
+        "Bind credentials to the authenticated organization and approved incident resources.",
+        "Prove least-privilege read access, TLS validation and credential redaction.",
+        "Record source version, event coverage, freshness and explicit gaps."
+      ]
+    },
+    {
+      "connector_id": "configuration_artifacts",
+      "name": "Wazuh SCA and approved configuration exports",
+      "availability": "planned",
+      "capabilities": [
+        "configuration.baseline_review"
+      ],
+      "credential_scope": "organization",
+      "egress": "none",
+      "acceptance_checks": [
+        "Bind credentials to the authenticated organization and approved incident resources.",
+        "Prove least-privilege read access, TLS validation and credential redaction.",
+        "Record source version, event coverage, freshness and explicit gaps."
+      ]
+    },
+    {
+      "connector_id": "hypervisor_inventory",
+      "name": "VMware vSphere or Hyper-V inventory and event exports",
+      "availability": "planned",
+      "capabilities": [
+        "virtualization.inventory_review"
+      ],
+      "credential_scope": "organization",
+      "egress": "none",
+      "acceptance_checks": [
+        "Bind credentials to the authenticated organization and approved incident resources.",
+        "Prove least-privilege read access, TLS validation and credential redaction.",
+        "Record source version, event coverage, freshness and explicit gaps."
+      ]
+    },
+    {
+      "connector_id": "firewall_artifacts",
+      "name": "Firewall configuration and traffic exports",
+      "availability": "planned",
+      "capabilities": [
+        "network.firewall",
+        "firewall.configuration_review",
+        "network.segmentation_review"
+      ],
+      "credential_scope": "organization",
+      "egress": "none",
+      "acceptance_checks": [
+        "Bind credentials to the authenticated organization and approved incident resources.",
+        "Prove least-privilege read access, TLS validation and credential redaction.",
+        "Record source version, event coverage, freshness and explicit gaps."
+      ]
+    },
+    {
+      "connector_id": "wireless_artifacts",
+      "name": "Kismet passive wireless capture exports",
+      "availability": "planned",
+      "capabilities": [
+        "wireless.capture_review"
+      ],
+      "credential_scope": "organization",
+      "egress": "none",
+      "acceptance_checks": [
+        "Bind credentials to the authenticated organization and approved incident resources.",
+        "Prove least-privilege read access, TLS validation and credential redaction.",
+        "Record source version, event coverage, freshness and explicit gaps."
+      ]
+    },
+    {
+      "connector_id": "mobile_artifacts",
+      "name": "MDM inventory and authorized mobile device artifacts",
+      "availability": "planned",
+      "capabilities": [
+        "mobile.posture_review"
+      ],
+      "credential_scope": "organization",
+      "egress": "none",
+      "acceptance_checks": [
+        "Bind credentials to the authenticated organization and approved incident resources.",
+        "Prove least-privilege read access, TLS validation and credential redaction.",
+        "Record source version, event coverage, freshness and explicit gaps."
+      ]
+    },
+    {
+      "connector_id": "iot_artifacts",
+      "name": "Device inventory and authorized IoT protocol logs",
+      "availability": "planned",
+      "capabilities": [
+        "iot.telemetry_review"
+      ],
+      "credential_scope": "organization",
+      "egress": "none",
+      "acceptance_checks": [
+        "Bind credentials to the authenticated organization and approved incident resources.",
+        "Prove least-privilege read access, TLS validation and credential redaction.",
+        "Record source version, event coverage, freshness and explicit gaps."
+      ]
+    },
+    {
+      "connector_id": "ot_artifacts",
+      "name": "Nozomi or Zeek Modbus passive monitoring exports",
+      "availability": "planned",
+      "capabilities": [
+        "ot.passive_review"
+      ],
+      "credential_scope": "organization",
+      "egress": "none",
+      "acceptance_checks": [
+        "Bind credentials to the authenticated organization and approved incident resources.",
+        "Prove least-privilege read access, TLS validation and credential redaction.",
+        "Record source version, event coverage, freshness and explicit gaps."
+      ]
+    },
+    {
+      "connector_id": "repository_artifacts",
+      "name": "Repository, dependency and vulnerability report exports",
+      "availability": "planned",
+      "capabilities": [
+        "repository.dependency_review"
+      ],
+      "credential_scope": "organization",
+      "egress": "none",
+      "acceptance_checks": [
+        "Bind credentials to the authenticated organization and approved incident resources.",
+        "Prove least-privilege read access, TLS validation and credential redaction.",
+        "Record source version, event coverage, freshness and explicit gaps."
+      ]
+    },
+    {
+      "connector_id": "database_audit",
+      "name": "Database audit and configuration exports",
+      "availability": "planned",
+      "capabilities": [
+        "threat.insider_review",
+        "database.audit_review",
+        "data.exfiltration_review"
+      ],
+      "credential_scope": "organization",
+      "egress": "none",
+      "acceptance_checks": [
+        "Bind credentials to the authenticated organization and approved incident resources.",
+        "Prove least-privilege read access, TLS validation and credential redaction.",
+        "Record source version, event coverage, freshness and explicit gaps."
+      ]
+    },
+    {
+      "connector_id": "delivery_artifacts",
+      "name": "CI/CD run and artifact metadata exports",
+      "availability": "planned",
+      "capabilities": [
+        "delivery.pipeline_review",
+        "supply_chain.provenance_review"
+      ],
+      "credential_scope": "organization",
+      "egress": "none",
+      "acceptance_checks": [
+        "Bind credentials to the authenticated organization and approved incident resources.",
+        "Prove least-privilege read access, TLS validation and credential redaction.",
+        "Record source version, event coverage, freshness and explicit gaps."
+      ]
+    },
+    {
+      "connector_id": "sbom_artifacts",
+      "name": "SPDX or CycloneDX SBOM and signature verification evidence",
+      "availability": "planned",
+      "capabilities": [
+        "supply_chain.provenance_review"
+      ],
+      "credential_scope": "organization",
+      "egress": "none",
+      "acceptance_checks": [
+        "Bind credentials to the authenticated organization and approved incident resources.",
+        "Prove least-privilege read access, TLS validation and credential redaction.",
+        "Record source version, event coverage, freshness and explicit gaps."
+      ]
+    },
+    {
+      "connector_id": "secret_scan_artifacts",
+      "name": "Gitleaks or equivalent redacted scan evidence",
+      "availability": "planned",
+      "capabilities": [
+        "secrets.exposure_review"
+      ],
+      "credential_scope": "organization",
+      "egress": "none",
+      "acceptance_checks": [
+        "Bind credentials to the authenticated organization and approved incident resources.",
+        "Prove least-privilege read access, TLS validation and credential redaction.",
+        "Record source version, event coverage, freshness and explicit gaps."
+      ]
+    },
+    {
+      "connector_id": "certificate_inventory",
+      "name": "Certificate inventory and authorized TLS observations",
+      "availability": "planned",
+      "capabilities": [
+        "crypto.inventory_review"
+      ],
+      "credential_scope": "organization",
+      "egress": "none",
+      "acceptance_checks": [
+        "Bind credentials to the authenticated organization and approved incident resources.",
+        "Prove least-privilege read access, TLS validation and credential redaction.",
+        "Record source version, event coverage, freshness and explicit gaps."
+      ]
+    },
+    {
+      "connector_id": "saas_audit",
+      "name": "SaaS administration and audit exports",
+      "availability": "planned",
+      "capabilities": [
+        "saas.audit_review"
+      ],
+      "credential_scope": "organization",
+      "egress": "none",
+      "acceptance_checks": [
+        "Bind credentials to the authenticated organization and approved incident resources.",
+        "Prove least-privilege read access, TLS validation and credential redaction.",
+        "Record source version, event coverage, freshness and explicit gaps."
+      ]
+    },
+    {
+      "connector_id": "llm_audit",
+      "name": "Application AI gateway, model and tool audit exports",
+      "availability": "planned",
+      "capabilities": [
+        "ai.audit_review"
+      ],
+      "credential_scope": "organization",
+      "egress": "none",
+      "acceptance_checks": [
+        "Bind credentials to the authenticated organization and approved incident resources.",
+        "Prove least-privilege read access, TLS validation and credential redaction.",
+        "Record source version, event coverage, freshness and explicit gaps."
+      ]
+    },
+    {
+      "connector_id": "integrity_artifacts",
+      "name": "Organization signed manifests and integrity event exports",
+      "availability": "planned",
+      "capabilities": [
+        "data.integrity_review"
+      ],
+      "credential_scope": "organization",
+      "egress": "none",
+      "acceptance_checks": [
+        "Bind credentials to the authenticated organization and approved incident resources.",
+        "Prove least-privilege read access, TLS validation and credential redaction.",
+        "Record source version, event coverage, freshness and explicit gaps."
+      ]
+    },
+    {
+      "connector_id": "entra_graph",
+      "name": "Microsoft Graph sign-in and directory API",
+      "availability": "planned",
+      "capabilities": [
+        "identity.directory"
+      ],
+      "credential_scope": "organization",
+      "egress": "policy_required",
+      "acceptance_checks": [
+        "Bind credentials to the authenticated organization and approved incident resources.",
+        "Prove least-privilege read access, TLS validation and credential redaction.",
+        "Record source version, event coverage, freshness and explicit gaps.",
+        "Apply approved provider data-sharing policy before sending indicators or queries."
+      ]
+    },
+    {
+      "connector_id": "virustotal",
+      "name": "VirusTotal file-hash reputation API",
+      "availability": "not_configured",
+      "capabilities": [
+        "indicators.reputation",
+        "threat_intelligence.lookup"
+      ],
+      "credential_scope": "organization",
+      "egress": "policy_required",
+      "acceptance_checks": [
+        "Bind credentials to the authenticated organization and approved incident resources.",
+        "Prove least-privilege read access, TLS validation and credential redaction.",
+        "Record source version, event coverage, freshness and explicit gaps.",
+        "Apply approved provider data-sharing policy before sending indicators or queries."
+      ]
+    },
+    {
+      "connector_id": "abuseipdb",
+      "name": "AbuseIPDB IP reputation API",
+      "availability": "not_configured",
+      "capabilities": [
+        "indicators.reputation",
+        "threat_intelligence.lookup"
+      ],
+      "credential_scope": "organization",
+      "egress": "policy_required",
+      "acceptance_checks": [
+        "Bind credentials to the authenticated organization and approved incident resources.",
+        "Prove least-privilege read access, TLS validation and credential redaction.",
+        "Record source version, event coverage, freshness and explicit gaps.",
+        "Apply approved provider data-sharing policy before sending indicators or queries."
+      ]
+    },
+    {
+      "connector_id": "aws_cloudtrail",
+      "name": "AWS CloudTrail event evidence",
+      "availability": "planned",
+      "capabilities": [
+        "cloud.audit_review",
+        "serverless.audit_review"
+      ],
+      "credential_scope": "organization",
+      "egress": "policy_required",
+      "acceptance_checks": [
+        "Bind credentials to the authenticated organization and approved incident resources.",
+        "Prove least-privilege read access, TLS validation and credential redaction.",
+        "Record source version, event coverage, freshness and explicit gaps.",
+        "Apply approved provider data-sharing policy before sending indicators or queries."
+      ]
+    },
+    {
+      "connector_id": "aws_inventory",
+      "name": "AWS resource, IAM and configuration inventory",
+      "availability": "planned",
+      "capabilities": [
+        "cloud.audit_review",
+        "serverless.audit_review"
+      ],
+      "credential_scope": "organization",
+      "egress": "policy_required",
+      "acceptance_checks": [
+        "Bind credentials to the authenticated organization and approved incident resources.",
+        "Prove least-privilege read access, TLS validation and credential redaction.",
+        "Record source version, event coverage, freshness and explicit gaps.",
+        "Apply approved provider data-sharing policy before sending indicators or queries."
+      ]
+    },
+    {
+      "connector_id": "aws_storage",
+      "name": "AWS S3 access and configuration evidence",
+      "availability": "planned",
+      "capabilities": [
+        "data.exfiltration_review",
+        "storage.access_review"
+      ],
+      "credential_scope": "organization",
+      "egress": "policy_required",
+      "acceptance_checks": [
+        "Bind credentials to the authenticated organization and approved incident resources.",
+        "Prove least-privilege read access, TLS validation and credential redaction.",
+        "Record source version, event coverage, freshness and explicit gaps.",
+        "Apply approved provider data-sharing policy before sending indicators or queries."
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "tool_id": "incident.get",
+      "version": "1.0",
+      "family": "incident_alerts",
+      "name": "Read incident evidence references",
+      "availability": "implementation_pending",
+      "release": "1.0",
+      "permitted_roles": [
+        "triage",
+        "identity",
+        "endpoint",
+        "network",
+        "application_api"
+      ],
+      "connector_ids": [
+        "terminus_store"
+      ],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "read",
+      "resource_scope": "incident",
+      "egress": "none",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Reject foreign-organization and out-of-incident targets before querying.",
+        "Return source event IDs, UTC timestamps and collection provenance for every cited record.",
+        "Enforce time, pagination, timeout and byte limits; report truncation and collection gaps explicitly.",
+        "Missing credentials, permission denial, stale telemetry and provider errors return gaps; never synthetic success.",
+        "Read persisted source evidence; incident summaries cannot substitute for telemetry."
+      ],
+      "expected_evidence": [
+        "Incident ID, alert references and persisted scope with source record IDs."
+      ]
+    },
+    {
+      "tool_id": "alerts.search",
+      "version": "1.0",
+      "family": "incident_alerts",
+      "name": "Search retained alert events",
+      "availability": "implementation_pending",
+      "release": "1.0",
+      "permitted_roles": [
+        "triage",
+        "identity",
+        "endpoint",
+        "network",
+        "application_api"
+      ],
+      "connector_ids": [
+        "wazuh_indexer"
+      ],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "read",
+      "resource_scope": "incident",
+      "egress": "none",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Reject foreign-organization and out-of-incident targets before querying.",
+        "Return source event IDs, UTC timestamps and collection provenance for every cited record.",
+        "Enforce time, pagination, timeout and byte limits; report truncation and collection gaps explicitly.",
+        "Missing credentials, permission denial, stale telemetry and provider errors return gaps; never synthetic success.",
+        "Prove historical search against the indexer; never use fabricated prior events."
+      ],
+      "expected_evidence": [
+        "Alert hits with source index, document ID, event time and query window."
+      ]
+    },
+    {
+      "tool_id": "assets.get",
+      "version": "1.0",
+      "family": "incident_alerts",
+      "name": "Read incident asset context",
+      "availability": "implementation_pending",
+      "release": "1.0",
+      "permitted_roles": [
+        "triage",
+        "identity",
+        "endpoint",
+        "network",
+        "application_api"
+      ],
+      "connector_ids": [
+        "terminus_store"
+      ],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "read",
+      "resource_scope": "incident",
+      "egress": "none",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Reject foreign-organization and out-of-incident targets before querying.",
+        "Return source event IDs, UTC timestamps and collection provenance for every cited record.",
+        "Enforce time, pagination, timeout and byte limits; report truncation and collection gaps explicitly.",
+        "Missing credentials, permission denial, stale telemetry and provider errors return gaps; never synthetic success.",
+        "Manual registration cannot establish sensor activity or protection."
+      ],
+      "expected_evidence": [
+        "Registered asset IDs, owner and labels with explicit unverified sensor status."
+      ]
+    },
+    {
+      "tool_id": "collection.coverage",
+      "version": "1.0",
+      "family": "collection_coverage",
+      "name": "Read telemetry coverage",
+      "availability": "implementation_pending",
+      "release": "1.0",
+      "permitted_roles": [
+        "triage",
+        "identity",
+        "endpoint",
+        "network",
+        "application_api"
+      ],
+      "connector_ids": [
+        "wazuh_manager",
+        "wazuh_indexer"
+      ],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "read",
+      "resource_scope": "incident",
+      "egress": "none",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Reject foreign-organization and out-of-incident targets before querying.",
+        "Return source event IDs, UTC timestamps and collection provenance for every cited record.",
+        "Enforce time, pagination, timeout and byte limits; report truncation and collection gaps explicitly.",
+        "Missing credentials, permission denial, stale telemetry and provider errors return gaps; never synthetic success.",
+        "Keep manager enrollment and indexer event availability distinct."
+      ],
+      "expected_evidence": [
+        "Per-source heartbeat, last event time, retention window and known gaps."
+      ]
+    },
+    {
+      "tool_id": "identity.auth_events",
+      "version": "1.0",
+      "family": "identity",
+      "name": "Read authentication events",
+      "availability": "implementation_pending",
+      "release": "1.0",
+      "permitted_roles": [
+        "identity"
+      ],
+      "connector_ids": [
+        "wazuh_indexer",
+        "sysmon_logs"
+      ],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "read",
+      "resource_scope": "incident",
+      "egress": "none",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Reject foreign-organization and out-of-incident targets before querying.",
+        "Return source event IDs, UTC timestamps and collection provenance for every cited record.",
+        "Enforce time, pagination, timeout and byte limits; report truncation and collection gaps explicitly.",
+        "Missing credentials, permission denial, stale telemetry and provider errors return gaps; never synthetic success.",
+        "Resolve stable principal/device IDs; missing audit categories cannot mean no compromise."
+      ],
+      "expected_evidence": [
+        "Authentication event ID, principal, source, outcome and UTC time."
+      ]
+    },
+    {
+      "tool_id": "identity.directory",
+      "version": "1.0",
+      "family": "identity",
+      "name": "Read identity directory context",
+      "availability": "implementation_pending",
+      "release": "1.0",
+      "permitted_roles": [
+        "identity"
+      ],
+      "connector_ids": [
+        "entra_graph"
+      ],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "read",
+      "resource_scope": "incident",
+      "egress": "policy_required",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Reject foreign-organization and out-of-incident targets before querying.",
+        "Return source event IDs, UTC timestamps and collection provenance for every cited record.",
+        "Enforce time, pagination, timeout and byte limits; report truncation and collection gaps explicitly.",
+        "Missing credentials, permission denial, stale telemetry and provider errors return gaps; never synthetic success.",
+        "Prove provider audit/directory read scopes and redact credentials/tokens."
+      ],
+      "expected_evidence": [
+        "Principal ID, organization, group membership and observed account status."
+      ]
+    },
+    {
+      "tool_id": "endpoint.agent",
+      "version": "1.0",
+      "family": "endpoint",
+      "name": "Read endpoint agent status",
+      "availability": "implementation_pending",
+      "release": "1.0",
+      "permitted_roles": [
+        "endpoint"
+      ],
+      "connector_ids": [
+        "wazuh_manager"
+      ],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "read",
+      "resource_scope": "incident",
+      "egress": "none",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Reject foreign-organization and out-of-incident targets before querying.",
+        "Return source event IDs, UTC timestamps and collection provenance for every cited record.",
+        "Enforce time, pagination, timeout and byte limits; report truncation and collection gaps explicitly.",
+        "Missing credentials, permission denial, stale telemetry and provider errors return gaps; never synthetic success.",
+        "Unknown, not-found and transport errors remain distinct from active sensor state."
+      ],
+      "expected_evidence": [
+        "Manager agent record, last keepalive, platform and enrollment ID."
+      ]
+    },
+    {
+      "tool_id": "endpoint.processes",
+      "version": "1.0",
+      "family": "endpoint",
+      "name": "Read process events",
+      "availability": "implementation_pending",
+      "release": "1.0",
+      "permitted_roles": [
+        "endpoint"
+      ],
+      "connector_ids": [
+        "wazuh_indexer",
+        "sysmon_logs"
+      ],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "read",
+      "resource_scope": "incident",
+      "egress": "none",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Reject foreign-organization and out-of-incident targets before querying.",
+        "Return source event IDs, UTC timestamps and collection provenance for every cited record.",
+        "Enforce time, pagination, timeout and byte limits; report truncation and collection gaps explicitly.",
+        "Missing credentials, permission denial, stale telemetry and provider errors return gaps; never synthetic success.",
+        "Prove process collection; host enrollment alone does not establish visibility."
+      ],
+      "expected_evidence": [
+        "Process event IDs, parent lineage, executable hash, user and UTC time."
+      ]
+    },
+    {
+      "tool_id": "endpoint.files",
+      "version": "1.0",
+      "family": "endpoint",
+      "name": "Read file integrity events",
+      "availability": "implementation_pending",
+      "release": "1.0",
+      "permitted_roles": [
+        "endpoint"
+      ],
+      "connector_ids": [
+        "wazuh_indexer"
+      ],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "read",
+      "resource_scope": "incident",
+      "egress": "none",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Reject foreign-organization and out-of-incident targets before querying.",
+        "Return source event IDs, UTC timestamps and collection provenance for every cited record.",
+        "Enforce time, pagination, timeout and byte limits; report truncation and collection gaps explicitly.",
+        "Missing credentials, permission denial, stale telemetry and provider errors return gaps; never synthetic success.",
+        "Report monitored path coverage and gaps; do not imply full disk forensics."
+      ],
+      "expected_evidence": [
+        "FIM record IDs, paths, hashes, operations and UTC time."
+      ]
+    },
+    {
+      "tool_id": "payload.decode",
+      "version": "1.0",
+      "family": "forensics",
+      "name": "Decode recorded command text",
+      "availability": "implementation_pending",
+      "release": "1.0",
+      "permitted_roles": [
+        "endpoint",
+        "application_api"
+      ],
+      "connector_ids": [],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "local_analysis",
+      "resource_scope": "incident",
+      "egress": "none",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Reject foreign-organization and out-of-incident targets before querying.",
+        "Return source event IDs, UTC timestamps and collection provenance for every cited record.",
+        "Enforce time, pagination, timeout and byte limits; report truncation and collection gaps explicitly.",
+        "Missing credentials, permission denial, stale telemetry and provider errors return gaps; never synthetic success.",
+        "Decode locally without executing text, opening URLs or treating string matches as malware proof."
+      ],
+      "expected_evidence": [
+        "Original record reference, encoded input hash, decoded text and encoding decision."
+      ]
+    },
+    {
+      "tool_id": "network.connections",
+      "version": "1.0",
+      "family": "network",
+      "name": "Read connection and flow evidence",
+      "availability": "implementation_pending",
+      "release": "1.0",
+      "permitted_roles": [
+        "network"
+      ],
+      "connector_ids": [
+        "zeek_logs",
+        "suricata_logs"
+      ],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "read",
+      "resource_scope": "incident",
+      "egress": "none",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Reject foreign-organization and out-of-incident targets before querying.",
+        "Return source event IDs, UTC timestamps and collection provenance for every cited record.",
+        "Enforce time, pagination, timeout and byte limits; report truncation and collection gaps explicitly.",
+        "Missing credentials, permission denial, stale telemetry and provider errors return gaps; never synthetic success.",
+        "Prove sensor vantage and collection interval; unobserved traffic remains unknown."
+      ],
+      "expected_evidence": [
+        "Five-tuple, flow ID, sensor, bytes and UTC interval."
+      ]
+    },
+    {
+      "tool_id": "network.dns",
+      "version": "1.0",
+      "family": "network",
+      "name": "Read DNS evidence",
+      "availability": "implementation_pending",
+      "release": "1.0",
+      "permitted_roles": [
+        "network"
+      ],
+      "connector_ids": [
+        "zeek_logs"
+      ],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "read",
+      "resource_scope": "incident",
+      "egress": "none",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Reject foreign-organization and out-of-incident targets before querying.",
+        "Return source event IDs, UTC timestamps and collection provenance for every cited record.",
+        "Enforce time, pagination, timeout and byte limits; report truncation and collection gaps explicitly.",
+        "Missing credentials, permission denial, stale telemetry and provider errors return gaps; never synthetic success.",
+        "Distinguish query observations from resolution and connection outcomes."
+      ],
+      "expected_evidence": [
+        "DNS event IDs, query, response, resolver and UTC time."
+      ]
+    },
+    {
+      "tool_id": "network.firewall",
+      "version": "1.0",
+      "family": "network",
+      "name": "Read firewall traffic evidence",
+      "availability": "implementation_pending",
+      "release": "1.0",
+      "permitted_roles": [
+        "network"
+      ],
+      "connector_ids": [
+        "firewall_artifacts"
+      ],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "read",
+      "resource_scope": "incident",
+      "egress": "none",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Reject foreign-organization and out-of-incident targets before querying.",
+        "Return source event IDs, UTC timestamps and collection provenance for every cited record.",
+        "Enforce time, pagination, timeout and byte limits; report truncation and collection gaps explicitly.",
+        "Missing credentials, permission denial, stale telemetry and provider errors return gaps; never synthetic success.",
+        "No rule deployment, blocking or rollback is enabled."
+      ],
+      "expected_evidence": [
+        "Firewall event ID, rule ID, action, source/destination and UTC time."
+      ]
+    },
+    {
+      "tool_id": "application.requests",
+      "version": "1.0",
+      "family": "applications",
+      "name": "Read application and API security events",
+      "availability": "implementation_pending",
+      "release": "1.0",
+      "permitted_roles": [
+        "application_api"
+      ],
+      "connector_ids": [
+        "application_logs"
+      ],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "read",
+      "resource_scope": "incident",
+      "egress": "none",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Reject foreign-organization and out-of-incident targets before querying.",
+        "Return source event IDs, UTC timestamps and collection provenance for every cited record.",
+        "Enforce time, pagination, timeout and byte limits; report truncation and collection gaps explicitly.",
+        "Missing credentials, permission denial, stale telemetry and provider errors return gaps; never synthetic success.",
+        "Separate attacker input from server evidence; do not infer exploitation from payload alone."
+      ],
+      "expected_evidence": [
+        "Request/trace ID, endpoint, redacted actor, status and server-observed result."
+      ]
+    },
+    {
+      "tool_id": "application.inventory",
+      "version": "1.0",
+      "family": "applications",
+      "name": "Read application endpoint inventory",
+      "availability": "implementation_pending",
+      "release": "1.0",
+      "permitted_roles": [
+        "application_api"
+      ],
+      "connector_ids": [
+        "application_logs",
+        "terminus_store"
+      ],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "read",
+      "resource_scope": "incident",
+      "egress": "none",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Reject foreign-organization and out-of-incident targets before querying.",
+        "Return source event IDs, UTC timestamps and collection provenance for every cited record.",
+        "Enforce time, pagination, timeout and byte limits; report truncation and collection gaps explicitly.",
+        "Missing credentials, permission denial, stale telemetry and provider errors return gaps; never synthetic success.",
+        "Restrict inventory to incident-linked services and report absent route/version coverage."
+      ],
+      "expected_evidence": [
+        "Service ID, API route, authentication boundary and inventory observation time."
+      ]
+    },
+    {
+      "tool_id": "indicators.reputation",
+      "version": "1.0",
+      "family": "threat_investigation",
+      "name": "Read external indicator reputation",
+      "availability": "implementation_pending",
+      "release": "1.0",
+      "permitted_roles": [
+        "triage",
+        "endpoint",
+        "network"
+      ],
+      "connector_ids": [
+        "virustotal",
+        "abuseipdb"
+      ],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "read",
+      "resource_scope": "incident",
+      "egress": "policy_required",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Reject foreign-organization and out-of-incident targets before querying.",
+        "Return source event IDs, UTC timestamps and collection provenance for every cited record.",
+        "Enforce time, pagination, timeout and byte limits; report truncation and collection gaps explicitly.",
+        "Missing credentials, permission denial, stale telemetry and provider errors return gaps; never synthetic success.",
+        "Require provider egress policy; hash/IP lookup only, never file uploads or secrets."
+      ],
+      "expected_evidence": [
+        "Provider, indicator, query time, provider observation time, verdict and uncertainty."
+      ]
+    },
+    {
+      "tool_id": "alerts.enrich",
+      "version": "1.0",
+      "family": "incident_alerts",
+      "name": "Alert Enrichment Analyst: evidence review",
+      "availability": "planned",
+      "release": "future",
+      "permitted_roles": [
+        "alert_enrichment_analyst"
+      ],
+      "connector_ids": [
+        "wazuh_indexer",
+        "exposure_inventory"
+      ],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "read",
+      "resource_scope": "incident",
+      "egress": "none",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Reject foreign-organization and out-of-incident targets before querying.",
+        "Return source event IDs, UTC timestamps and collection provenance for every cited record.",
+        "Enforce time, pagination, timeout and byte limits; report truncation and collection gaps explicitly.",
+        "Missing credentials, permission denial, stale telemetry and provider errors return gaps; never synthetic success.",
+        "Missing enrichment is a gap, not invented asset or reputation."
+      ],
+      "expected_evidence": [
+        "Source-linked enrichment facts and unresolved fields."
+      ]
+    },
+    {
+      "tool_id": "alerts.prioritize",
+      "version": "1.0",
+      "family": "incident_alerts",
+      "name": "Incident Prioritization Analyst: evidence review",
+      "availability": "planned",
+      "release": "future",
+      "permitted_roles": [
+        "incident_prioritization_analyst"
+      ],
+      "connector_ids": [
+        "baseline_store"
+      ],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "local_analysis",
+      "resource_scope": "incident",
+      "egress": "none",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Reject foreign-organization and out-of-incident targets before querying.",
+        "Return source event IDs, UTC timestamps and collection provenance for every cited record.",
+        "Enforce time, pagination, timeout and byte limits; report truncation and collection gaps explicitly.",
+        "Missing credentials, permission denial, stale telemetry and provider errors return gaps; never synthetic success.",
+        "Separate measured impact from assumed impact."
+      ],
+      "expected_evidence": [
+        "Priority rationale with observed impact and policy version."
+      ]
+    },
+    {
+      "tool_id": "alerts.deduplicate",
+      "version": "1.0",
+      "family": "incident_alerts",
+      "name": "Alert Deduplication Analyst: evidence review",
+      "availability": "planned",
+      "release": "future",
+      "permitted_roles": [
+        "alert_deduplication_analyst"
+      ],
+      "connector_ids": [
+        "wazuh_indexer"
+      ],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "local_analysis",
+      "resource_scope": "incident",
+      "egress": "none",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Reject foreign-organization and out-of-incident targets before querying.",
+        "Return source event IDs, UTC timestamps and collection provenance for every cited record.",
+        "Enforce time, pagination, timeout and byte limits; report truncation and collection gaps explicitly.",
+        "Missing credentials, permission denial, stale telemetry and provider errors return gaps; never synthetic success.",
+        "Distinct targets and outcomes cannot collapse by text similarity alone."
+      ],
+      "expected_evidence": [
+        "Duplicate groups retaining every original event reference."
+      ]
+    },
+    {
+      "tool_id": "incident.scope",
+      "version": "1.0",
+      "family": "incident_alerts",
+      "name": "Incident Scoping Analyst: evidence review",
+      "availability": "planned",
+      "release": "future",
+      "permitted_roles": [
+        "incident_scoping_analyst"
+      ],
+      "connector_ids": [
+        "wazuh_indexer",
+        "exposure_inventory"
+      ],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "read",
+      "resource_scope": "incident",
+      "egress": "none",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Reject foreign-organization and out-of-incident targets before querying.",
+        "Return source event IDs, UTC timestamps and collection provenance for every cited record.",
+        "Enforce time, pagination, timeout and byte limits; report truncation and collection gaps explicitly.",
+        "Missing credentials, permission denial, stale telemetry and provider errors return gaps; never synthetic success.",
+        "Bound incident expansion and mark inferred relationships separately."
+      ],
+      "expected_evidence": [
+        "Affected and possibly affected entity sets with provenance."
+      ]
+    },
+    {
+      "tool_id": "behavior.baseline_compare",
+      "version": "1.0",
+      "family": "threat_investigation",
+      "name": "Behavioral Anomaly Analyst: evidence review",
+      "availability": "planned",
+      "release": "future",
+      "permitted_roles": [
+        "behavioral_anomaly_analyst"
+      ],
+      "connector_ids": [
+        "baseline_store",
+        "wazuh_indexer"
+      ],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "local_analysis",
+      "resource_scope": "incident",
+      "egress": "none",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Reject foreign-organization and out-of-incident targets before querying.",
+        "Return source event IDs, UTC timestamps and collection provenance for every cited record.",
+        "Enforce time, pagination, timeout and byte limits; report truncation and collection gaps explicitly.",
+        "Missing credentials, permission denial, stale telemetry and provider errors return gaps; never synthetic success.",
+        "Refuse anomaly confidence when baseline population/time coverage is insufficient."
+      ],
+      "expected_evidence": [
+        "Baseline version, deviation metrics and sample coverage."
+      ]
+    },
+    {
+      "tool_id": "collection.tampering",
+      "version": "1.0",
+      "family": "collection_coverage",
+      "name": "Telemetry Health & Tampering Analyst: evidence review",
+      "availability": "planned",
+      "release": "future",
+      "permitted_roles": [
+        "telemetry_health_tampering_analyst"
+      ],
+      "connector_ids": [
+        "wazuh_manager",
+        "wazuh_indexer"
+      ],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "read",
+      "resource_scope": "incident",
+      "egress": "none",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Reject foreign-organization and out-of-incident targets before querying.",
+        "Return source event IDs, UTC timestamps and collection provenance for every cited record.",
+        "Enforce time, pagination, timeout and byte limits; report truncation and collection gaps explicitly.",
+        "Missing credentials, permission denial, stale telemetry and provider errors return gaps; never synthetic success.",
+        "Separate maintenance/outage from tampering; silence cannot establish clean state."
+      ],
+      "expected_evidence": [
+        "Source outage intervals and source-linked tampering candidates."
+      ]
+    },
+    {
+      "tool_id": "detection.replay_compare",
+      "version": "1.0",
+      "family": "collection_coverage",
+      "name": "Detection Validation Analyst: evidence review",
+      "availability": "planned",
+      "release": "future",
+      "permitted_roles": [
+        "detection_validation_analyst"
+      ],
+      "connector_ids": [
+        "detection_artifacts"
+      ],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "local_analysis",
+      "resource_scope": "incident",
+      "egress": "none",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Reject foreign-organization and out-of-incident targets before querying.",
+        "Return source event IDs, UTC timestamps and collection provenance for every cited record.",
+        "Enforce time, pagination, timeout and byte limits; report truncation and collection gaps explicitly.",
+        "Missing credentials, permission denial, stale telemetry and provider errors return gaps; never synthetic success.",
+        "No rule deployment or synthetic replay results labeled live efficacy."
+      ],
+      "expected_evidence": [
+        "Rule version, expected matches, observed matches and gaps."
+      ]
+    },
+    {
+      "tool_id": "malware.static_review",
+      "version": "1.0",
+      "family": "forensics",
+      "name": "Malware Analyst: evidence review",
+      "availability": "planned",
+      "release": "future",
+      "permitted_roles": [
+        "malware_analyst"
+      ],
+      "connector_ids": [
+        "velociraptor_evidence"
+      ],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "local_analysis",
+      "resource_scope": "incident",
+      "egress": "none",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Reject foreign-organization and out-of-incident targets before querying.",
+        "Return source event IDs, UTC timestamps and collection provenance for every cited record.",
+        "Enforce time, pagination, timeout and byte limits; report truncation and collection gaps explicitly.",
+        "Missing credentials, permission denial, stale telemetry and provider errors return gaps; never synthetic success.",
+        "No malware execution or binary retrieval; static strings do not prove behavior."
+      ],
+      "expected_evidence": [
+        "Sample hash, static findings and limitations."
+      ]
+    },
+    {
+      "tool_id": "threat_intelligence.lookup",
+      "version": "1.0",
+      "family": "threat_investigation",
+      "name": "Threat Intelligence Analyst: evidence review",
+      "availability": "planned",
+      "release": "future",
+      "permitted_roles": [
+        "threat_intelligence_analyst"
+      ],
+      "connector_ids": [
+        "virustotal",
+        "abuseipdb"
+      ],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "read",
+      "resource_scope": "incident",
+      "egress": "policy_required",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Reject foreign-organization and out-of-incident targets before querying.",
+        "Return source event IDs, UTC timestamps and collection provenance for every cited record.",
+        "Enforce time, pagination, timeout and byte limits; report truncation and collection gaps explicitly.",
+        "Missing credentials, permission denial, stale telemetry and provider errors return gaps; never synthetic success.",
+        "Require policy-approved indicator-only disclosure and explicit unknown results."
+      ],
+      "expected_evidence": [
+        "Provider-linked reputation with freshness and confidence."
+      ]
+    },
+    {
+      "tool_id": "threat.campaign_correlate",
+      "version": "1.0",
+      "family": "threat_investigation",
+      "name": "Campaign Correlation Analyst: evidence review",
+      "availability": "planned",
+      "release": "future",
+      "permitted_roles": [
+        "campaign_correlation_analyst"
+      ],
+      "connector_ids": [
+        "wazuh_indexer"
+      ],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "local_analysis",
+      "resource_scope": "incident",
+      "egress": "none",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Reject foreign-organization and out-of-incident targets before querying.",
+        "Return source event IDs, UTC timestamps and collection provenance for every cited record.",
+        "Enforce time, pagination, timeout and byte limits; report truncation and collection gaps explicitly.",
+        "Missing credentials, permission denial, stale telemetry and provider errors return gaps; never synthetic success.",
+        "Shared indicators do not establish actor attribution without independent evidence."
+      ],
+      "expected_evidence": [
+        "Correlation edges and supporting event IDs."
+      ]
+    },
+    {
+      "tool_id": "email.message_trace",
+      "version": "1.0",
+      "family": "email",
+      "name": "Email & Phishing Analyst: evidence review",
+      "availability": "planned",
+      "release": "future",
+      "permitted_roles": [
+        "email_phishing_analyst"
+      ],
+      "connector_ids": [
+        "mail_audit"
+      ],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "read",
+      "resource_scope": "incident",
+      "egress": "none",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Reject foreign-organization and out-of-incident targets before querying.",
+        "Return source event IDs, UTC timestamps and collection provenance for every cited record.",
+        "Enforce time, pagination, timeout and byte limits; report truncation and collection gaps explicitly.",
+        "Missing credentials, permission denial, stale telemetry and provider errors return gaps; never synthetic success.",
+        "Redact bodies/recipients; distinguish link clicks from compromise."
+      ],
+      "expected_evidence": [
+        "Message IDs, delivery path and observed user activity."
+      ]
+    },
+    {
+      "tool_id": "threat.hunt",
+      "version": "1.0",
+      "family": "threat_investigation",
+      "name": "Threat Hunter: evidence review",
+      "availability": "planned",
+      "release": "future",
+      "permitted_roles": [
+        "threat_hunter"
+      ],
+      "connector_ids": [
+        "wazuh_indexer",
+        "baseline_store"
+      ],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "read",
+      "resource_scope": "incident",
+      "egress": "none",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Reject foreign-organization and out-of-incident targets before querying.",
+        "Return source event IDs, UTC timestamps and collection provenance for every cited record.",
+        "Enforce time, pagination, timeout and byte limits; report truncation and collection gaps explicitly.",
+        "Missing credentials, permission denial, stale telemetry and provider errors return gaps; never synthetic success.",
+        "Require explicit incident objective and collection scope even without an alert."
+      ],
+      "expected_evidence": [
+        "Hypothesis, bounded query, event references and negative-result coverage."
+      ]
+    },
+    {
+      "tool_id": "forensics.memory_review",
+      "version": "1.0",
+      "family": "forensics",
+      "name": "Memory Forensics Investigator: evidence review",
+      "availability": "planned",
+      "release": "future",
+      "permitted_roles": [
+        "memory_forensics_investigator"
+      ],
+      "connector_ids": [
+        "volatility3_artifacts"
+      ],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "local_analysis",
+      "resource_scope": "incident",
+      "egress": "none",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Reject foreign-organization and out-of-incident targets before querying.",
+        "Return source event IDs, UTC timestamps and collection provenance for every cited record.",
+        "Enforce time, pagination, timeout and byte limits; report truncation and collection gaps explicitly.",
+        "Missing credentials, permission denial, stale telemetry and provider errors return gaps; never synthetic success.",
+        "Previously authorized artifacts only; no live acquisition or arbitrary plugin execution."
+      ],
+      "expected_evidence": [
+        "Image hash, acquisition time, plugin/version and artifact references."
+      ]
+    },
+    {
+      "tool_id": "forensics.disk_review",
+      "version": "1.0",
+      "family": "forensics",
+      "name": "Disk & Filesystem Forensics Investigator: evidence review",
+      "availability": "planned",
+      "release": "future",
+      "permitted_roles": [
+        "disk_filesystem_forensics_investigator"
+      ],
+      "connector_ids": [
+        "disk_forensic_artifacts"
+      ],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "local_analysis",
+      "resource_scope": "incident",
+      "egress": "none",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Reject foreign-organization and out-of-incident targets before querying.",
+        "Return source event IDs, UTC timestamps and collection provenance for every cited record.",
+        "Enforce time, pagination, timeout and byte limits; report truncation and collection gaps explicitly.",
+        "Missing credentials, permission denial, stale telemetry and provider errors return gaps; never synthetic success.",
+        "Preserve source media and identify deleted-file recovery uncertainty."
+      ],
+      "expected_evidence": [
+        "Image identity, filesystem offsets, hashes and timeline provenance."
+      ]
+    },
+    {
+      "tool_id": "forensics.browser_review",
+      "version": "1.0",
+      "family": "forensics",
+      "name": "Browser Forensics Investigator: evidence review",
+      "availability": "planned",
+      "release": "future",
+      "permitted_roles": [
+        "browser_forensics_investigator"
+      ],
+      "connector_ids": [
+        "browser_artifacts"
+      ],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "local_analysis",
+      "resource_scope": "incident",
+      "egress": "none",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Reject foreign-organization and out-of-incident targets before querying.",
+        "Return source event IDs, UTC timestamps and collection provenance for every cited record.",
+        "Enforce time, pagination, timeout and byte limits; report truncation and collection gaps explicitly.",
+        "Missing credentials, permission denial, stale telemetry and provider errors return gaps; never synthetic success.",
+        "Visits/downloads do not establish execution; redact unrelated browsing."
+      ],
+      "expected_evidence": [
+        "Profile, artifact database/table, timestamps and row references."
+      ]
+    },
+    {
+      "tool_id": "threat.ransomware_review",
+      "version": "1.0",
+      "family": "threat_investigation",
+      "name": "Ransomware Investigator: evidence review",
+      "availability": "planned",
+      "release": "future",
+      "permitted_roles": [
+        "ransomware_investigator"
+      ],
+      "connector_ids": [
+        "wazuh_indexer",
+        "velociraptor_evidence"
+      ],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "read",
+      "resource_scope": "incident",
+      "egress": "none",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Reject foreign-organization and out-of-incident targets before querying.",
+        "Return source event IDs, UTC timestamps and collection provenance for every cited record.",
+        "Enforce time, pagination, timeout and byte limits; report truncation and collection gaps explicitly.",
+        "Missing credentials, permission denial, stale telemetry and provider errors return gaps; never synthetic success.",
+        "Require observed impact; filenames and family strings are insufficient."
+      ],
+      "expected_evidence": [
+        "Process-linked encryption impact, affected paths and uncertainty."
+      ]
+    },
+    {
+      "tool_id": "threat.insider_review",
+      "version": "1.0",
+      "family": "threat_investigation",
+      "name": "Insider Threat Analyst: evidence review",
+      "availability": "planned",
+      "release": "future",
+      "permitted_roles": [
+        "insider_threat_analyst"
+      ],
+      "connector_ids": [
+        "database_audit",
+        "baseline_store"
+      ],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "read",
+      "resource_scope": "incident",
+      "egress": "none",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Reject foreign-organization and out-of-incident targets before querying.",
+        "Return source event IDs, UTC timestamps and collection provenance for every cited record.",
+        "Enforce time, pagination, timeout and byte limits; report truncation and collection gaps explicitly.",
+        "Missing credentials, permission denial, stale telemetry and provider errors return gaps; never synthetic success.",
+        "Deviations cannot establish intent or guilt; minimize personal data."
+      ],
+      "expected_evidence": [
+        "Source-linked unusual access and policy context."
+      ]
+    },
+    {
+      "tool_id": "threat.persistence_lateral",
+      "version": "1.0",
+      "family": "threat_investigation",
+      "name": "Persistence & Lateral Movement Investigator: evidence review",
+      "availability": "planned",
+      "release": "future",
+      "permitted_roles": [
+        "persistence_lateral_movement_investigator"
+      ],
+      "connector_ids": [
+        "sysmon_logs",
+        "wazuh_indexer"
+      ],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "read",
+      "resource_scope": "incident",
+      "egress": "none",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Reject foreign-organization and out-of-incident targets before querying.",
+        "Return source event IDs, UTC timestamps and collection provenance for every cited record.",
+        "Enforce time, pagination, timeout and byte limits; report truncation and collection gaps explicitly.",
+        "Missing credentials, permission denial, stale telemetry and provider errors return gaps; never synthetic success.",
+        "Correlate stable host/principal IDs and preserve alternate explanations."
+      ],
+      "expected_evidence": [
+        "Persistence candidates and movement edges with event provenance."
+      ]
+    },
+    {
+      "tool_id": "cloud.audit_review",
+      "version": "1.0",
+      "family": "cloud_infrastructure",
+      "name": "Cloud Security Analyst: evidence review",
+      "availability": "planned",
+      "release": "future",
+      "permitted_roles": [
+        "cloud_security_analyst"
+      ],
+      "connector_ids": [
+        "aws_cloudtrail",
+        "aws_inventory"
+      ],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "read",
+      "resource_scope": "incident",
+      "egress": "policy_required",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Reject foreign-organization and out-of-incident targets before querying.",
+        "Return source event IDs, UTC timestamps and collection provenance for every cited record.",
+        "Enforce time, pagination, timeout and byte limits; report truncation and collection gaps explicitly.",
+        "Missing credentials, permission denial, stale telemetry and provider errors return gaps; never synthetic success.",
+        "Respect approved accounts/regions and distinguish management/data coverage."
+      ],
+      "expected_evidence": [
+        "Event IDs, account/region/resource IDs and configuration time."
+      ]
+    },
+    {
+      "tool_id": "container.inventory_review",
+      "version": "1.0",
+      "family": "cloud_infrastructure",
+      "name": "Container Security Analyst: evidence review",
+      "availability": "planned",
+      "release": "future",
+      "permitted_roles": [
+        "container_security_analyst"
+      ],
+      "connector_ids": [
+        "docker_engine"
+      ],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "read",
+      "resource_scope": "incident",
+      "egress": "none",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Reject foreign-organization and out-of-incident targets before querying.",
+        "Return source event IDs, UTC timestamps and collection provenance for every cited record.",
+        "Enforce time, pagination, timeout and byte limits; report truncation and collection gaps explicitly.",
+        "Missing credentials, permission denial, stale telemetry and provider errors return gaps; never synthetic success.",
+        "No shell execution, mutation, image pulls or unsupported host coverage."
+      ],
+      "expected_evidence": [
+        "Container IDs, digest, runtime settings and event references."
+      ]
+    },
+    {
+      "tool_id": "kubernetes.audit_review",
+      "version": "1.0",
+      "family": "cloud_infrastructure",
+      "name": "Kubernetes Security Analyst: evidence review",
+      "availability": "planned",
+      "release": "future",
+      "permitted_roles": [
+        "kubernetes_security_analyst"
+      ],
+      "connector_ids": [
+        "kubernetes_api"
+      ],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "read",
+      "resource_scope": "incident",
+      "egress": "none",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Reject foreign-organization and out-of-incident targets before querying.",
+        "Return source event IDs, UTC timestamps and collection provenance for every cited record.",
+        "Enforce time, pagination, timeout and byte limits; report truncation and collection gaps explicitly.",
+        "Missing credentials, permission denial, stale telemetry and provider errors return gaps; never synthetic success.",
+        "Prove read-only RBAC; no Secret values or workload entry."
+      ],
+      "expected_evidence": [
+        "Cluster UID, object UID, namespace and audit event IDs."
+      ]
+    },
+    {
+      "tool_id": "assets.exposure_review",
+      "version": "1.0",
+      "family": "cloud_infrastructure",
+      "name": "Asset Exposure Analyst: evidence review",
+      "availability": "planned",
+      "release": "future",
+      "permitted_roles": [
+        "asset_exposure_analyst"
+      ],
+      "connector_ids": [
+        "exposure_inventory"
+      ],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "read",
+      "resource_scope": "incident",
+      "egress": "none",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Reject foreign-organization and out-of-incident targets before querying.",
+        "Return source event IDs, UTC timestamps and collection provenance for every cited record.",
+        "Enforce time, pagination, timeout and byte limits; report truncation and collection gaps explicitly.",
+        "Missing credentials, permission denial, stale telemetry and provider errors return gaps; never synthetic success.",
+        "Approved observations only; no active scans or new target discovery."
+      ],
+      "expected_evidence": [
+        "Asset/service identities, observation time and exposure path."
+      ]
+    },
+    {
+      "tool_id": "configuration.baseline_review",
+      "version": "1.0",
+      "family": "cloud_infrastructure",
+      "name": "Configuration & Hardening Analyst: evidence review",
+      "availability": "planned",
+      "release": "future",
+      "permitted_roles": [
+        "configuration_hardening_analyst"
+      ],
+      "connector_ids": [
+        "configuration_artifacts"
+      ],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "read",
+      "resource_scope": "incident",
+      "egress": "none",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Reject foreign-organization and out-of-incident targets before querying.",
+        "Return source event IDs, UTC timestamps and collection provenance for every cited record.",
+        "Enforce time, pagination, timeout and byte limits; report truncation and collection gaps explicitly.",
+        "Missing credentials, permission denial, stale telemetry and provider errors return gaps; never synthetic success.",
+        "No edits or pass verdict without measured evidence."
+      ],
+      "expected_evidence": [
+        "Control IDs, baseline version and observed configuration values."
+      ]
+    },
+    {
+      "tool_id": "virtualization.inventory_review",
+      "version": "1.0",
+      "family": "specialized_environments",
+      "name": "VM & Hypervisor Security Analyst: evidence review",
+      "availability": "planned",
+      "release": "future",
+      "permitted_roles": [
+        "vm_hypervisor_security_analyst"
+      ],
+      "connector_ids": [
+        "hypervisor_inventory"
+      ],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "read",
+      "resource_scope": "incident",
+      "egress": "none",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Reject foreign-organization and out-of-incident targets before querying.",
+        "Return source event IDs, UTC timestamps and collection provenance for every cited record.",
+        "Enforce time, pagination, timeout and byte limits; report truncation and collection gaps explicitly.",
+        "Missing credentials, permission denial, stale telemetry and provider errors return gaps; never synthetic success.",
+        "Guest enrollment cannot establish hypervisor control-plane coverage."
+      ],
+      "expected_evidence": [
+        "VM/hypervisor IDs, snapshots and management event references."
+      ]
+    },
+    {
+      "tool_id": "firewall.configuration_review",
+      "version": "1.0",
+      "family": "network",
+      "name": "Firewall Security Analyst: evidence review",
+      "availability": "planned",
+      "release": "future",
+      "permitted_roles": [
+        "firewall_security_analyst"
+      ],
+      "connector_ids": [
+        "firewall_artifacts"
+      ],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "read",
+      "resource_scope": "incident",
+      "egress": "none",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Reject foreign-organization and out-of-incident targets before querying.",
+        "Return source event IDs, UTC timestamps and collection provenance for every cited record.",
+        "Enforce time, pagination, timeout and byte limits; report truncation and collection gaps explicitly.",
+        "Missing credentials, permission denial, stale telemetry and provider errors return gaps; never synthetic success.",
+        "No rule creation/modification/deletion; retain snapshot time."
+      ],
+      "expected_evidence": [
+        "Rule IDs, effective policy observations and traffic references."
+      ]
+    },
+    {
+      "tool_id": "network.segmentation_review",
+      "version": "1.0",
+      "family": "network",
+      "name": "Network Segmentation Analyst: evidence review",
+      "availability": "planned",
+      "release": "future",
+      "permitted_roles": [
+        "network_segmentation_analyst"
+      ],
+      "connector_ids": [
+        "firewall_artifacts",
+        "zeek_logs"
+      ],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "read",
+      "resource_scope": "incident",
+      "egress": "none",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Reject foreign-organization and out-of-incident targets before querying.",
+        "Return source event IDs, UTC timestamps and collection provenance for every cited record.",
+        "Enforce time, pagination, timeout and byte limits; report truncation and collection gaps explicitly.",
+        "Missing credentials, permission denial, stale telemetry and provider errors return gaps; never synthetic success.",
+        "Passive observation cannot prove every path blocked; no probes or enforcement."
+      ],
+      "expected_evidence": [
+        "Observed cross-zone paths and policy contradictions."
+      ]
+    },
+    {
+      "tool_id": "network.dns_proxy_review",
+      "version": "1.0",
+      "family": "network",
+      "name": "DNS & Proxy Security Analyst: evidence review",
+      "availability": "planned",
+      "release": "future",
+      "permitted_roles": [
+        "dns_proxy_security_analyst"
+      ],
+      "connector_ids": [
+        "zeek_logs",
+        "application_logs"
+      ],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "read",
+      "resource_scope": "incident",
+      "egress": "none",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Reject foreign-organization and out-of-incident targets before querying.",
+        "Return source event IDs, UTC timestamps and collection provenance for every cited record.",
+        "Enforce time, pagination, timeout and byte limits; report truncation and collection gaps explicitly.",
+        "Missing credentials, permission denial, stale telemetry and provider errors return gaps; never synthetic success.",
+        "Redact URL secrets; distinguish DNS requests from successful egress."
+      ],
+      "expected_evidence": [
+        "DNS/proxy correlations with observed outcomes."
+      ]
+    },
+    {
+      "tool_id": "wireless.capture_review",
+      "version": "1.0",
+      "family": "specialized_environments",
+      "name": "Wireless Security Analyst: evidence review",
+      "availability": "planned",
+      "release": "future",
+      "permitted_roles": [
+        "wireless_security_analyst"
+      ],
+      "connector_ids": [
+        "wireless_artifacts"
+      ],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "read",
+      "resource_scope": "incident",
+      "egress": "none",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Reject foreign-organization and out-of-incident targets before querying.",
+        "Return source event IDs, UTC timestamps and collection provenance for every cited record.",
+        "Enforce time, pagination, timeout and byte limits; report truncation and collection gaps explicitly.",
+        "Missing credentials, permission denial, stale telemetry and provider errors return gaps; never synthetic success.",
+        "No injection, deauthentication or credential cracking."
+      ],
+      "expected_evidence": [
+        "Capture hash, BSSID/channel, observations and coverage."
+      ]
+    },
+    {
+      "tool_id": "mobile.posture_review",
+      "version": "1.0",
+      "family": "specialized_environments",
+      "name": "Mobile Device Security Analyst: evidence review",
+      "availability": "planned",
+      "release": "future",
+      "permitted_roles": [
+        "mobile_device_security_analyst"
+      ],
+      "connector_ids": [
+        "mobile_artifacts"
+      ],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "read",
+      "resource_scope": "incident",
+      "egress": "none",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Reject foreign-organization and out-of-incident targets before querying.",
+        "Return source event IDs, UTC timestamps and collection provenance for every cited record.",
+        "Enforce time, pagination, timeout and byte limits; report truncation and collection gaps explicitly.",
+        "Missing credentials, permission denial, stale telemetry and provider errors return gaps; never synthetic success.",
+        "MDM enrollment cannot establish full application/memory forensics."
+      ],
+      "expected_evidence": [
+        "Device ID, OS/posture observations and artifact provenance."
+      ]
+    },
+    {
+      "tool_id": "iot.telemetry_review",
+      "version": "1.0",
+      "family": "specialized_environments",
+      "name": "IoT Security Analyst: evidence review",
+      "availability": "planned",
+      "release": "future",
+      "permitted_roles": [
+        "iot_security_analyst"
+      ],
+      "connector_ids": [
+        "iot_artifacts"
+      ],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "read",
+      "resource_scope": "incident",
+      "egress": "none",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Reject foreign-organization and out-of-incident targets before querying.",
+        "Return source event IDs, UTC timestamps and collection provenance for every cited record.",
+        "Enforce time, pagination, timeout and byte limits; report truncation and collection gaps explicitly.",
+        "Missing credentials, permission denial, stale telemetry and provider errors return gaps; never synthetic success.",
+        "Require device-specific collection; no firmware changes or generic-host coverage."
+      ],
+      "expected_evidence": [
+        "Device identity, protocol event IDs and firmware observation time."
+      ]
+    },
+    {
+      "tool_id": "ot.passive_review",
+      "version": "1.0",
+      "family": "specialized_environments",
+      "name": "OT & Industrial Systems Security Analyst: evidence review",
+      "availability": "planned",
+      "release": "future",
+      "permitted_roles": [
+        "ot_industrial_systems_security_analyst"
+      ],
+      "connector_ids": [
+        "ot_artifacts"
+      ],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "read",
+      "resource_scope": "incident",
+      "egress": "none",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Reject foreign-organization and out-of-incident targets before querying.",
+        "Return source event IDs, UTC timestamps and collection provenance for every cited record.",
+        "Enforce time, pagination, timeout and byte limits; report truncation and collection gaps explicitly.",
+        "Missing credentials, permission denial, stale telemetry and provider errors return gaps; never synthetic success.",
+        "No PLC writes, active scans or operational-state inference from missing logs."
+      ],
+      "expected_evidence": [
+        "Industrial asset IDs, function events and sensor vantage."
+      ]
+    },
+    {
+      "tool_id": "serverless.audit_review",
+      "version": "1.0",
+      "family": "cloud_infrastructure",
+      "name": "Serverless Security Analyst: evidence review",
+      "availability": "planned",
+      "release": "future",
+      "permitted_roles": [
+        "serverless_security_analyst"
+      ],
+      "connector_ids": [
+        "aws_cloudtrail",
+        "aws_inventory"
+      ],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "read",
+      "resource_scope": "incident",
+      "egress": "policy_required",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Reject foreign-organization and out-of-incident targets before querying.",
+        "Return source event IDs, UTC timestamps and collection provenance for every cited record.",
+        "Enforce time, pagination, timeout and byte limits; report truncation and collection gaps explicitly.",
+        "Missing credentials, permission denial, stale telemetry and provider errors return gaps; never synthetic success.",
+        "Separate control-plane and invocation evidence; no invocation/deployment."
+      ],
+      "expected_evidence": [
+        "Function ARN/version, request/event IDs and configuration time."
+      ]
+    },
+    {
+      "tool_id": "repository.dependency_review",
+      "version": "1.0",
+      "family": "software_delivery",
+      "name": "Repository & Dependency Security Analyst: evidence review",
+      "availability": "planned",
+      "release": "future",
+      "permitted_roles": [
+        "repository_dependency_security_analyst"
+      ],
+      "connector_ids": [
+        "repository_artifacts"
+      ],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "read",
+      "resource_scope": "incident",
+      "egress": "none",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Reject foreign-organization and out-of-incident targets before querying.",
+        "Return source event IDs, UTC timestamps and collection provenance for every cited record.",
+        "Enforce time, pagination, timeout and byte limits; report truncation and collection gaps explicitly.",
+        "Missing credentials, permission denial, stale telemetry and provider errors return gaps; never synthetic success.",
+        "Matching advisories show exposure; runtime exploitability requires separate proof."
+      ],
+      "expected_evidence": [
+        "Commit SHA, dependency version, advisory ID and affected path."
+      ]
+    },
+    {
+      "tool_id": "database.audit_review",
+      "version": "1.0",
+      "family": "data_security",
+      "name": "Database Security Analyst: evidence review",
+      "availability": "planned",
+      "release": "future",
+      "permitted_roles": [
+        "database_security_analyst"
+      ],
+      "connector_ids": [
+        "database_audit"
+      ],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "read",
+      "resource_scope": "incident",
+      "egress": "none",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Reject foreign-organization and out-of-incident targets before querying.",
+        "Return source event IDs, UTC timestamps and collection provenance for every cited record.",
+        "Enforce time, pagination, timeout and byte limits; report truncation and collection gaps explicitly.",
+        "Missing credentials, permission denial, stale telemetry and provider errors return gaps; never synthetic success.",
+        "No arbitrary SQL, unrelated row retrieval or data edits."
+      ],
+      "expected_evidence": [
+        "Audit IDs, actor, database/object and access result."
+      ]
+    },
+    {
+      "tool_id": "data.exfiltration_review",
+      "version": "1.0",
+      "family": "data_security",
+      "name": "Data Access & Exfiltration Analyst: evidence review",
+      "availability": "planned",
+      "release": "future",
+      "permitted_roles": [
+        "data_access_exfiltration_analyst"
+      ],
+      "connector_ids": [
+        "database_audit",
+        "zeek_logs",
+        "aws_storage"
+      ],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "read",
+      "resource_scope": "incident",
+      "egress": "policy_required",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Reject foreign-organization and out-of-incident targets before querying.",
+        "Return source event IDs, UTC timestamps and collection provenance for every cited record.",
+        "Enforce time, pagination, timeout and byte limits; report truncation and collection gaps explicitly.",
+        "Missing credentials, permission denial, stale telemetry and provider errors return gaps; never synthetic success.",
+        "Separate access, transfer and confirmed loss; no content inference without evidence."
+      ],
+      "expected_evidence": [
+        "Object references, actor, observed transfer and destination."
+      ]
+    },
+    {
+      "tool_id": "delivery.pipeline_review",
+      "version": "1.0",
+      "family": "software_delivery",
+      "name": "CI/CD Security Analyst: evidence review",
+      "availability": "planned",
+      "release": "future",
+      "permitted_roles": [
+        "ci_cd_security_analyst"
+      ],
+      "connector_ids": [
+        "delivery_artifacts"
+      ],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "read",
+      "resource_scope": "incident",
+      "egress": "none",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Reject foreign-organization and out-of-incident targets before querying.",
+        "Return source event IDs, UTC timestamps and collection provenance for every cited record.",
+        "Enforce time, pagination, timeout and byte limits; report truncation and collection gaps explicitly.",
+        "Missing credentials, permission denial, stale telemetry and provider errors return gaps; never synthetic success.",
+        "No job triggering, repository writes, secret reads or deployment."
+      ],
+      "expected_evidence": [
+        "Pipeline/run ID, commit SHA, actor and digest."
+      ]
+    },
+    {
+      "tool_id": "supply_chain.provenance_review",
+      "version": "1.0",
+      "family": "software_delivery",
+      "name": "Software Supply Chain Analyst: evidence review",
+      "availability": "planned",
+      "release": "future",
+      "permitted_roles": [
+        "software_supply_chain_analyst"
+      ],
+      "connector_ids": [
+        "sbom_artifacts",
+        "delivery_artifacts"
+      ],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "local_analysis",
+      "resource_scope": "incident",
+      "egress": "none",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Reject foreign-organization and out-of-incident targets before querying.",
+        "Return source event IDs, UTC timestamps and collection provenance for every cited record.",
+        "Enforce time, pagination, timeout and byte limits; report truncation and collection gaps explicitly.",
+        "Missing credentials, permission denial, stale telemetry and provider errors return gaps; never synthetic success.",
+        "Unverified signatures cannot establish trusted provenance."
+      ],
+      "expected_evidence": [
+        "Digest, dependency relationships and signature-verification evidence."
+      ]
+    },
+    {
+      "tool_id": "secrets.exposure_review",
+      "version": "1.0",
+      "family": "software_delivery",
+      "name": "Secrets & Credential Exposure Analyst: evidence review",
+      "availability": "planned",
+      "release": "future",
+      "permitted_roles": [
+        "secrets_credential_exposure_analyst"
+      ],
+      "connector_ids": [
+        "secret_scan_artifacts"
+      ],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "read",
+      "resource_scope": "incident",
+      "egress": "none",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Reject foreign-organization and out-of-incident targets before querying.",
+        "Return source event IDs, UTC timestamps and collection provenance for every cited record.",
+        "Enforce time, pagination, timeout and byte limits; report truncation and collection gaps explicitly.",
+        "Missing credentials, permission denial, stale telemetry and provider errors return gaps; never synthetic success.",
+        "No secret-value retrieval/testing/printing/forwarding or revocation."
+      ],
+      "expected_evidence": [
+        "Redacted finding ID, path, revision, type and exposure window."
+      ]
+    },
+    {
+      "tool_id": "crypto.inventory_review",
+      "version": "1.0",
+      "family": "data_security",
+      "name": "Certificate & Cryptographic Security Analyst: evidence review",
+      "availability": "planned",
+      "release": "future",
+      "permitted_roles": [
+        "certificate_cryptographic_security_analyst"
+      ],
+      "connector_ids": [
+        "certificate_inventory"
+      ],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "read",
+      "resource_scope": "incident",
+      "egress": "none",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Reject foreign-organization and out-of-incident targets before querying.",
+        "Return source event IDs, UTC timestamps and collection provenance for every cited record.",
+        "Enforce time, pagination, timeout and byte limits; report truncation and collection gaps explicitly.",
+        "Missing credentials, permission denial, stale telemetry and provider errors return gaps; never synthetic success.",
+        "No private keys or active endpoint probes; no unsupported strength verdicts."
+      ],
+      "expected_evidence": [
+        "Fingerprint, issuer, validity, algorithm and observation source."
+      ]
+    },
+    {
+      "tool_id": "saas.audit_review",
+      "version": "1.0",
+      "family": "applications",
+      "name": "SaaS Security Analyst: evidence review",
+      "availability": "planned",
+      "release": "future",
+      "permitted_roles": [
+        "saas_security_analyst"
+      ],
+      "connector_ids": [
+        "saas_audit"
+      ],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "read",
+      "resource_scope": "incident",
+      "egress": "none",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Reject foreign-organization and out-of-incident targets before querying.",
+        "Return source event IDs, UTC timestamps and collection provenance for every cited record.",
+        "Enforce time, pagination, timeout and byte limits; report truncation and collection gaps explicitly.",
+        "Missing credentials, permission denial, stale telemetry and provider errors return gaps; never synthetic success.",
+        "Require provider-specific read scopes; no impersonation or config changes."
+      ],
+      "expected_evidence": [
+        "Tenant/object IDs, admin changes and audit event references."
+      ]
+    },
+    {
+      "tool_id": "storage.access_review",
+      "version": "1.0",
+      "family": "data_security",
+      "name": "Cloud Storage Security Analyst: evidence review",
+      "availability": "planned",
+      "release": "future",
+      "permitted_roles": [
+        "cloud_storage_security_analyst"
+      ],
+      "connector_ids": [
+        "aws_storage"
+      ],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "read",
+      "resource_scope": "incident",
+      "egress": "policy_required",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Reject foreign-organization and out-of-incident targets before querying.",
+        "Return source event IDs, UTC timestamps and collection provenance for every cited record.",
+        "Enforce time, pagination, timeout and byte limits; report truncation and collection gaps explicitly.",
+        "Missing credentials, permission denial, stale telemetry and provider errors return gaps; never synthetic success.",
+        "No object body downloads or policy changes; prove data-event collection."
+      ],
+      "expected_evidence": [
+        "Bucket/object IDs, policy observations and access event IDs."
+      ]
+    },
+    {
+      "tool_id": "ai.audit_review",
+      "version": "1.0",
+      "family": "applications",
+      "name": "AI & LLM Security Analyst: evidence review",
+      "availability": "planned",
+      "release": "future",
+      "permitted_roles": [
+        "ai_llm_security_analyst"
+      ],
+      "connector_ids": [
+        "llm_audit"
+      ],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "read",
+      "resource_scope": "incident",
+      "egress": "none",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Reject foreign-organization and out-of-incident targets before querying.",
+        "Return source event IDs, UTC timestamps and collection provenance for every cited record.",
+        "Enforce time, pagination, timeout and byte limits; report truncation and collection gaps explicitly.",
+        "Missing credentials, permission denial, stale telemetry and provider errors return gaps; never synthetic success.",
+        "Treat attacker text as data; no model calls, injection replay or hidden-data disclosure."
+      ],
+      "expected_evidence": [
+        "Request ID, model/tool identity, decision and source references."
+      ]
+    },
+    {
+      "tool_id": "data.integrity_review",
+      "version": "1.0",
+      "family": "data_security",
+      "name": "Data Integrity Analyst: evidence review",
+      "availability": "planned",
+      "release": "future",
+      "permitted_roles": [
+        "data_integrity_analyst"
+      ],
+      "connector_ids": [
+        "integrity_artifacts"
+      ],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "local_analysis",
+      "resource_scope": "incident",
+      "egress": "none",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Reject foreign-organization and out-of-incident targets before querying.",
+        "Return source event IDs, UTC timestamps and collection provenance for every cited record.",
+        "Enforce time, pagination, timeout and byte limits; report truncation and collection gaps explicitly.",
+        "Missing credentials, permission denial, stale telemetry and provider errors return gaps; never synthetic success.",
+        "Require trustworthy baseline/version; distinguish authorized change and corruption."
+      ],
+      "expected_evidence": [
+        "Object identity, observed/baseline digest and change provenance."
+      ]
+    }
+  ],
+  "specialties": [
+    {
+      "specialty_id": "triage_analyst",
+      "name": "Triage Analyst",
+      "area": "alert_handling",
+      "availability": "implementation_pending",
+      "core_role": "triage",
+      "tool_ids": [
+        "incident.get",
+        "alerts.search",
+        "assets.get",
+        "collection.coverage",
+        "indicators.reputation"
+      ],
+      "telemetry": [
+        "Persisted incident/alert records",
+        "Incident-linked asset inventory",
+        "Source coverage and indicator-provider observations"
+      ],
+      "permissions": [
+        "incidents:read",
+        "alerts:read",
+        "assets:read",
+        "collection:read",
+        "approved_indicator_egress"
+      ],
+      "expected_evidence": [
+        "Incident ID, alert references and persisted scope with source record IDs.",
+        "Alert hits with source index, document ID, event time and query window.",
+        "Registered asset IDs, owner and labels with explicit unverified sensor status.",
+        "Per-source heartbeat, last event time, retention window and known gaps.",
+        "Provider, indicator, query time, provider observation time, verdict and uncertainty."
+      ],
+      "acceptance_checks": [
+        "Only the named core bundle is a 1.0 implementation candidate; this roadmap label adds no specialized execution.",
+        "Require verified handlers, connector access and independent acceptance evidence before activation.",
+        "Read persisted source evidence; incident summaries cannot substitute for telemetry.",
+        "Prove historical search against the indexer; never use fabricated prior events.",
+        "Manual registration cannot establish sensor activity or protection.",
+        "Keep manager enrollment and indexer event availability distinct.",
+        "Require provider egress policy; hash/IP lookup only, never file uploads or secrets."
+      ]
+    },
+    {
+      "specialty_id": "alert_enrichment_analyst",
+      "name": "Alert Enrichment Analyst",
+      "area": "alert_handling",
+      "availability": "planned",
+      "core_role": null,
+      "tool_ids": [
+        "alerts.enrich"
+      ],
+      "telemetry": [
+        "Retained alert fields",
+        "asset inventory",
+        "source provenance"
+      ],
+      "permissions": [
+        "alerts:read",
+        "assets:read"
+      ],
+      "expected_evidence": [
+        "Source-linked enrichment facts and unresolved fields."
+      ],
+      "acceptance_checks": [
+        "Exclude planned specialties from 1.0 executable admission and tool dispatch.",
+        "Missing enrichment is a gap, not invented asset or reputation.",
+        "Promotion requires a later release decision, validated read permissions and independent source-coverage evidence."
+      ]
+    },
+    {
+      "specialty_id": "incident_prioritization_analyst",
+      "name": "Incident Prioritization Analyst",
+      "area": "alert_handling",
+      "availability": "planned",
+      "core_role": null,
+      "tool_ids": [
+        "alerts.prioritize"
+      ],
+      "telemetry": [
+        "Alert severity",
+        "approved asset criticality",
+        "incident impact evidence"
+      ],
+      "permissions": [
+        "incidents:read",
+        "criticality:read"
+      ],
+      "expected_evidence": [
+        "Priority rationale with observed impact and policy version."
+      ],
+      "acceptance_checks": [
+        "Exclude planned specialties from 1.0 executable admission and tool dispatch.",
+        "Separate measured impact from assumed impact.",
+        "Promotion requires a later release decision, validated read permissions and independent source-coverage evidence."
+      ]
+    },
+    {
+      "specialty_id": "alert_deduplication_analyst",
+      "name": "Alert Deduplication Analyst",
+      "area": "alert_handling",
+      "availability": "planned",
+      "core_role": null,
+      "tool_ids": [
+        "alerts.deduplicate"
+      ],
+      "telemetry": [
+        "Retained alert IDs",
+        "event signatures",
+        "time windows"
+      ],
+      "permissions": [
+        "alerts:read"
+      ],
+      "expected_evidence": [
+        "Duplicate groups retaining every original event reference."
+      ],
+      "acceptance_checks": [
+        "Exclude planned specialties from 1.0 executable admission and tool dispatch.",
+        "Distinct targets and outcomes cannot collapse by text similarity alone.",
+        "Promotion requires a later release decision, validated read permissions and independent source-coverage evidence."
+      ]
+    },
+    {
+      "specialty_id": "incident_scoping_analyst",
+      "name": "Incident Scoping Analyst",
+      "area": "alert_handling",
+      "availability": "planned",
+      "core_role": null,
+      "tool_ids": [
+        "incident.scope"
+      ],
+      "telemetry": [
+        "Alert entities",
+        "asset identities",
+        "event links"
+      ],
+      "permissions": [
+        "alerts:read",
+        "assets:read"
+      ],
+      "expected_evidence": [
+        "Affected and possibly affected entity sets with provenance."
+      ],
+      "acceptance_checks": [
+        "Exclude planned specialties from 1.0 executable admission and tool dispatch.",
+        "Bound incident expansion and mark inferred relationships separately.",
+        "Promotion requires a later release decision, validated read permissions and independent source-coverage evidence."
+      ]
+    },
+    {
+      "specialty_id": "behavioral_anomaly_analyst",
+      "name": "Behavioral Anomaly Analyst",
+      "area": "alert_handling",
+      "availability": "planned",
+      "core_role": null,
+      "tool_ids": [
+        "behavior.baseline_compare"
+      ],
+      "telemetry": [
+        "Versioned baseline",
+        "comparable historical events"
+      ],
+      "permissions": [
+        "baselines:read",
+        "events:read"
+      ],
+      "expected_evidence": [
+        "Baseline version, deviation metrics and sample coverage."
+      ],
+      "acceptance_checks": [
+        "Exclude planned specialties from 1.0 executable admission and tool dispatch.",
+        "Refuse anomaly confidence when baseline population/time coverage is insufficient.",
+        "Promotion requires a later release decision, validated read permissions and independent source-coverage evidence."
+      ]
+    },
+    {
+      "specialty_id": "telemetry_health_tampering_analyst",
+      "name": "Telemetry Health & Tampering Analyst",
+      "area": "alert_handling",
+      "availability": "planned",
+      "core_role": null,
+      "tool_ids": [
+        "collection.tampering"
+      ],
+      "telemetry": [
+        "Heartbeats",
+        "collection configurations",
+        "sensor disable events"
+      ],
+      "permissions": [
+        "sensors:read",
+        "collection:read"
+      ],
+      "expected_evidence": [
+        "Source outage intervals and source-linked tampering candidates."
+      ],
+      "acceptance_checks": [
+        "Exclude planned specialties from 1.0 executable admission and tool dispatch.",
+        "Separate maintenance/outage from tampering; silence cannot establish clean state.",
+        "Promotion requires a later release decision, validated read permissions and independent source-coverage evidence."
+      ]
+    },
+    {
+      "specialty_id": "detection_validation_analyst",
+      "name": "Detection Validation Analyst",
+      "area": "alert_handling",
+      "availability": "planned",
+      "core_role": null,
+      "tool_ids": [
+        "detection.replay_compare"
+      ],
+      "telemetry": [
+        "Versioned rules",
+        "labeled event replays",
+        "actual rule matches"
+      ],
+      "permissions": [
+        "detections:read",
+        "replay_evidence:read"
+      ],
+      "expected_evidence": [
+        "Rule version, expected matches, observed matches and gaps."
+      ],
+      "acceptance_checks": [
+        "Exclude planned specialties from 1.0 executable admission and tool dispatch.",
+        "No rule deployment or synthetic replay results labeled live efficacy.",
+        "Promotion requires a later release decision, validated read permissions and independent source-coverage evidence."
+      ]
+    },
+    {
+      "specialty_id": "endpoint_forensics_investigator",
+      "name": "Endpoint Forensics Investigator",
+      "area": "investigation",
+      "availability": "implementation_pending",
+      "core_role": "endpoint",
+      "tool_ids": [
+        "incident.get",
+        "alerts.search",
+        "assets.get",
+        "collection.coverage",
+        "endpoint.agent",
+        "endpoint.processes",
+        "endpoint.files",
+        "payload.decode",
+        "indicators.reputation"
+      ],
+      "telemetry": [
+        "Wazuh manager agent records",
+        "Collected process and FIM events",
+        "Source-linked encoded command text"
+      ],
+      "permissions": [
+        "incidents:read",
+        "agents:read",
+        "process_events:read",
+        "fim_events:read",
+        "approved_indicator_egress"
+      ],
+      "expected_evidence": [
+        "Incident ID, alert references and persisted scope with source record IDs.",
+        "Alert hits with source index, document ID, event time and query window.",
+        "Registered asset IDs, owner and labels with explicit unverified sensor status.",
+        "Per-source heartbeat, last event time, retention window and known gaps.",
+        "Manager agent record, last keepalive, platform and enrollment ID.",
+        "Process event IDs, parent lineage, executable hash, user and UTC time.",
+        "FIM record IDs, paths, hashes, operations and UTC time.",
+        "Original record reference, encoded input hash, decoded text and encoding decision.",
+        "Provider, indicator, query time, provider observation time, verdict and uncertainty."
+      ],
+      "acceptance_checks": [
+        "Only the named core bundle is a 1.0 implementation candidate; this roadmap label adds no specialized execution.",
+        "Require verified handlers, connector access and independent acceptance evidence before activation.",
+        "Read persisted source evidence; incident summaries cannot substitute for telemetry.",
+        "Prove historical search against the indexer; never use fabricated prior events.",
+        "Manual registration cannot establish sensor activity or protection.",
+        "Keep manager enrollment and indexer event availability distinct.",
+        "Unknown, not-found and transport errors remain distinct from active sensor state.",
+        "Prove process collection; host enrollment alone does not establish visibility.",
+        "Report monitored path coverage and gaps; do not imply full disk forensics.",
+        "Decode locally without executing text, opening URLs or treating string matches as malware proof.",
+        "Require provider egress policy; hash/IP lookup only, never file uploads or secrets."
+      ]
+    },
+    {
+      "specialty_id": "network_analyst",
+      "name": "Network Analyst",
+      "area": "investigation",
+      "availability": "implementation_pending",
+      "core_role": "network",
+      "tool_ids": [
+        "incident.get",
+        "alerts.search",
+        "assets.get",
+        "collection.coverage",
+        "network.connections",
+        "network.dns",
+        "network.firewall",
+        "indicators.reputation"
+      ],
+      "telemetry": [
+        "Connection/flow logs",
+        "DNS query/response logs",
+        "Firewall traffic and sensor coverage"
+      ],
+      "permissions": [
+        "incidents:read",
+        "flows:read",
+        "dns_logs:read",
+        "firewall_logs:read",
+        "approved_indicator_egress"
+      ],
+      "expected_evidence": [
+        "Incident ID, alert references and persisted scope with source record IDs.",
+        "Alert hits with source index, document ID, event time and query window.",
+        "Registered asset IDs, owner and labels with explicit unverified sensor status.",
+        "Per-source heartbeat, last event time, retention window and known gaps.",
+        "Five-tuple, flow ID, sensor, bytes and UTC interval.",
+        "DNS event IDs, query, response, resolver and UTC time.",
+        "Firewall event ID, rule ID, action, source/destination and UTC time.",
+        "Provider, indicator, query time, provider observation time, verdict and uncertainty."
+      ],
+      "acceptance_checks": [
+        "Only the named core bundle is a 1.0 implementation candidate; this roadmap label adds no specialized execution.",
+        "Require verified handlers, connector access and independent acceptance evidence before activation.",
+        "Read persisted source evidence; incident summaries cannot substitute for telemetry.",
+        "Prove historical search against the indexer; never use fabricated prior events.",
+        "Manual registration cannot establish sensor activity or protection.",
+        "Keep manager enrollment and indexer event availability distinct.",
+        "Prove sensor vantage and collection interval; unobserved traffic remains unknown.",
+        "Distinguish query observations from resolution and connection outcomes.",
+        "No rule deployment, blocking or rollback is enabled.",
+        "Require provider egress policy; hash/IP lookup only, never file uploads or secrets."
+      ]
+    },
+    {
+      "specialty_id": "identity_authentication_analyst",
+      "name": "Identity & Authentication Analyst",
+      "area": "investigation",
+      "availability": "implementation_pending",
+      "core_role": "identity",
+      "tool_ids": [
+        "incident.get",
+        "alerts.search",
+        "assets.get",
+        "collection.coverage",
+        "identity.auth_events",
+        "identity.directory"
+      ],
+      "telemetry": [
+        "Authentication audit",
+        "Stable principal/directory records",
+        "Identity collection coverage"
+      ],
+      "permissions": [
+        "incidents:read",
+        "authentication:read",
+        "directory:read",
+        "collection:read"
+      ],
+      "expected_evidence": [
+        "Incident ID, alert references and persisted scope with source record IDs.",
+        "Alert hits with source index, document ID, event time and query window.",
+        "Registered asset IDs, owner and labels with explicit unverified sensor status.",
+        "Per-source heartbeat, last event time, retention window and known gaps.",
+        "Authentication event ID, principal, source, outcome and UTC time.",
+        "Principal ID, organization, group membership and observed account status."
+      ],
+      "acceptance_checks": [
+        "Only the named core bundle is a 1.0 implementation candidate; this roadmap label adds no specialized execution.",
+        "Require verified handlers, connector access and independent acceptance evidence before activation.",
+        "Read persisted source evidence; incident summaries cannot substitute for telemetry.",
+        "Prove historical search against the indexer; never use fabricated prior events.",
+        "Manual registration cannot establish sensor activity or protection.",
+        "Keep manager enrollment and indexer event availability distinct.",
+        "Resolve stable principal/device IDs; missing audit categories cannot mean no compromise.",
+        "Prove provider audit/directory read scopes and redact credentials/tokens."
+      ]
+    },
+    {
+      "specialty_id": "malware_analyst",
+      "name": "Malware Analyst",
+      "area": "investigation",
+      "availability": "planned",
+      "core_role": null,
+      "tool_ids": [
+        "malware.static_review"
+      ],
+      "telemetry": [
+        "Authorized file metadata",
+        "hashes",
+        "static-analysis exports"
+      ],
+      "permissions": [
+        "malware_artifacts:read"
+      ],
+      "expected_evidence": [
+        "Sample hash, static findings and limitations."
+      ],
+      "acceptance_checks": [
+        "Exclude planned specialties from 1.0 executable admission and tool dispatch.",
+        "No malware execution or binary retrieval; static strings do not prove behavior.",
+        "Promotion requires a later release decision, validated read permissions and independent source-coverage evidence."
+      ]
+    },
+    {
+      "specialty_id": "threat_intelligence_analyst",
+      "name": "Threat Intelligence Analyst",
+      "area": "investigation",
+      "availability": "planned",
+      "core_role": null,
+      "tool_ids": [
+        "threat_intelligence.lookup"
+      ],
+      "telemetry": [
+        "Hash/IP indicators",
+        "provider records",
+        "source timestamps"
+      ],
+      "permissions": [
+        "intelligence:read",
+        "approved_indicator_egress"
+      ],
+      "expected_evidence": [
+        "Provider-linked reputation with freshness and confidence."
+      ],
+      "acceptance_checks": [
+        "Exclude planned specialties from 1.0 executable admission and tool dispatch.",
+        "Require policy-approved indicator-only disclosure and explicit unknown results.",
+        "Promotion requires a later release decision, validated read permissions and independent source-coverage evidence."
+      ]
+    },
+    {
+      "specialty_id": "campaign_correlation_analyst",
+      "name": "Campaign Correlation Analyst",
+      "area": "investigation",
+      "availability": "planned",
+      "core_role": null,
+      "tool_ids": [
+        "threat.campaign_correlate"
+      ],
+      "telemetry": [
+        "Incident-linked events",
+        "indicators",
+        "temporal relationships"
+      ],
+      "permissions": [
+        "events:read",
+        "intelligence:read"
+      ],
+      "expected_evidence": [
+        "Correlation edges and supporting event IDs."
+      ],
+      "acceptance_checks": [
+        "Exclude planned specialties from 1.0 executable admission and tool dispatch.",
+        "Shared indicators do not establish actor attribution without independent evidence.",
+        "Promotion requires a later release decision, validated read permissions and independent source-coverage evidence."
+      ]
+    },
+    {
+      "specialty_id": "email_phishing_analyst",
+      "name": "Email & Phishing Analyst",
+      "area": "investigation",
+      "availability": "planned",
+      "core_role": null,
+      "tool_ids": [
+        "email.message_trace"
+      ],
+      "telemetry": [
+        "Message trace",
+        "headers",
+        "URL metadata",
+        "delivery evidence"
+      ],
+      "permissions": [
+        "mail_trace:read",
+        "message_artifacts:read"
+      ],
+      "expected_evidence": [
+        "Message IDs, delivery path and observed user activity."
+      ],
+      "acceptance_checks": [
+        "Exclude planned specialties from 1.0 executable admission and tool dispatch.",
+        "Redact bodies/recipients; distinguish link clicks from compromise.",
+        "Promotion requires a later release decision, validated read permissions and independent source-coverage evidence."
+      ]
+    },
+    {
+      "specialty_id": "threat_hunter",
+      "name": "Threat Hunter",
+      "area": "investigation",
+      "availability": "planned",
+      "core_role": null,
+      "tool_ids": [
+        "threat.hunt"
+      ],
+      "telemetry": [
+        "Approved hunt hypothesis",
+        "authorized entity set",
+        "retained telemetry"
+      ],
+      "permissions": [
+        "events:read",
+        "baselines:read"
+      ],
+      "expected_evidence": [
+        "Hypothesis, bounded query, event references and negative-result coverage."
+      ],
+      "acceptance_checks": [
+        "Exclude planned specialties from 1.0 executable admission and tool dispatch.",
+        "Require explicit incident objective and collection scope even without an alert.",
+        "Promotion requires a later release decision, validated read permissions and independent source-coverage evidence."
+      ]
+    },
+    {
+      "specialty_id": "memory_forensics_investigator",
+      "name": "Memory Forensics Investigator",
+      "area": "investigation",
+      "availability": "planned",
+      "core_role": null,
+      "tool_ids": [
+        "forensics.memory_review"
+      ],
+      "telemetry": [
+        "Authorized memory image hashes",
+        "acquisition metadata",
+        "plugin results"
+      ],
+      "permissions": [
+        "memory_artifacts:read"
+      ],
+      "expected_evidence": [
+        "Image hash, acquisition time, plugin/version and artifact references."
+      ],
+      "acceptance_checks": [
+        "Exclude planned specialties from 1.0 executable admission and tool dispatch.",
+        "Previously authorized artifacts only; no live acquisition or arbitrary plugin execution.",
+        "Promotion requires a later release decision, validated read permissions and independent source-coverage evidence."
+      ]
+    },
+    {
+      "specialty_id": "disk_filesystem_forensics_investigator",
+      "name": "Disk & Filesystem Forensics Investigator",
+      "area": "investigation",
+      "availability": "planned",
+      "core_role": null,
+      "tool_ids": [
+        "forensics.disk_review"
+      ],
+      "telemetry": [
+        "Authorized disk image hashes",
+        "filesystem metadata",
+        "acquisition chain"
+      ],
+      "permissions": [
+        "disk_artifacts:read"
+      ],
+      "expected_evidence": [
+        "Image identity, filesystem offsets, hashes and timeline provenance."
+      ],
+      "acceptance_checks": [
+        "Exclude planned specialties from 1.0 executable admission and tool dispatch.",
+        "Preserve source media and identify deleted-file recovery uncertainty.",
+        "Promotion requires a later release decision, validated read permissions and independent source-coverage evidence."
+      ]
+    },
+    {
+      "specialty_id": "browser_forensics_investigator",
+      "name": "Browser Forensics Investigator",
+      "area": "investigation",
+      "availability": "planned",
+      "core_role": null,
+      "tool_ids": [
+        "forensics.browser_review"
+      ],
+      "telemetry": [
+        "Authorized browser exports",
+        "profile identity",
+        "acquisition time"
+      ],
+      "permissions": [
+        "browser_artifacts:read"
+      ],
+      "expected_evidence": [
+        "Profile, artifact database/table, timestamps and row references."
+      ],
+      "acceptance_checks": [
+        "Exclude planned specialties from 1.0 executable admission and tool dispatch.",
+        "Visits/downloads do not establish execution; redact unrelated browsing.",
+        "Promotion requires a later release decision, validated read permissions and independent source-coverage evidence."
+      ]
+    },
+    {
+      "specialty_id": "ransomware_investigator",
+      "name": "Ransomware Investigator",
+      "area": "investigation",
+      "availability": "planned",
+      "core_role": null,
+      "tool_ids": [
+        "threat.ransomware_review"
+      ],
+      "telemetry": [
+        "Encryption-related file events",
+        "process lineage",
+        "backup interference events"
+      ],
+      "permissions": [
+        "events:read",
+        "endpoint_artifacts:read"
+      ],
+      "expected_evidence": [
+        "Process-linked encryption impact, affected paths and uncertainty."
+      ],
+      "acceptance_checks": [
+        "Exclude planned specialties from 1.0 executable admission and tool dispatch.",
+        "Require observed impact; filenames and family strings are insufficient.",
+        "Promotion requires a later release decision, validated read permissions and independent source-coverage evidence."
+      ]
+    },
+    {
+      "specialty_id": "insider_threat_analyst",
+      "name": "Insider Threat Analyst",
+      "area": "investigation",
+      "availability": "planned",
+      "core_role": null,
+      "tool_ids": [
+        "threat.insider_review"
+      ],
+      "telemetry": [
+        "Authorized access audit",
+        "actor scope",
+        "approved access baselines"
+      ],
+      "permissions": [
+        "access_audit:read",
+        "baselines:read"
+      ],
+      "expected_evidence": [
+        "Source-linked unusual access and policy context."
+      ],
+      "acceptance_checks": [
+        "Exclude planned specialties from 1.0 executable admission and tool dispatch.",
+        "Deviations cannot establish intent or guilt; minimize personal data.",
+        "Promotion requires a later release decision, validated read permissions and independent source-coverage evidence."
+      ]
+    },
+    {
+      "specialty_id": "persistence_lateral_movement_investigator",
+      "name": "Persistence & Lateral Movement Investigator",
+      "area": "investigation",
+      "availability": "planned",
+      "core_role": null,
+      "tool_ids": [
+        "threat.persistence_lateral"
+      ],
+      "telemetry": [
+        "Service/task/autorun changes",
+        "authentication hops",
+        "remote execution events"
+      ],
+      "permissions": [
+        "events:read",
+        "persistence_artifacts:read"
+      ],
+      "expected_evidence": [
+        "Persistence candidates and movement edges with event provenance."
+      ],
+      "acceptance_checks": [
+        "Exclude planned specialties from 1.0 executable admission and tool dispatch.",
+        "Correlate stable host/principal IDs and preserve alternate explanations.",
+        "Promotion requires a later release decision, validated read permissions and independent source-coverage evidence."
+      ]
+    },
+    {
+      "specialty_id": "cloud_security_analyst",
+      "name": "Cloud Security Analyst",
+      "area": "infrastructure",
+      "availability": "planned",
+      "core_role": null,
+      "tool_ids": [
+        "cloud.audit_review"
+      ],
+      "telemetry": [
+        "CloudTrail events",
+        "account/resource identity",
+        "configuration snapshots"
+      ],
+      "permissions": [
+        "cloud_audit:read",
+        "cloud_inventory:read"
+      ],
+      "expected_evidence": [
+        "Event IDs, account/region/resource IDs and configuration time."
+      ],
+      "acceptance_checks": [
+        "Exclude planned specialties from 1.0 executable admission and tool dispatch.",
+        "Respect approved accounts/regions and distinguish management/data coverage.",
+        "Promotion requires a later release decision, validated read permissions and independent source-coverage evidence."
+      ]
+    },
+    {
+      "specialty_id": "container_security_analyst",
+      "name": "Container Security Analyst",
+      "area": "infrastructure",
+      "availability": "planned",
+      "core_role": null,
+      "tool_ids": [
+        "container.inventory_review"
+      ],
+      "telemetry": [
+        "Container/image metadata",
+        "image digest",
+        "runtime logs"
+      ],
+      "permissions": [
+        "containers:read",
+        "image_metadata:read"
+      ],
+      "expected_evidence": [
+        "Container IDs, digest, runtime settings and event references."
+      ],
+      "acceptance_checks": [
+        "Exclude planned specialties from 1.0 executable admission and tool dispatch.",
+        "No shell execution, mutation, image pulls or unsupported host coverage.",
+        "Promotion requires a later release decision, validated read permissions and independent source-coverage evidence."
+      ]
+    },
+    {
+      "specialty_id": "kubernetes_security_analyst",
+      "name": "Kubernetes Security Analyst",
+      "area": "infrastructure",
+      "availability": "planned",
+      "core_role": null,
+      "tool_ids": [
+        "kubernetes.audit_review"
+      ],
+      "telemetry": [
+        "Cluster/namespace inventory",
+        "RBAC objects",
+        "audit logs"
+      ],
+      "permissions": [
+        "kubernetes_inventory:read",
+        "kubernetes_audit:read"
+      ],
+      "expected_evidence": [
+        "Cluster UID, object UID, namespace and audit event IDs."
+      ],
+      "acceptance_checks": [
+        "Exclude planned specialties from 1.0 executable admission and tool dispatch.",
+        "Prove read-only RBAC; no Secret values or workload entry.",
+        "Promotion requires a later release decision, validated read permissions and independent source-coverage evidence."
+      ]
+    },
+    {
+      "specialty_id": "asset_exposure_analyst",
+      "name": "Asset Exposure Analyst",
+      "area": "infrastructure",
+      "availability": "planned",
+      "core_role": null,
+      "tool_ids": [
+        "assets.exposure_review"
+      ],
+      "telemetry": [
+        "Approved inventory",
+        "listening services",
+        "exposure observation metadata"
+      ],
+      "permissions": [
+        "exposure_inventory:read"
+      ],
+      "expected_evidence": [
+        "Asset/service identities, observation time and exposure path."
+      ],
+      "acceptance_checks": [
+        "Exclude planned specialties from 1.0 executable admission and tool dispatch.",
+        "Approved observations only; no active scans or new target discovery.",
+        "Promotion requires a later release decision, validated read permissions and independent source-coverage evidence."
+      ]
+    },
+    {
+      "specialty_id": "configuration_hardening_analyst",
+      "name": "Configuration & Hardening Analyst",
+      "area": "infrastructure",
+      "availability": "planned",
+      "core_role": null,
+      "tool_ids": [
+        "configuration.baseline_review"
+      ],
+      "telemetry": [
+        "Versioned hardening baseline",
+        "collected configuration evidence"
+      ],
+      "permissions": [
+        "configuration:read",
+        "baselines:read"
+      ],
+      "expected_evidence": [
+        "Control IDs, baseline version and observed configuration values."
+      ],
+      "acceptance_checks": [
+        "Exclude planned specialties from 1.0 executable admission and tool dispatch.",
+        "No edits or pass verdict without measured evidence.",
+        "Promotion requires a later release decision, validated read permissions and independent source-coverage evidence."
+      ]
+    },
+    {
+      "specialty_id": "vm_hypervisor_security_analyst",
+      "name": "VM & Hypervisor Security Analyst",
+      "area": "infrastructure",
+      "availability": "planned",
+      "core_role": null,
+      "tool_ids": [
+        "virtualization.inventory_review"
+      ],
+      "telemetry": [
+        "Hypervisor inventory",
+        "VM identity",
+        "management audit events"
+      ],
+      "permissions": [
+        "hypervisor_inventory:read",
+        "hypervisor_audit:read"
+      ],
+      "expected_evidence": [
+        "VM/hypervisor IDs, snapshots and management event references."
+      ],
+      "acceptance_checks": [
+        "Exclude planned specialties from 1.0 executable admission and tool dispatch.",
+        "Guest enrollment cannot establish hypervisor control-plane coverage.",
+        "Promotion requires a later release decision, validated read permissions and independent source-coverage evidence."
+      ]
+    },
+    {
+      "specialty_id": "firewall_security_analyst",
+      "name": "Firewall Security Analyst",
+      "area": "infrastructure",
+      "availability": "planned",
+      "core_role": null,
+      "tool_ids": [
+        "firewall.configuration_review"
+      ],
+      "telemetry": [
+        "Firewall rule exports",
+        "interface/zone metadata",
+        "traffic logs"
+      ],
+      "permissions": [
+        "firewall_config:read",
+        "firewall_logs:read"
+      ],
+      "expected_evidence": [
+        "Rule IDs, effective policy observations and traffic references."
+      ],
+      "acceptance_checks": [
+        "Exclude planned specialties from 1.0 executable admission and tool dispatch.",
+        "No rule creation/modification/deletion; retain snapshot time.",
+        "Promotion requires a later release decision, validated read permissions and independent source-coverage evidence."
+      ]
+    },
+    {
+      "specialty_id": "network_segmentation_analyst",
+      "name": "Network Segmentation Analyst",
+      "area": "infrastructure",
+      "availability": "planned",
+      "core_role": null,
+      "tool_ids": [
+        "network.segmentation_review"
+      ],
+      "telemetry": [
+        "Zone/VLAN inventory",
+        "route/rule exports",
+        "observed flows"
+      ],
+      "permissions": [
+        "network_config:read",
+        "network_flows:read"
+      ],
+      "expected_evidence": [
+        "Observed cross-zone paths and policy contradictions."
+      ],
+      "acceptance_checks": [
+        "Exclude planned specialties from 1.0 executable admission and tool dispatch.",
+        "Passive observation cannot prove every path blocked; no probes or enforcement.",
+        "Promotion requires a later release decision, validated read permissions and independent source-coverage evidence."
+      ]
+    },
+    {
+      "specialty_id": "dns_proxy_security_analyst",
+      "name": "DNS & Proxy Security Analyst",
+      "area": "infrastructure",
+      "availability": "planned",
+      "core_role": null,
+      "tool_ids": [
+        "network.dns_proxy_review"
+      ],
+      "telemetry": [
+        "DNS query/response logs",
+        "proxy access logs",
+        "resolver inventory"
+      ],
+      "permissions": [
+        "dns_logs:read",
+        "proxy_logs:read"
+      ],
+      "expected_evidence": [
+        "DNS/proxy correlations with observed outcomes."
+      ],
+      "acceptance_checks": [
+        "Exclude planned specialties from 1.0 executable admission and tool dispatch.",
+        "Redact URL secrets; distinguish DNS requests from successful egress.",
+        "Promotion requires a later release decision, validated read permissions and independent source-coverage evidence."
+      ]
+    },
+    {
+      "specialty_id": "wireless_security_analyst",
+      "name": "Wireless Security Analyst",
+      "area": "infrastructure",
+      "availability": "planned",
+      "core_role": null,
+      "tool_ids": [
+        "wireless.capture_review"
+      ],
+      "telemetry": [
+        "Authorized passive wireless capture",
+        "channel coverage",
+        "access point inventory"
+      ],
+      "permissions": [
+        "wireless_artifacts:read"
+      ],
+      "expected_evidence": [
+        "Capture hash, BSSID/channel, observations and coverage."
+      ],
+      "acceptance_checks": [
+        "Exclude planned specialties from 1.0 executable admission and tool dispatch.",
+        "No injection, deauthentication or credential cracking.",
+        "Promotion requires a later release decision, validated read permissions and independent source-coverage evidence."
+      ]
+    },
+    {
+      "specialty_id": "mobile_device_security_analyst",
+      "name": "Mobile Device Security Analyst",
+      "area": "infrastructure",
+      "availability": "planned",
+      "core_role": null,
+      "tool_ids": [
+        "mobile.posture_review"
+      ],
+      "telemetry": [
+        "MDM posture",
+        "authorized mobile artifacts",
+        "collection scope"
+      ],
+      "permissions": [
+        "mdm_inventory:read",
+        "mobile_artifacts:read"
+      ],
+      "expected_evidence": [
+        "Device ID, OS/posture observations and artifact provenance."
+      ],
+      "acceptance_checks": [
+        "Exclude planned specialties from 1.0 executable admission and tool dispatch.",
+        "MDM enrollment cannot establish full application/memory forensics.",
+        "Promotion requires a later release decision, validated read permissions and independent source-coverage evidence."
+      ]
+    },
+    {
+      "specialty_id": "iot_security_analyst",
+      "name": "IoT Security Analyst",
+      "area": "infrastructure",
+      "availability": "planned",
+      "core_role": null,
+      "tool_ids": [
+        "iot.telemetry_review"
+      ],
+      "telemetry": [
+        "Device inventory",
+        "firmware identity",
+        "authorized protocol telemetry"
+      ],
+      "permissions": [
+        "iot_inventory:read",
+        "iot_logs:read"
+      ],
+      "expected_evidence": [
+        "Device identity, protocol event IDs and firmware observation time."
+      ],
+      "acceptance_checks": [
+        "Exclude planned specialties from 1.0 executable admission and tool dispatch.",
+        "Require device-specific collection; no firmware changes or generic-host coverage.",
+        "Promotion requires a later release decision, validated read permissions and independent source-coverage evidence."
+      ]
+    },
+    {
+      "specialty_id": "ot_industrial_systems_security_analyst",
+      "name": "OT & Industrial Systems Security Analyst",
+      "area": "infrastructure",
+      "availability": "planned",
+      "core_role": null,
+      "tool_ids": [
+        "ot.passive_review"
+      ],
+      "telemetry": [
+        "Passive industrial protocol logs",
+        "authorized asset map",
+        "operational context"
+      ],
+      "permissions": [
+        "ot_passive_logs:read",
+        "ot_inventory:read"
+      ],
+      "expected_evidence": [
+        "Industrial asset IDs, function events and sensor vantage."
+      ],
+      "acceptance_checks": [
+        "Exclude planned specialties from 1.0 executable admission and tool dispatch.",
+        "No PLC writes, active scans or operational-state inference from missing logs.",
+        "Promotion requires a later release decision, validated read permissions and independent source-coverage evidence."
+      ]
+    },
+    {
+      "specialty_id": "serverless_security_analyst",
+      "name": "Serverless Security Analyst",
+      "area": "infrastructure",
+      "availability": "planned",
+      "core_role": null,
+      "tool_ids": [
+        "serverless.audit_review"
+      ],
+      "telemetry": [
+        "Function/version identity",
+        "invocation/audit logs",
+        "deployment configuration"
+      ],
+      "permissions": [
+        "serverless_inventory:read",
+        "serverless_logs:read"
+      ],
+      "expected_evidence": [
+        "Function ARN/version, request/event IDs and configuration time."
+      ],
+      "acceptance_checks": [
+        "Exclude planned specialties from 1.0 executable admission and tool dispatch.",
+        "Separate control-plane and invocation evidence; no invocation/deployment.",
+        "Promotion requires a later release decision, validated read permissions and independent source-coverage evidence."
+      ]
+    },
+    {
+      "specialty_id": "repository_dependency_security_analyst",
+      "name": "Repository & Dependency Security Analyst",
+      "area": "applications_data",
+      "availability": "planned",
+      "core_role": null,
+      "tool_ids": [
+        "repository.dependency_review"
+      ],
+      "telemetry": [
+        "Approved repository revision",
+        "lockfiles",
+        "vulnerability reports"
+      ],
+      "permissions": [
+        "repository:read",
+        "dependency_reports:read"
+      ],
+      "expected_evidence": [
+        "Commit SHA, dependency version, advisory ID and affected path."
+      ],
+      "acceptance_checks": [
+        "Exclude planned specialties from 1.0 executable admission and tool dispatch.",
+        "Matching advisories show exposure; runtime exploitability requires separate proof.",
+        "Promotion requires a later release decision, validated read permissions and independent source-coverage evidence."
+      ]
+    },
+    {
+      "specialty_id": "application_api_security_analyst",
+      "name": "Application & API Security Analyst",
+      "area": "applications_data",
+      "availability": "implementation_pending",
+      "core_role": "application_api",
+      "tool_ids": [
+        "incident.get",
+        "alerts.search",
+        "assets.get",
+        "collection.coverage",
+        "application.requests",
+        "application.inventory",
+        "payload.decode"
+      ],
+      "telemetry": [
+        "Server application/API security logs",
+        "Endpoint/service inventory",
+        "Redacted request/trace identifiers"
+      ],
+      "permissions": [
+        "incidents:read",
+        "application_logs:read",
+        "service_inventory:read",
+        "collection:read"
+      ],
+      "expected_evidence": [
+        "Incident ID, alert references and persisted scope with source record IDs.",
+        "Alert hits with source index, document ID, event time and query window.",
+        "Registered asset IDs, owner and labels with explicit unverified sensor status.",
+        "Per-source heartbeat, last event time, retention window and known gaps.",
+        "Original record reference, encoded input hash, decoded text and encoding decision.",
+        "Request/trace ID, endpoint, redacted actor, status and server-observed result.",
+        "Service ID, API route, authentication boundary and inventory observation time."
+      ],
+      "acceptance_checks": [
+        "Only the named core bundle is a 1.0 implementation candidate; this roadmap label adds no specialized execution.",
+        "Require verified handlers, connector access and independent acceptance evidence before activation.",
+        "Read persisted source evidence; incident summaries cannot substitute for telemetry.",
+        "Prove historical search against the indexer; never use fabricated prior events.",
+        "Manual registration cannot establish sensor activity or protection.",
+        "Keep manager enrollment and indexer event availability distinct.",
+        "Decode locally without executing text, opening URLs or treating string matches as malware proof.",
+        "Separate attacker input from server evidence; do not infer exploitation from payload alone.",
+        "Restrict inventory to incident-linked services and report absent route/version coverage."
+      ]
+    },
+    {
+      "specialty_id": "database_security_analyst",
+      "name": "Database Security Analyst",
+      "area": "applications_data",
+      "availability": "planned",
+      "core_role": null,
+      "tool_ids": [
+        "database.audit_review"
+      ],
+      "telemetry": [
+        "Database configuration/audit exports",
+        "actor/object identity"
+      ],
+      "permissions": [
+        "database_audit:read",
+        "database_config:read"
+      ],
+      "expected_evidence": [
+        "Audit IDs, actor, database/object and access result."
+      ],
+      "acceptance_checks": [
+        "Exclude planned specialties from 1.0 executable admission and tool dispatch.",
+        "No arbitrary SQL, unrelated row retrieval or data edits.",
+        "Promotion requires a later release decision, validated read permissions and independent source-coverage evidence."
+      ]
+    },
+    {
+      "specialty_id": "data_access_exfiltration_analyst",
+      "name": "Data Access & Exfiltration Analyst",
+      "area": "applications_data",
+      "availability": "planned",
+      "core_role": null,
+      "tool_ids": [
+        "data.exfiltration_review"
+      ],
+      "telemetry": [
+        "Access/download audit",
+        "transfer volumes",
+        "classification metadata"
+      ],
+      "permissions": [
+        "access_audit:read",
+        "transfer_logs:read"
+      ],
+      "expected_evidence": [
+        "Object references, actor, observed transfer and destination."
+      ],
+      "acceptance_checks": [
+        "Exclude planned specialties from 1.0 executable admission and tool dispatch.",
+        "Separate access, transfer and confirmed loss; no content inference without evidence.",
+        "Promotion requires a later release decision, validated read permissions and independent source-coverage evidence."
+      ]
+    },
+    {
+      "specialty_id": "ci_cd_security_analyst",
+      "name": "CI/CD Security Analyst",
+      "area": "applications_data",
+      "availability": "planned",
+      "core_role": null,
+      "tool_ids": [
+        "delivery.pipeline_review"
+      ],
+      "telemetry": [
+        "Pipeline logs",
+        "actor identity",
+        "artifact digests",
+        "policy configuration"
+      ],
+      "permissions": [
+        "pipeline_runs:read",
+        "delivery_metadata:read"
+      ],
+      "expected_evidence": [
+        "Pipeline/run ID, commit SHA, actor and digest."
+      ],
+      "acceptance_checks": [
+        "Exclude planned specialties from 1.0 executable admission and tool dispatch.",
+        "No job triggering, repository writes, secret reads or deployment.",
+        "Promotion requires a later release decision, validated read permissions and independent source-coverage evidence."
+      ]
+    },
+    {
+      "specialty_id": "software_supply_chain_analyst",
+      "name": "Software Supply Chain Analyst",
+      "area": "applications_data",
+      "availability": "planned",
+      "core_role": null,
+      "tool_ids": [
+        "supply_chain.provenance_review"
+      ],
+      "telemetry": [
+        "SBOM",
+        "signed provenance",
+        "artifact digests",
+        "build identity"
+      ],
+      "permissions": [
+        "sbom:read",
+        "provenance:read"
+      ],
+      "expected_evidence": [
+        "Digest, dependency relationships and signature-verification evidence."
+      ],
+      "acceptance_checks": [
+        "Exclude planned specialties from 1.0 executable admission and tool dispatch.",
+        "Unverified signatures cannot establish trusted provenance.",
+        "Promotion requires a later release decision, validated read permissions and independent source-coverage evidence."
+      ]
+    },
+    {
+      "specialty_id": "secrets_credential_exposure_analyst",
+      "name": "Secrets & Credential Exposure Analyst",
+      "area": "applications_data",
+      "availability": "planned",
+      "core_role": null,
+      "tool_ids": [
+        "secrets.exposure_review"
+      ],
+      "telemetry": [
+        "Redacted scan findings",
+        "repository revision",
+        "key identifiers"
+      ],
+      "permissions": [
+        "secret_findings:read"
+      ],
+      "expected_evidence": [
+        "Redacted finding ID, path, revision, type and exposure window."
+      ],
+      "acceptance_checks": [
+        "Exclude planned specialties from 1.0 executable admission and tool dispatch.",
+        "No secret-value retrieval/testing/printing/forwarding or revocation.",
+        "Promotion requires a later release decision, validated read permissions and independent source-coverage evidence."
+      ]
+    },
+    {
+      "specialty_id": "certificate_cryptographic_security_analyst",
+      "name": "Certificate & Cryptographic Security Analyst",
+      "area": "applications_data",
+      "availability": "planned",
+      "core_role": null,
+      "tool_ids": [
+        "crypto.inventory_review"
+      ],
+      "telemetry": [
+        "Certificate metadata",
+        "TLS observations",
+        "approved algorithm policy"
+      ],
+      "permissions": [
+        "certificates:read",
+        "crypto_policy:read"
+      ],
+      "expected_evidence": [
+        "Fingerprint, issuer, validity, algorithm and observation source."
+      ],
+      "acceptance_checks": [
+        "Exclude planned specialties from 1.0 executable admission and tool dispatch.",
+        "No private keys or active endpoint probes; no unsupported strength verdicts.",
+        "Promotion requires a later release decision, validated read permissions and independent source-coverage evidence."
+      ]
+    },
+    {
+      "specialty_id": "saas_security_analyst",
+      "name": "SaaS Security Analyst",
+      "area": "applications_data",
+      "availability": "planned",
+      "core_role": null,
+      "tool_ids": [
+        "saas.audit_review"
+      ],
+      "telemetry": [
+        "SaaS administration configuration",
+        "tenant identity",
+        "audit events"
+      ],
+      "permissions": [
+        "saas_audit:read",
+        "saas_config:read"
+      ],
+      "expected_evidence": [
+        "Tenant/object IDs, admin changes and audit event references."
+      ],
+      "acceptance_checks": [
+        "Exclude planned specialties from 1.0 executable admission and tool dispatch.",
+        "Require provider-specific read scopes; no impersonation or config changes.",
+        "Promotion requires a later release decision, validated read permissions and independent source-coverage evidence."
+      ]
+    },
+    {
+      "specialty_id": "cloud_storage_security_analyst",
+      "name": "Cloud Storage Security Analyst",
+      "area": "applications_data",
+      "availability": "planned",
+      "core_role": null,
+      "tool_ids": [
+        "storage.access_review"
+      ],
+      "telemetry": [
+        "Bucket/object policy metadata",
+        "access logs",
+        "classification"
+      ],
+      "permissions": [
+        "storage_policy:read",
+        "storage_audit:read"
+      ],
+      "expected_evidence": [
+        "Bucket/object IDs, policy observations and access event IDs."
+      ],
+      "acceptance_checks": [
+        "Exclude planned specialties from 1.0 executable admission and tool dispatch.",
+        "No object body downloads or policy changes; prove data-event collection.",
+        "Promotion requires a later release decision, validated read permissions and independent source-coverage evidence."
+      ]
+    },
+    {
+      "specialty_id": "ai_llm_security_analyst",
+      "name": "AI & LLM Security Analyst",
+      "area": "applications_data",
+      "availability": "planned",
+      "core_role": null,
+      "tool_ids": [
+        "ai.audit_review"
+      ],
+      "telemetry": [
+        "Redacted model/prompt/tool audit",
+        "policy decisions",
+        "retrieval provenance"
+      ],
+      "permissions": [
+        "ai_audit:read",
+        "ai_policy:read"
+      ],
+      "expected_evidence": [
+        "Request ID, model/tool identity, decision and source references."
+      ],
+      "acceptance_checks": [
+        "Exclude planned specialties from 1.0 executable admission and tool dispatch.",
+        "Treat attacker text as data; no model calls, injection replay or hidden-data disclosure.",
+        "Promotion requires a later release decision, validated read permissions and independent source-coverage evidence."
+      ]
+    },
+    {
+      "specialty_id": "data_integrity_analyst",
+      "name": "Data Integrity Analyst",
+      "area": "applications_data",
+      "availability": "planned",
+      "core_role": null,
+      "tool_ids": [
+        "data.integrity_review"
+      ],
+      "telemetry": [
+        "Signed baseline manifests",
+        "change audit",
+        "source hashes"
+      ],
+      "permissions": [
+        "integrity_manifests:read",
+        "integrity_events:read"
+      ],
+      "expected_evidence": [
+        "Object identity, observed/baseline digest and change provenance."
+      ],
+      "acceptance_checks": [
+        "Exclude planned specialties from 1.0 executable admission and tool dispatch.",
+        "Require trustworthy baseline/version; distinguish authorized change and corruption.",
+        "Promotion requires a later release decision, validated read permissions and independent source-coverage evidence."
+      ]
+    }
+  ],
+  "core_bundles": [
+    {
+      "role": "triage",
+      "tool_ids": [
+        "incident.get",
+        "alerts.search",
+        "assets.get",
+        "collection.coverage",
+        "indicators.reputation"
+      ],
+      "max_invocations": 20,
+      "availability": "implementation_pending"
+    },
+    {
+      "role": "identity",
+      "tool_ids": [
+        "incident.get",
+        "alerts.search",
+        "assets.get",
+        "collection.coverage",
+        "identity.auth_events",
+        "identity.directory"
+      ],
+      "max_invocations": 20,
+      "availability": "implementation_pending"
+    },
+    {
+      "role": "endpoint",
+      "tool_ids": [
+        "incident.get",
+        "alerts.search",
+        "assets.get",
+        "collection.coverage",
+        "endpoint.agent",
+        "endpoint.processes",
+        "endpoint.files",
+        "payload.decode",
+        "indicators.reputation"
+      ],
+      "max_invocations": 20,
+      "availability": "implementation_pending"
+    },
+    {
+      "role": "network",
+      "tool_ids": [
+        "incident.get",
+        "alerts.search",
+        "assets.get",
+        "collection.coverage",
+        "network.connections",
+        "network.dns",
+        "network.firewall",
+        "indicators.reputation"
+      ],
+      "max_invocations": 20,
+      "availability": "implementation_pending"
+    },
+    {
+      "role": "application_api",
+      "tool_ids": [
+        "incident.get",
+        "alerts.search",
+        "assets.get",
+        "collection.coverage",
+        "application.requests",
+        "application.inventory",
+        "payload.decode"
+      ],
+      "max_invocations": 20,
+      "availability": "implementation_pending"
+    }
+  ]
+}

@@ -81,3 +81,11 @@ Explicit operator admission stores an incident objective and selected areas as a
 Main and area runs complete their delegation passes without awaiting specialist workers. Their completion is not incident closure or endpoint verification. The incident tree aggregates persisted descendant states, results and evidence references separately. Child admission is transactional, idempotent and fenced to the owning coordinator job; no recursive unrestricted spawn interface is introduced.
 
 This is the objective/delegation foundation of O04. Autonomous model planning, scoped real specialist tools (O05), richer collaboration/budget admission (O06), the activity UI and incident closure gates remain separate tasks. See [coordination operations and limits](COORDINATION.md).
+
+### October 4 - Eighth core specialist
+
+Application & API Security Analyst (`application_api`) belongs to `applications_data` and is now part of the eight-role default catalog. It is scheduled only when that area is selected. This adds a durable task role; it does not install application tools, model execution or protection. O05 now covers all eight core specialists.
+
+## T01 - Declarative full toolkit contracts
+
+The approved contract-first baseline is recorded in TOOLKIT_CONTRACTS.md and the packaged toolkit JSON fragments. It maps 60 specialties to 93 proposed tools and 48 connector candidates, with eight pending core bundles. Strict schemas and non-executing validation fixtures define scoped evidence, lease/context checks, approval hashes and independent verification. It installs no handlers or gateway, enables no adapters/credentials, and changes no live workflow/Copilot tool permissions. Copilot write authorization, redaction, fabricated SIEM helpers, approval binding/expiry, quota and response reconciliation are recorded remediation tasks for subsequent implementation.

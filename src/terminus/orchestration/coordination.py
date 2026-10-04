@@ -41,6 +41,7 @@ DEFAULT_CATALOG = (
     SpecialistDefinition(role="response_planner", area="response_improvement"),
     SpecialistDefinition(role="verification", area="response_improvement"),
     SpecialistDefinition(role="evidence_reporting", area="response_improvement"),
+    SpecialistDefinition(role="application_api", area="applications_data"),
 )
 
 
@@ -66,16 +67,9 @@ class CoordinationService:
         self,
         db: Database,
         *,
-        enable_application_api: bool = False,
         catalog: Sequence[SpecialistDefinition] | None = None,
     ) -> None:
-        if type(enable_application_api) is not bool:
-            raise ValueError("enable_application_api must be a boolean")
         specs = list(DEFAULT_CATALOG if catalog is None else catalog)
-        if enable_application_api:
-            specs.append(
-                SpecialistDefinition(role="application_api", area="applications_data")
-            )
         if not 1 <= len(specs) <= MAX_CATALOG_ROLES:
             raise CoordinationLimitError("catalog must contain 1..24 specialties")
         if any(not isinstance(spec, SpecialistDefinition) for spec in specs):

@@ -1,0 +1,1790 @@
+{
+  "connectors": [
+    {
+      "connector_id": "wazuh_response_lab",
+      "name": "Scenario A narrowly scoped Wazuh response connector",
+      "availability": "not_configured",
+      "capabilities": [
+        "verification.wazuh_rule",
+        "verification.response_state",
+        "response.wazuh_ip_block",
+        "recovery.wazuh_ip_unblock"
+      ],
+      "credential_scope": "organization",
+      "egress": "policy_required",
+      "acceptance_checks": [
+        "Validate endpoint identity, tenant ownership and credential policy before any use.",
+        "Expose not_configured or denied honestly; never silently substitute fixture results.",
+        "Bound time/output and redact secret material; use least-privilege credentials distinct from human/model credentials."
+      ]
+    },
+    {
+      "connector_id": "lab_verification",
+      "name": "Independent controlled-lab connectivity and health observations",
+      "availability": "not_configured",
+      "capabilities": [
+        "verification.attacker_path",
+        "verification.service_health"
+      ],
+      "credential_scope": "organization",
+      "egress": "policy_required",
+      "acceptance_checks": [
+        "Validate endpoint identity, tenant ownership and credential policy before any use.",
+        "Expose not_configured or denied honestly; never silently substitute fixture results.",
+        "Bound time/output and redact secret material; use least-privilege credentials distinct from human/model credentials."
+      ]
+    },
+    {
+      "connector_id": "detection_control",
+      "name": "Versioned detection control and backtest provider",
+      "availability": "planned",
+      "capabilities": [
+        "detection.rule_draft",
+        "detection.rule_publish"
+      ],
+      "credential_scope": "organization",
+      "egress": "policy_required",
+      "acceptance_checks": [
+        "Validate endpoint identity, tenant ownership and credential policy before any use.",
+        "Expose not_configured or denied honestly; never silently substitute fixture results.",
+        "Bound time/output and redact secret material; use least-privilege credentials distinct from human/model credentials."
+      ]
+    },
+    {
+      "connector_id": "endpoint_response",
+      "name": "Exact endpoint process, quarantine and persistence provider",
+      "availability": "planned",
+      "capabilities": [
+        "endpoint.process_stop",
+        "endpoint.file_quarantine",
+        "persistence.remove",
+        "endpoint.restore_quarantine"
+      ],
+      "credential_scope": "organization",
+      "egress": "policy_required",
+      "acceptance_checks": [
+        "Validate endpoint identity, tenant ownership and credential policy before any use.",
+        "Expose not_configured or denied honestly; never silently substitute fixture results.",
+        "Bound time/output and redact secret material; use least-privilege credentials distinct from human/model credentials."
+      ]
+    },
+    {
+      "connector_id": "identity_response",
+      "name": "Scoped identity account, session and credential provider",
+      "availability": "planned",
+      "capabilities": [
+        "identity.session_revoke",
+        "identity.account_disable",
+        "identity.credential_rotate",
+        "identity.account_restore"
+      ],
+      "credential_scope": "organization",
+      "egress": "policy_required",
+      "acceptance_checks": [
+        "Validate endpoint identity, tenant ownership and credential policy before any use.",
+        "Expose not_configured or denied honestly; never silently substitute fixture results.",
+        "Bound time/output and redact secret material; use least-privilege credentials distinct from human/model credentials."
+      ]
+    },
+    {
+      "connector_id": "network_response",
+      "name": "Versioned firewall, segmentation, DNS and proxy provider",
+      "availability": "planned",
+      "capabilities": [
+        "network.rule_apply",
+        "network.segmentation_apply",
+        "dns_proxy.rule_apply",
+        "network.rule_undo"
+      ],
+      "credential_scope": "organization",
+      "egress": "policy_required",
+      "acceptance_checks": [
+        "Validate endpoint identity, tenant ownership and credential policy before any use.",
+        "Expose not_configured or denied honestly; never silently substitute fixture results.",
+        "Bound time/output and redact secret material; use least-privilege credentials distinct from human/model credentials."
+      ]
+    },
+    {
+      "connector_id": "backup_recovery",
+      "name": "Backup provenance and scoped restore provider",
+      "availability": "planned",
+      "capabilities": [
+        "backup.integrity_read",
+        "backup.restore"
+      ],
+      "credential_scope": "organization",
+      "egress": "policy_required",
+      "acceptance_checks": [
+        "Validate endpoint identity, tenant ownership and credential policy before any use.",
+        "Expose not_configured or denied honestly; never silently substitute fixture results.",
+        "Bound time/output and redact secret material; use least-privilege credentials distinct from human/model credentials."
+      ]
+    },
+    {
+      "connector_id": "deception_lab",
+      "name": "Authorized isolated decoy provider",
+      "availability": "planned",
+      "capabilities": [
+        "deception.observations_read",
+        "deception.decoy_deploy"
+      ],
+      "credential_scope": "organization",
+      "egress": "policy_required",
+      "acceptance_checks": [
+        "Validate endpoint identity, tenant ownership and credential policy before any use.",
+        "Expose not_configured or denied honestly; never silently substitute fixture results.",
+        "Bound time/output and redact secret material; use least-privilege credentials distinct from human/model credentials."
+      ]
+    },
+    {
+      "connector_id": "control_validation",
+      "name": "Independent defensive-control observation provider",
+      "availability": "planned",
+      "capabilities": [
+        "controls.validation_read"
+      ],
+      "credential_scope": "organization",
+      "egress": "policy_required",
+      "acceptance_checks": [
+        "Validate endpoint identity, tenant ownership and credential policy before any use.",
+        "Expose not_configured or denied honestly; never silently substitute fixture results.",
+        "Bound time/output and redact secret material; use least-privilege credentials distinct from human/model credentials."
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "tool_id": "evidence.get",
+      "version": "1.0",
+      "family": "improvement_evidence",
+      "name": "Read incident evidence by immutable ID",
+      "availability": "implementation_pending",
+      "release": "1.0",
+      "permitted_roles": [
+        "triage",
+        "identity",
+        "endpoint",
+        "network",
+        "response_planner",
+        "verification",
+        "evidence_reporting",
+        "application_api"
+      ],
+      "connector_ids": [],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "read",
+      "resource_scope": "incident",
+      "egress": "none",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Reject foreign-tenant or foreign-incident IDs.",
+        "Preserve content hash and source timestamps; never fabricate missing content."
+      ],
+      "expected_evidence": [
+        "Immutable evidence ID, content hash, source, source_timestamp and collected_at."
+      ]
+    },
+    {
+      "tool_id": "evidence.timeline",
+      "version": "1.0",
+      "family": "improvement_evidence",
+      "name": "Read bounded incident evidence timeline",
+      "availability": "implementation_pending",
+      "release": "1.0",
+      "permitted_roles": [
+        "triage",
+        "identity",
+        "endpoint",
+        "network",
+        "response_planner",
+        "verification",
+        "evidence_reporting",
+        "application_api"
+      ],
+      "connector_ids": [],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "read",
+      "resource_scope": "incident",
+      "egress": "none",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Return bounded deterministic timestamp ordering and pagination.",
+        "Disclose truncation and collection gaps; do not infer events from summaries."
+      ],
+      "expected_evidence": [
+        "Evidence IDs, source times, collection times and pagination/truncation metadata."
+      ]
+    },
+    {
+      "tool_id": "evidence.validate_citations",
+      "version": "1.0",
+      "family": "improvement_evidence",
+      "name": "Validate incident evidence citations",
+      "availability": "implementation_pending",
+      "release": "1.0",
+      "permitted_roles": [
+        "triage",
+        "identity",
+        "endpoint",
+        "network",
+        "response_planner",
+        "verification",
+        "evidence_reporting",
+        "application_api"
+      ],
+      "connector_ids": [],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "local_analysis",
+      "resource_scope": "incident",
+      "egress": "none",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Reject missing, foreign-tenant and foreign-incident citations.",
+        "Citation existence does not prove the associated claim; disclose stale or inadequate support."
+      ],
+      "expected_evidence": [
+        "Citation validity, cited IDs, content hashes and unsupported-claim explanations."
+      ]
+    },
+    {
+      "tool_id": "response.eligibility",
+      "version": "1.0",
+      "family": "response_planning",
+      "name": "Assess scoped response eligibility",
+      "availability": "implementation_pending",
+      "release": "1.0",
+      "permitted_roles": [
+        "response_planner"
+      ],
+      "connector_ids": [],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "local_analysis",
+      "resource_scope": "incident",
+      "egress": "none",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Fail closed when exact endpoint identity, allowlist, permission or protected-path evidence is unavailable.",
+        "Assessment grants no approval and consumes no dispatch quota."
+      ],
+      "expected_evidence": [
+        "Canonical endpoint/target identity, policy version, allowlist snapshot and risk/exclusion reasons."
+      ]
+    },
+    {
+      "tool_id": "response.propose",
+      "version": "1.0",
+      "family": "response_planning",
+      "name": "Draft immutable scoped response proposal",
+      "availability": "implementation_pending",
+      "release": "1.0",
+      "permitted_roles": [
+        "response_planner"
+      ],
+      "connector_ids": [],
+      "input_contract": "response_proposal",
+      "output_contract": "tool_result",
+      "effect": "proposal",
+      "resource_scope": "incident",
+      "egress": "none",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Bind exact provider, endpoint, target, parameters, evidence IDs, approval expiry, effect expiry and owned undo behavior.",
+        "Return a plan and proposal hash without dispatching or approving it."
+      ],
+      "expected_evidence": [
+        "Canonical proposal hash, prerequisites, blast radius, evidence IDs, expected effect and verification/undo plan."
+      ]
+    },
+    {
+      "tool_id": "response.review_plan",
+      "version": "1.0",
+      "family": "response_planning",
+      "name": "Review proposal evidence and prerequisites",
+      "availability": "implementation_pending",
+      "release": "1.0",
+      "permitted_roles": [
+        "response_planner",
+        "verification"
+      ],
+      "connector_ids": [],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "local_analysis",
+      "resource_scope": "incident",
+      "egress": "none",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Identify unsupported attribution, unavailable capabilities and contradictory evidence.",
+        "Reject a plan whose outcome predicates or legitimate-health checks are missing."
+      ],
+      "expected_evidence": [
+        "Proposal hash, unmet prerequisites, evidence disagreements and expected-outcome predicates."
+      ]
+    },
+    {
+      "tool_id": "verification.evaluate",
+      "version": "1.0",
+      "family": "verification",
+      "name": "Evaluate independent outcome evidence",
+      "availability": "implementation_pending",
+      "release": "1.0",
+      "permitted_roles": [
+        "verification"
+      ],
+      "connector_ids": [],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "local_analysis",
+      "resource_scope": "incident",
+      "egress": "none",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Provider acknowledgement alone cannot satisfy verification.",
+        "Require fresh exact-target observation plus intended effect and legitimate-health checks; otherwise report pending, failed or unknown."
+      ],
+      "expected_evidence": [
+        "Observation evidence IDs, expected predicates, freshness, independent source/run identity and uncertainty."
+      ]
+    },
+    {
+      "tool_id": "verification.wazuh_rule",
+      "version": "1.0",
+      "family": "verification",
+      "name": "Read attempt-owned endpoint block rule",
+      "availability": "implementation_pending",
+      "release": "1.0",
+      "permitted_roles": [
+        "verification"
+      ],
+      "connector_ids": [
+        "wazuh_response_lab"
+      ],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "read",
+      "resource_scope": "incident",
+      "egress": "policy_required",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Read the exact endpoint and attempt-owned rule without changing it.",
+        "Manager acknowledgement is not endpoint execution evidence."
+      ],
+      "expected_evidence": [
+        "Endpoint observation timestamp, target IP, rule handle/ownership and provider request ID."
+      ]
+    },
+    {
+      "tool_id": "verification.attacker_path",
+      "version": "1.0",
+      "family": "verification",
+      "name": "Read controlled lab attacker-path observation",
+      "availability": "implementation_pending",
+      "release": "1.0",
+      "permitted_roles": [
+        "verification"
+      ],
+      "connector_ids": [
+        "lab_verification"
+      ],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "read",
+      "resource_scope": "incident",
+      "egress": "policy_required",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Require an authorized lab path and bounded predeclared connectivity observation; no attack generation.",
+        "Correlate baseline and post-action observations to the exact endpoint, source and protocol."
+      ],
+      "expected_evidence": [
+        "Independent lab observation ID, vantage, source/destination, protocol, timestamps and connectivity outcome."
+      ]
+    },
+    {
+      "tool_id": "verification.service_health",
+      "version": "1.0",
+      "family": "verification",
+      "name": "Read legitimate lab management and service health",
+      "availability": "implementation_pending",
+      "release": "1.0",
+      "permitted_roles": [
+        "verification"
+      ],
+      "connector_ids": [
+        "lab_verification"
+      ],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "read",
+      "resource_scope": "incident",
+      "egress": "policy_required",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Check declared legitimate management and service paths independently of the containment acknowledgement.",
+        "Missing or degraded health prevents a successful response verification claim."
+      ],
+      "expected_evidence": [
+        "Independent management/service observations, baseline comparison, timestamps and degraded-path details."
+      ]
+    },
+    {
+      "tool_id": "verification.response_state",
+      "version": "1.0",
+      "family": "verification",
+      "name": "Read response state for unknown-outcome reconciliation",
+      "availability": "implementation_pending",
+      "release": "1.0",
+      "permitted_roles": [
+        "verification"
+      ],
+      "connector_ids": [
+        "wazuh_response_lab"
+      ],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "read",
+      "resource_scope": "incident",
+      "egress": "policy_required",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Read provider and endpoint state using request ID and owned rule identity before any retry or undo.",
+        "Contradiction or absent authoritative observation remains unknown; this tool never replays an action."
+      ],
+      "expected_evidence": [
+        "Proposal/attempt identity, provider state, endpoint state, observation IDs and unresolved discrepancies."
+      ]
+    },
+    {
+      "tool_id": "reporting.incident_draft",
+      "version": "1.0",
+      "family": "improvement_evidence",
+      "name": "Draft evidence-grounded incident report",
+      "availability": "implementation_pending",
+      "release": "1.0",
+      "permitted_roles": [
+        "evidence_reporting"
+      ],
+      "connector_ids": [],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "local_analysis",
+      "resource_scope": "incident",
+      "egress": "none",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Cite immutable evidence and distinguish request, approval, acknowledgement, execution and verification.",
+        "Do not close incidents, export externally or claim unavailable telemetry was collected."
+      ],
+      "expected_evidence": [
+        "Incident timeline, evidence citations, model/tool provenance, gaps and response-state summary."
+      ]
+    },
+    {
+      "tool_id": "improvement.review_outcomes",
+      "version": "1.0",
+      "family": "improvement_evidence",
+      "name": "Review recorded outcomes for improvement opportunities",
+      "availability": "implementation_pending",
+      "release": "1.0",
+      "permitted_roles": [
+        "evidence_reporting"
+      ],
+      "connector_ids": [],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "local_analysis",
+      "resource_scope": "incident",
+      "egress": "none",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Use recorded outcomes and measured failures; no rule publication or automatic policy change.",
+        "Label proposals as untested and distinguish simulations from real rehearsals."
+      ],
+      "expected_evidence": [
+        "Incident/evidence IDs, measured failure or noise, proposed improvement and validation requirements."
+      ]
+    },
+    {
+      "tool_id": "response.wazuh_ip_block",
+      "version": "1.0",
+      "family": "response_execution",
+      "name": "Request temporary attacker-IP block through Wazuh",
+      "availability": "implementation_pending",
+      "release": "1.0",
+      "permitted_roles": [],
+      "connector_ids": [
+        "wazuh_response_lab"
+      ],
+      "input_contract": "scoped_effect",
+      "output_contract": "tool_result",
+      "effect": "dispatch",
+      "resource_scope": "incident",
+      "egress": "policy_required",
+      "requires_approval": true,
+      "idempotency_required": true,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Trusted response service only; no specialist or model may call this contract directly.",
+        "Atomically require a current exact-proposal human approval, target protection, durable quota, cancellation/lease fence and idempotent dispatch intent.",
+        "Record acknowledgement separately from endpoint execution and independent verification; timeout becomes unknown without blind replay."
+      ],
+      "expected_evidence": [
+        "Proposal hash, approval ID, attempt ID, dispatch intent, provider request ID, owned endpoint rule handle and expiry."
+      ]
+    },
+    {
+      "tool_id": "recovery.wazuh_ip_unblock",
+      "version": "1.0",
+      "family": "recovery",
+      "name": "Remove only the attempt-owned temporary block",
+      "availability": "implementation_pending",
+      "release": "1.0",
+      "permitted_roles": [],
+      "connector_ids": [
+        "wazuh_response_lab"
+      ],
+      "input_contract": "scoped_effect",
+      "output_contract": "tool_result",
+      "effect": "dispatch",
+      "resource_scope": "incident",
+      "egress": "policy_required",
+      "requires_approval": true,
+      "idempotency_required": true,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Trusted response service only; manual undo and expiry use the original approved cleanup scope.",
+        "Reconcile unknown state first; never remove a preexisting or foreign-owned rule.",
+        "Persist expiry/undo intent across restart and independently verify rule absence and legitimate connectivity."
+      ],
+      "expected_evidence": [
+        "Original proposal/approval/attempt IDs, exact owned rule, cleanup trigger, provider acknowledgement and recovery observation IDs."
+      ]
+    },
+    {
+      "tool_id": "detection.rule_draft",
+      "version": "1.0",
+      "family": "improvement_evidence",
+      "name": "Draft detection change with regression criteria",
+      "availability": "planned",
+      "release": "future",
+      "permitted_roles": [
+        "detection_engineer"
+      ],
+      "connector_ids": [
+        "detection_control"
+      ],
+      "input_contract": "response_proposal",
+      "output_contract": "tool_result",
+      "effect": "proposal",
+      "resource_scope": "incident",
+      "egress": "policy_required",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Planned future capability; reject version 1.0 admission, assignment and dispatch.",
+        "Read or draft only within the granted incident scope; disclose unavailable telemetry and truncation."
+      ],
+      "expected_evidence": [
+        "Pinned rule version, evidence fixtures, expected true/false positives and untested draft diff."
+      ]
+    },
+    {
+      "tool_id": "detection.rule_publish",
+      "version": "1.0",
+      "family": "response_execution",
+      "name": "Publish an approved versioned detection change",
+      "availability": "planned",
+      "release": "future",
+      "permitted_roles": [
+        "detection_engineer"
+      ],
+      "connector_ids": [
+        "detection_control"
+      ],
+      "input_contract": "scoped_effect",
+      "output_contract": "tool_result",
+      "effect": "dispatch",
+      "resource_scope": "incident",
+      "egress": "policy_required",
+      "requires_approval": true,
+      "idempotency_required": true,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Planned future capability; reject version 1.0 admission, assignment and dispatch.",
+        "Require exact immutable proposal approval, scoped provider identity, risk/irreversibility disclosure, durable idempotency and dispatch fence.",
+        "Require independent effect and legitimate-health evidence; reconcile unknown state before retry or undo.",
+        "Permit only the named typed operation; no arbitrary shell, script, URL, API method or bulk wildcard target."
+      ],
+      "expected_evidence": [
+        "Approved rule diff/version, backtest results, deployment receipt, rollback version and live detection observations."
+      ]
+    },
+    {
+      "tool_id": "endpoint.process_stop",
+      "version": "1.0",
+      "family": "response_execution",
+      "name": "Stop an approved exact malicious process",
+      "availability": "planned",
+      "release": "future",
+      "permitted_roles": [
+        "malware_persistence_eradication_specialist"
+      ],
+      "connector_ids": [
+        "endpoint_response"
+      ],
+      "input_contract": "scoped_effect",
+      "output_contract": "tool_result",
+      "effect": "dispatch",
+      "resource_scope": "incident",
+      "egress": "policy_required",
+      "requires_approval": true,
+      "idempotency_required": true,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Planned future capability; reject version 1.0 admission, assignment and dispatch.",
+        "Require exact immutable proposal approval, scoped provider identity, risk/irreversibility disclosure, durable idempotency and dispatch fence.",
+        "Require independent effect and legitimate-health evidence; reconcile unknown state before retry or undo.",
+        "Permit only the named typed operation; no arbitrary shell, script, URL, API method or bulk wildcard target."
+      ],
+      "expected_evidence": [
+        "Endpoint/process identity including start time, preserved evidence, stop receipt and independent process/service observations."
+      ]
+    },
+    {
+      "tool_id": "endpoint.file_quarantine",
+      "version": "1.0",
+      "family": "response_execution",
+      "name": "Quarantine an approved exact file",
+      "availability": "planned",
+      "release": "future",
+      "permitted_roles": [
+        "malware_persistence_eradication_specialist"
+      ],
+      "connector_ids": [
+        "endpoint_response"
+      ],
+      "input_contract": "scoped_effect",
+      "output_contract": "tool_result",
+      "effect": "dispatch",
+      "resource_scope": "incident",
+      "egress": "policy_required",
+      "requires_approval": true,
+      "idempotency_required": true,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Planned future capability; reject version 1.0 admission, assignment and dispatch.",
+        "Require exact immutable proposal approval, scoped provider identity, risk/irreversibility disclosure, durable idempotency and dispatch fence.",
+        "Require independent effect and legitimate-health evidence; reconcile unknown state before retry or undo.",
+        "Permit only the named typed operation; no arbitrary shell, script, URL, API method or bulk wildcard target."
+      ],
+      "expected_evidence": [
+        "Path/hash identity, evidence-preservation reference, quarantine handle, restore plan and independent access/execution observation."
+      ]
+    },
+    {
+      "tool_id": "persistence.remove",
+      "version": "1.0",
+      "family": "response_execution",
+      "name": "Remove an approved identified persistence artifact",
+      "availability": "planned",
+      "release": "future",
+      "permitted_roles": [
+        "malware_persistence_eradication_specialist"
+      ],
+      "connector_ids": [
+        "endpoint_response"
+      ],
+      "input_contract": "scoped_effect",
+      "output_contract": "tool_result",
+      "effect": "dispatch",
+      "resource_scope": "incident",
+      "egress": "policy_required",
+      "requires_approval": true,
+      "idempotency_required": true,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Planned future capability; reject version 1.0 admission, assignment and dispatch.",
+        "Require exact immutable proposal approval, scoped provider identity, risk/irreversibility disclosure, durable idempotency and dispatch fence.",
+        "Require independent effect and legitimate-health evidence; reconcile unknown state before retry or undo.",
+        "Permit only the named typed operation; no arbitrary shell, script, URL, API method or bulk wildcard target."
+      ],
+      "expected_evidence": [
+        "Artifact identity/version, preserved original, approved diff, recovery plan and independent persistence/health observations."
+      ]
+    },
+    {
+      "tool_id": "endpoint.restore_quarantine",
+      "version": "1.0",
+      "family": "recovery",
+      "name": "Restore an approved quarantined artifact",
+      "availability": "planned",
+      "release": "future",
+      "permitted_roles": [
+        "malware_persistence_eradication_specialist"
+      ],
+      "connector_ids": [
+        "endpoint_response"
+      ],
+      "input_contract": "scoped_effect",
+      "output_contract": "tool_result",
+      "effect": "dispatch",
+      "resource_scope": "incident",
+      "egress": "policy_required",
+      "requires_approval": true,
+      "idempotency_required": true,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Planned future capability; reject version 1.0 admission, assignment and dispatch.",
+        "Require exact immutable proposal approval, scoped provider identity, risk/irreversibility disclosure, durable idempotency and dispatch fence.",
+        "Require independent effect and legitimate-health evidence; reconcile unknown state before retry or undo.",
+        "Permit only the named typed operation; no arbitrary shell, script, URL, API method or bulk wildcard target."
+      ],
+      "expected_evidence": [
+        "Quarantine ownership, approved clean hash/destination, restore receipt and integrity/service observations."
+      ]
+    },
+    {
+      "tool_id": "identity.session_revoke",
+      "version": "1.0",
+      "family": "response_execution",
+      "name": "Revoke an approved exact identity session",
+      "availability": "planned",
+      "release": "future",
+      "permitted_roles": [
+        "identity_session_revocation_specialist"
+      ],
+      "connector_ids": [
+        "identity_response"
+      ],
+      "input_contract": "scoped_effect",
+      "output_contract": "tool_result",
+      "effect": "dispatch",
+      "resource_scope": "incident",
+      "egress": "policy_required",
+      "requires_approval": true,
+      "idempotency_required": true,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Planned future capability; reject version 1.0 admission, assignment and dispatch.",
+        "Require exact immutable proposal approval, scoped provider identity, risk/irreversibility disclosure, durable idempotency and dispatch fence.",
+        "Require independent effect and legitimate-health evidence; reconcile unknown state before retry or undo.",
+        "Permit only the named typed operation; no arbitrary shell, script, URL, API method or bulk wildcard target."
+      ],
+      "expected_evidence": [
+        "Principal/session identity, protected-account check, irreversible-revocation warning, provider receipt and denied-session/legitimate-access observations."
+      ]
+    },
+    {
+      "tool_id": "identity.account_disable",
+      "version": "1.0",
+      "family": "response_execution",
+      "name": "Temporarily disable an approved account",
+      "availability": "planned",
+      "release": "future",
+      "permitted_roles": [
+        "identity_session_revocation_specialist"
+      ],
+      "connector_ids": [
+        "identity_response"
+      ],
+      "input_contract": "scoped_effect",
+      "output_contract": "tool_result",
+      "effect": "dispatch",
+      "resource_scope": "incident",
+      "egress": "policy_required",
+      "requires_approval": true,
+      "idempotency_required": true,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Planned future capability; reject version 1.0 admission, assignment and dispatch.",
+        "Require exact immutable proposal approval, scoped provider identity, risk/irreversibility disclosure, durable idempotency and dispatch fence.",
+        "Require independent effect and legitimate-health evidence; reconcile unknown state before retry or undo.",
+        "Permit only the named typed operation; no arbitrary shell, script, URL, API method or bulk wildcard target."
+      ],
+      "expected_evidence": [
+        "Exact principal, dependency impact, prior account state, approved restore scope and independent access observations."
+      ]
+    },
+    {
+      "tool_id": "identity.credential_rotate",
+      "version": "1.0",
+      "family": "response_execution",
+      "name": "Rotate an approved exposed credential",
+      "availability": "planned",
+      "release": "future",
+      "permitted_roles": [
+        "identity_session_revocation_specialist"
+      ],
+      "connector_ids": [
+        "identity_response"
+      ],
+      "input_contract": "scoped_effect",
+      "output_contract": "tool_result",
+      "effect": "dispatch",
+      "resource_scope": "incident",
+      "egress": "policy_required",
+      "requires_approval": true,
+      "idempotency_required": true,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Planned future capability; reject version 1.0 admission, assignment and dispatch.",
+        "Require exact immutable proposal approval, scoped provider identity, risk/irreversibility disclosure, durable idempotency and dispatch fence.",
+        "Require independent effect and legitimate-health evidence; reconcile unknown state before retry or undo.",
+        "Permit only the named typed operation; no arbitrary shell, script, URL, API method or bulk wildcard target."
+      ],
+      "expected_evidence": [
+        "Credential reference without secret material, dependent services, approved rollout/recovery plan and rejected-old/working-new credential observations."
+      ]
+    },
+    {
+      "tool_id": "identity.account_restore",
+      "version": "1.0",
+      "family": "recovery",
+      "name": "Restore an approved temporarily disabled account",
+      "availability": "planned",
+      "release": "future",
+      "permitted_roles": [
+        "identity_session_revocation_specialist"
+      ],
+      "connector_ids": [
+        "identity_response"
+      ],
+      "input_contract": "scoped_effect",
+      "output_contract": "tool_result",
+      "effect": "dispatch",
+      "resource_scope": "incident",
+      "egress": "policy_required",
+      "requires_approval": true,
+      "idempotency_required": true,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Planned future capability; reject version 1.0 admission, assignment and dispatch.",
+        "Require exact immutable proposal approval, scoped provider identity, risk/irreversibility disclosure, durable idempotency and dispatch fence.",
+        "Require independent effect and legitimate-health evidence; reconcile unknown state before retry or undo.",
+        "Permit only the named typed operation; no arbitrary shell, script, URL, API method or bulk wildcard target."
+      ],
+      "expected_evidence": [
+        "Original owned disable attempt, approved principal state, restore receipt and independent legitimate-access observation."
+      ]
+    },
+    {
+      "tool_id": "network.rule_apply",
+      "version": "1.0",
+      "family": "response_execution",
+      "name": "Apply an approved bounded network block rule",
+      "availability": "planned",
+      "release": "future",
+      "permitted_roles": [
+        "network_blocking_specialist"
+      ],
+      "connector_ids": [
+        "network_response"
+      ],
+      "input_contract": "scoped_effect",
+      "output_contract": "tool_result",
+      "effect": "dispatch",
+      "resource_scope": "incident",
+      "egress": "policy_required",
+      "requires_approval": true,
+      "idempotency_required": true,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Planned future capability; reject version 1.0 admission, assignment and dispatch.",
+        "Require exact immutable proposal approval, scoped provider identity, risk/irreversibility disclosure, durable idempotency and dispatch fence.",
+        "Require independent effect and legitimate-health evidence; reconcile unknown state before retry or undo.",
+        "Permit only the named typed operation; no arbitrary shell, script, URL, API method or bulk wildcard target."
+      ],
+      "expected_evidence": [
+        "Exact device/rule/traffic tuple, protected paths, duration, owned rule handle and independent blocked/permitted-path observations."
+      ]
+    },
+    {
+      "tool_id": "network.segmentation_apply",
+      "version": "1.0",
+      "family": "response_execution",
+      "name": "Apply an approved scoped segmentation change",
+      "availability": "planned",
+      "release": "future",
+      "permitted_roles": [
+        "network_blocking_specialist"
+      ],
+      "connector_ids": [
+        "network_response"
+      ],
+      "input_contract": "scoped_effect",
+      "output_contract": "tool_result",
+      "effect": "dispatch",
+      "resource_scope": "incident",
+      "egress": "policy_required",
+      "requires_approval": true,
+      "idempotency_required": true,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Planned future capability; reject version 1.0 admission, assignment and dispatch.",
+        "Require exact immutable proposal approval, scoped provider identity, risk/irreversibility disclosure, durable idempotency and dispatch fence.",
+        "Require independent effect and legitimate-health evidence; reconcile unknown state before retry or undo.",
+        "Permit only the named typed operation; no arbitrary shell, script, URL, API method or bulk wildcard target."
+      ],
+      "expected_evidence": [
+        "Versioned device/policy diff, impacted paths, rollback snapshot and independent isolation/business-path observations."
+      ]
+    },
+    {
+      "tool_id": "dns_proxy.rule_apply",
+      "version": "1.0",
+      "family": "response_execution",
+      "name": "Apply an approved scoped DNS or proxy rule",
+      "availability": "planned",
+      "release": "future",
+      "permitted_roles": [
+        "network_blocking_specialist"
+      ],
+      "connector_ids": [
+        "network_response"
+      ],
+      "input_contract": "scoped_effect",
+      "output_contract": "tool_result",
+      "effect": "dispatch",
+      "resource_scope": "incident",
+      "egress": "policy_required",
+      "requires_approval": true,
+      "idempotency_required": true,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Planned future capability; reject version 1.0 admission, assignment and dispatch.",
+        "Require exact immutable proposal approval, scoped provider identity, risk/irreversibility disclosure, durable idempotency and dispatch fence.",
+        "Require independent effect and legitimate-health evidence; reconcile unknown state before retry or undo.",
+        "Permit only the named typed operation; no arbitrary shell, script, URL, API method or bulk wildcard target."
+      ],
+      "expected_evidence": [
+        "Exact resolver/proxy and indicator, rule version/ownership, undo scope and independent blocked/legitimate-resolution observations."
+      ]
+    },
+    {
+      "tool_id": "network.rule_undo",
+      "version": "1.0",
+      "family": "recovery",
+      "name": "Undo an attempt-owned network policy change",
+      "availability": "planned",
+      "release": "future",
+      "permitted_roles": [
+        "network_blocking_specialist"
+      ],
+      "connector_ids": [
+        "network_response"
+      ],
+      "input_contract": "scoped_effect",
+      "output_contract": "tool_result",
+      "effect": "dispatch",
+      "resource_scope": "incident",
+      "egress": "policy_required",
+      "requires_approval": true,
+      "idempotency_required": true,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Planned future capability; reject version 1.0 admission, assignment and dispatch.",
+        "Require exact immutable proposal approval, scoped provider identity, risk/irreversibility disclosure, durable idempotency and dispatch fence.",
+        "Require independent effect and legitimate-health evidence; reconcile unknown state before retry or undo.",
+        "Permit only the named typed operation; no arbitrary shell, script, URL, API method or bulk wildcard target."
+      ],
+      "expected_evidence": [
+        "Owned change identity, prior version, approved cleanup scope and independent restored-path observations."
+      ]
+    },
+    {
+      "tool_id": "backup.integrity_read",
+      "version": "1.0",
+      "family": "verification",
+      "name": "Read backup integrity and restoration-readiness evidence",
+      "availability": "planned",
+      "release": "future",
+      "permitted_roles": [
+        "backup_recovery_specialist"
+      ],
+      "connector_ids": [
+        "backup_recovery"
+      ],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "read",
+      "resource_scope": "incident",
+      "egress": "policy_required",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Planned future capability; reject version 1.0 admission, assignment and dispatch.",
+        "Read or draft only within the granted incident scope; disclose unavailable telemetry and truncation."
+      ],
+      "expected_evidence": [
+        "Snapshot identity, age, integrity provenance, clean-baseline evidence and rehearsal/restore-readiness gaps."
+      ]
+    },
+    {
+      "tool_id": "backup.restore",
+      "version": "1.0",
+      "family": "recovery",
+      "name": "Restore an approved clean snapshot to a scoped target",
+      "availability": "planned",
+      "release": "future",
+      "permitted_roles": [
+        "backup_recovery_specialist"
+      ],
+      "connector_ids": [
+        "backup_recovery"
+      ],
+      "input_contract": "scoped_effect",
+      "output_contract": "tool_result",
+      "effect": "dispatch",
+      "resource_scope": "incident",
+      "egress": "policy_required",
+      "requires_approval": true,
+      "idempotency_required": true,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Planned future capability; reject version 1.0 admission, assignment and dispatch.",
+        "Require exact immutable proposal approval, scoped provider identity, risk/irreversibility disclosure, durable idempotency and dispatch fence.",
+        "Require independent effect and legitimate-health evidence; reconcile unknown state before retry or undo.",
+        "Permit only the named typed operation; no arbitrary shell, script, URL, API method or bulk wildcard target."
+      ],
+      "expected_evidence": [
+        "Clean snapshot provenance, exact target and overwrite impact, preserved pre-restore state, restore receipt and integrity/service observations."
+      ]
+    },
+    {
+      "tool_id": "deception.observations_read",
+      "version": "1.0",
+      "family": "improvement_evidence",
+      "name": "Read authorized decoy observations",
+      "availability": "planned",
+      "release": "future",
+      "permitted_roles": [
+        "deception_honeypot_specialist"
+      ],
+      "connector_ids": [
+        "deception_lab"
+      ],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "read",
+      "resource_scope": "incident",
+      "egress": "policy_required",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Planned future capability; reject version 1.0 admission, assignment and dispatch.",
+        "Read or draft only within the granted incident scope; disclose unavailable telemetry and truncation."
+      ],
+      "expected_evidence": [
+        "Owned decoy ID, isolated environment, timestamped events and evidence limitations without invented attribution."
+      ]
+    },
+    {
+      "tool_id": "deception.decoy_deploy",
+      "version": "1.0",
+      "family": "response_execution",
+      "name": "Deploy an approved isolated decoy configuration",
+      "availability": "planned",
+      "release": "future",
+      "permitted_roles": [
+        "deception_honeypot_specialist"
+      ],
+      "connector_ids": [
+        "deception_lab"
+      ],
+      "input_contract": "scoped_effect",
+      "output_contract": "tool_result",
+      "effect": "dispatch",
+      "resource_scope": "incident",
+      "egress": "policy_required",
+      "requires_approval": true,
+      "idempotency_required": true,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Planned future capability; reject version 1.0 admission, assignment and dispatch.",
+        "Require exact immutable proposal approval, scoped provider identity, risk/irreversibility disclosure, durable idempotency and dispatch fence.",
+        "Require independent effect and legitimate-health evidence; reconcile unknown state before retry or undo.",
+        "Permit only the named typed operation; no arbitrary shell, script, URL, API method or bulk wildcard target."
+      ],
+      "expected_evidence": [
+        "Approved decoy/version/environment, isolation boundaries, expiry/removal scope and independent deployment/isolation observations."
+      ]
+    },
+    {
+      "tool_id": "controls.validation_read",
+      "version": "1.0",
+      "family": "verification",
+      "name": "Read measured defensive-control validation evidence",
+      "availability": "planned",
+      "release": "future",
+      "permitted_roles": [
+        "defensive_control_validation_analyst"
+      ],
+      "connector_ids": [
+        "control_validation"
+      ],
+      "input_contract": "read_query",
+      "output_contract": "tool_result",
+      "effect": "read",
+      "resource_scope": "incident",
+      "egress": "policy_required",
+      "requires_approval": false,
+      "idempotency_required": false,
+      "limits": {
+        "window_seconds": 3600,
+        "page_size": 200,
+        "max_pages": 4,
+        "timeout_seconds": 10,
+        "max_output_bytes": 65536
+      },
+      "acceptance_checks": [
+        "Planned future capability; reject version 1.0 admission, assignment and dispatch.",
+        "Read or draft only within the granted incident scope; disclose unavailable telemetry and truncation."
+      ],
+      "expected_evidence": [
+        "Pinned control/test IDs, authorized environment, independent measured outcome and legitimate-health observations."
+      ]
+    }
+  ],
+  "specialties": [
+    {
+      "specialty_id": "containment_planner",
+      "name": "Containment Planner",
+      "area": "response_improvement",
+      "availability": "implementation_pending",
+      "core_role": "response_planner",
+      "tool_ids": [
+        "evidence.get",
+        "evidence.timeline",
+        "evidence.validate_citations",
+        "response.eligibility",
+        "response.propose",
+        "response.review_plan"
+      ],
+      "telemetry": [
+        "Incident evidence, exact endpoint/source attribution, protected paths and allowlists."
+      ],
+      "permissions": [
+        "Tenant/incident-scoped evidence read.",
+        "Core role has no direct dispatch or approval permission."
+      ],
+      "expected_evidence": [
+        "Canonical proposal hash, eligibility reasons, exact target, approval/effect expiry and verification/undo plan."
+      ],
+      "acceptance_checks": [
+        "Missing sources/tools produce explicit gaps, never fabricated coverage.",
+        "Core alias does not grant future tools.",
+        "Verification must use independent observations rather than provider acknowledgement."
+      ]
+    },
+    {
+      "specialty_id": "remediation_planner",
+      "name": "Remediation Planner",
+      "area": "response_improvement",
+      "availability": "implementation_pending",
+      "core_role": "response_planner",
+      "tool_ids": [
+        "evidence.get",
+        "evidence.timeline",
+        "evidence.validate_citations",
+        "response.eligibility",
+        "response.propose",
+        "response.review_plan"
+      ],
+      "telemetry": [
+        "Observed incident behavior, preserved evidence, dependencies and recovery prerequisites."
+      ],
+      "permissions": [
+        "Tenant/incident-scoped evidence read.",
+        "Core role has no direct dispatch or approval permission."
+      ],
+      "expected_evidence": [
+        "Scoped staged proposal, reversibility/irreversibility disclosure and independently measurable recovery predicates."
+      ],
+      "acceptance_checks": [
+        "Missing sources/tools produce explicit gaps, never fabricated coverage.",
+        "Core alias does not grant future tools.",
+        "Verification must use independent observations rather than provider acknowledgement."
+      ]
+    },
+    {
+      "specialty_id": "recovery_verification_analyst",
+      "name": "Recovery Verification Analyst",
+      "area": "response_improvement",
+      "availability": "implementation_pending",
+      "core_role": "verification",
+      "tool_ids": [
+        "evidence.get",
+        "evidence.timeline",
+        "evidence.validate_citations",
+        "response.review_plan",
+        "verification.evaluate",
+        "verification.wazuh_rule",
+        "verification.attacker_path",
+        "verification.service_health",
+        "verification.response_state"
+      ],
+      "telemetry": [
+        "Fresh independent endpoint, attacker-path and legitimate-management/service observations."
+      ],
+      "permissions": [
+        "Tenant/incident-scoped evidence read.",
+        "Core role has no direct dispatch or approval permission."
+      ],
+      "expected_evidence": [
+        "Effect and recovery predicate results with observation IDs, timestamps, gaps and uncertainty."
+      ],
+      "acceptance_checks": [
+        "Missing sources/tools produce explicit gaps, never fabricated coverage.",
+        "Core alias does not grant future tools.",
+        "Verification must use independent observations rather than provider acknowledgement."
+      ]
+    },
+    {
+      "specialty_id": "detection_engineer",
+      "name": "Detection Engineer",
+      "area": "response_improvement",
+      "availability": "planned",
+      "core_role": null,
+      "tool_ids": [
+        "evidence.get",
+        "evidence.timeline",
+        "evidence.validate_citations",
+        "detection.rule_draft",
+        "detection.rule_publish"
+      ],
+      "telemetry": [
+        "Pinned detection rule/version and representative true-positive/false-positive fixtures."
+      ],
+      "permissions": [
+        "Tenant/incident-scoped evidence read.",
+        "Future activation requires an explicit release decision and tool-specific least privilege.",
+        "Every consequential effect requires a scoped human approval and trusted response-service dispatch."
+      ],
+      "expected_evidence": [
+        "Versioned proposed diff, backtest/regression evidence and publication/rollback verification."
+      ],
+      "acceptance_checks": [
+        "Missing sources/tools produce explicit gaps, never fabricated coverage.",
+        "Reject version 1.0 launch, assignment, scheduler admission and tool dispatch.",
+        "Verification must use independent observations rather than provider acknowledgement."
+      ]
+    },
+    {
+      "specialty_id": "evidence_review_analyst",
+      "name": "Evidence Review Analyst",
+      "area": "response_improvement",
+      "availability": "implementation_pending",
+      "core_role": "evidence_reporting",
+      "tool_ids": [
+        "evidence.get",
+        "evidence.timeline",
+        "evidence.validate_citations",
+        "reporting.incident_draft",
+        "improvement.review_outcomes"
+      ],
+      "telemetry": [
+        "Immutable tenant/incident evidence records, hashes, source and collection timestamps."
+      ],
+      "permissions": [
+        "Tenant/incident-scoped evidence read.",
+        "Core role has no direct dispatch or approval permission."
+      ],
+      "expected_evidence": [
+        "Citation validation, disagreements, collection gaps and unsupported claims."
+      ],
+      "acceptance_checks": [
+        "Missing sources/tools produce explicit gaps, never fabricated coverage.",
+        "Core alias does not grant future tools.",
+        "Verification must use independent observations rather than provider acknowledgement."
+      ]
+    },
+    {
+      "specialty_id": "incident_reporting_analyst",
+      "name": "Incident Reporting Analyst",
+      "area": "response_improvement",
+      "availability": "implementation_pending",
+      "core_role": "evidence_reporting",
+      "tool_ids": [
+        "evidence.get",
+        "evidence.timeline",
+        "evidence.validate_citations",
+        "reporting.incident_draft",
+        "improvement.review_outcomes"
+      ],
+      "telemetry": [
+        "Incident/task/action timeline, immutable evidence and provenance."
+      ],
+      "permissions": [
+        "Tenant/incident-scoped evidence read.",
+        "Core role has no direct dispatch or approval permission."
+      ],
+      "expected_evidence": [
+        "Grounded draft separating acknowledgement, execution and independent verification; no automatic closure."
+      ],
+      "acceptance_checks": [
+        "Missing sources/tools produce explicit gaps, never fabricated coverage.",
+        "Core alias does not grant future tools.",
+        "Verification must use independent observations rather than provider acknowledgement."
+      ]
+    },
+    {
+      "specialty_id": "malware_persistence_eradication_specialist",
+      "name": "Malware & Persistence Eradication Specialist",
+      "area": "response_improvement",
+      "availability": "planned",
+      "core_role": null,
+      "tool_ids": [
+        "evidence.get",
+        "evidence.timeline",
+        "evidence.validate_citations",
+        "endpoint.process_stop",
+        "endpoint.file_quarantine",
+        "persistence.remove",
+        "endpoint.restore_quarantine"
+      ],
+      "telemetry": [
+        "Exact process start identity, file hashes, persistence artifact versions and preserved originals."
+      ],
+      "permissions": [
+        "Tenant/incident-scoped evidence read.",
+        "Future activation requires an explicit release decision and tool-specific least privilege.",
+        "Every consequential effect requires a scoped human approval and trusted response-service dispatch."
+      ],
+      "expected_evidence": [
+        "Owned changes, preservation references, approved recovery scope and independent recurrence/health checks."
+      ],
+      "acceptance_checks": [
+        "Missing sources/tools produce explicit gaps, never fabricated coverage.",
+        "Reject version 1.0 launch, assignment, scheduler admission and tool dispatch.",
+        "Verification must use independent observations rather than provider acknowledgement."
+      ]
+    },
+    {
+      "specialty_id": "identity_session_revocation_specialist",
+      "name": "Identity & Session Revocation Specialist",
+      "area": "response_improvement",
+      "availability": "planned",
+      "core_role": null,
+      "tool_ids": [
+        "evidence.get",
+        "evidence.timeline",
+        "evidence.validate_citations",
+        "identity.session_revoke",
+        "identity.account_disable",
+        "identity.credential_rotate",
+        "identity.account_restore"
+      ],
+      "telemetry": [
+        "Authoritative principal/session identity, protected accounts, credentials references and service dependencies."
+      ],
+      "permissions": [
+        "Tenant/incident-scoped evidence read.",
+        "Future activation requires an explicit release decision and tool-specific least privilege.",
+        "Every consequential effect requires a scoped human approval and trusted response-service dispatch."
+      ],
+      "expected_evidence": [
+        "Exact approved identity effect, irreversibility disclosure, provider state and independent access checks."
+      ],
+      "acceptance_checks": [
+        "Missing sources/tools produce explicit gaps, never fabricated coverage.",
+        "Reject version 1.0 launch, assignment, scheduler admission and tool dispatch.",
+        "Verification must use independent observations rather than provider acknowledgement."
+      ]
+    },
+    {
+      "specialty_id": "network_blocking_specialist",
+      "name": "Network Blocking Specialist",
+      "area": "response_improvement",
+      "availability": "planned",
+      "core_role": null,
+      "tool_ids": [
+        "evidence.get",
+        "evidence.timeline",
+        "evidence.validate_citations",
+        "network.rule_apply",
+        "network.segmentation_apply",
+        "dns_proxy.rule_apply",
+        "network.rule_undo"
+      ],
+      "telemetry": [
+        "Exact device/traffic tuple, protected management paths, current policies and legitimate-path baseline."
+      ],
+      "permissions": [
+        "Tenant/incident-scoped evidence read.",
+        "Future activation requires an explicit release decision and tool-specific least privilege.",
+        "Every consequential effect requires a scoped human approval and trusted response-service dispatch."
+      ],
+      "expected_evidence": [
+        "Owned rule/version, expiry/undo scope and blocked-path plus legitimate-path observations."
+      ],
+      "acceptance_checks": [
+        "Missing sources/tools produce explicit gaps, never fabricated coverage.",
+        "Reject version 1.0 launch, assignment, scheduler admission and tool dispatch.",
+        "Verification must use independent observations rather than provider acknowledgement."
+      ]
+    },
+    {
+      "specialty_id": "backup_recovery_specialist",
+      "name": "Backup & Recovery Specialist",
+      "area": "response_improvement",
+      "availability": "planned",
+      "core_role": null,
+      "tool_ids": [
+        "evidence.get",
+        "evidence.timeline",
+        "evidence.validate_citations",
+        "backup.integrity_read",
+        "backup.restore"
+      ],
+      "telemetry": [
+        "Snapshot identity, integrity, freshness, clean provenance and restoration rehearsal evidence."
+      ],
+      "permissions": [
+        "Tenant/incident-scoped evidence read.",
+        "Future activation requires an explicit release decision and tool-specific least privilege.",
+        "Every consequential effect requires a scoped human approval and trusted response-service dispatch."
+      ],
+      "expected_evidence": [
+        "Approved restore target/overwrite impact, preservation, independently verified integrity and legitimate operation."
+      ],
+      "acceptance_checks": [
+        "Missing sources/tools produce explicit gaps, never fabricated coverage.",
+        "Reject version 1.0 launch, assignment, scheduler admission and tool dispatch.",
+        "Verification must use independent observations rather than provider acknowledgement."
+      ]
+    },
+    {
+      "specialty_id": "deception_honeypot_specialist",
+      "name": "Deception & Honeypot Specialist",
+      "area": "response_improvement",
+      "availability": "planned",
+      "core_role": null,
+      "tool_ids": [
+        "evidence.get",
+        "evidence.timeline",
+        "evidence.validate_citations",
+        "deception.observations_read",
+        "deception.decoy_deploy"
+      ],
+      "telemetry": [
+        "Authorized isolated decoy inventory, versioned configurations and timestamped observations."
+      ],
+      "permissions": [
+        "Tenant/incident-scoped evidence read.",
+        "Future activation requires an explicit release decision and tool-specific least privilege.",
+        "Every consequential effect requires a scoped human approval and trusted response-service dispatch."
+      ],
+      "expected_evidence": [
+        "Decoy ownership, isolation verification, expiry/removal scope and evidence without invented attribution."
+      ],
+      "acceptance_checks": [
+        "Missing sources/tools produce explicit gaps, never fabricated coverage.",
+        "Reject version 1.0 launch, assignment, scheduler admission and tool dispatch.",
+        "Verification must use independent observations rather than provider acknowledgement."
+      ]
+    },
+    {
+      "specialty_id": "defensive_control_validation_analyst",
+      "name": "Defensive Control Validation Analyst",
+      "area": "response_improvement",
+      "availability": "planned",
+      "core_role": null,
+      "tool_ids": [
+        "evidence.get",
+        "evidence.timeline",
+        "evidence.validate_citations",
+        "controls.validation_read"
+      ],
+      "telemetry": [
+        "Pinned control/test IDs and authorized independent measured control observations."
+      ],
+      "permissions": [
+        "Tenant/incident-scoped evidence read.",
+        "Future activation requires an explicit release decision and tool-specific least privilege.",
+        "Every consequential effect requires a scoped human approval and trusted response-service dispatch."
+      ],
+      "expected_evidence": [
+        "Measured control outcome, limits, legitimate-health evidence and reproducible validation references."
+      ],
+      "acceptance_checks": [
+        "Missing sources/tools produce explicit gaps, never fabricated coverage.",
+        "Reject version 1.0 launch, assignment, scheduler admission and tool dispatch.",
+        "Verification must use independent observations rather than provider acknowledgement."
+      ]
+    }
+  ],
+  "core_bundles": [
+    {
+      "role": "response_planner",
+      "tool_ids": [
+        "evidence.get",
+        "evidence.timeline",
+        "evidence.validate_citations",
+        "response.eligibility",
+        "response.propose",
+        "response.review_plan"
+      ],
+      "max_invocations": 20,
+      "availability": "implementation_pending"
+    },
+    {
+      "role": "verification",
+      "tool_ids": [
+        "evidence.get",
+        "evidence.timeline",
+        "evidence.validate_citations",
+        "response.review_plan",
+        "verification.evaluate",
+        "verification.wazuh_rule",
+        "verification.attacker_path",
+        "verification.service_health",
+        "verification.response_state"
+      ],
+      "max_invocations": 20,
+      "availability": "implementation_pending"
+    },
+    {
+      "role": "evidence_reporting",
+      "tool_ids": [
+        "evidence.get",
+        "evidence.timeline",
+        "evidence.validate_citations",
+        "reporting.incident_draft",
+        "improvement.review_outcomes"
+      ],
+      "max_invocations": 20,
+      "availability": "implementation_pending"
+    }
+  ]
+}

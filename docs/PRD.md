@@ -29,7 +29,7 @@ Local development uses a Windows 11 desktop with Ryzen 9 5900X, 32 GB RAM, appro
 | Incident orchestration | `pipeline/runner.py` invokes investigation, selects first matching workflow, fills notifications, emits events | Durable specialist tasks, area coordination, controlled delegation |
 | Playbooks | `pipeline/workflow_engine.py`; conditions, approval states, run records, dry runs | Integration with tracked specialist runs and live response connector |
 | AI | `server/deps.py`, `llm/client.py`; one configured OpenAI-compatible connection; scripted fallback when key absent | Multiple connections, role policies, native adapters, routing, budget reservations |
-| Evidence | Investigation tools, graph events, claims and incident records; `agent/investigator.py` currently drops returned citation objects | Preserve citations through report/storage/UI; stable shared evidence references and per-task provenance |
+| Evidence | Investigation tools, graph events, claims and incident records; `agent/investigator.py` preserves returned citations; finding-to-immutable-evidence linkage remains pending | Preserve citations through report/storage/UI; stable shared evidence references and per-task provenance |
 | Wazuh | `siem/wazuh.py`, webhook routes, normalizers; limited alert/agent client, human-session-based webhook authorization | Dedicated source credentials, usable evidence search, validated manager/indexer API boundaries and real payloads against installed lab version |
 | Defense | Guardrails, allowlists, quotas; live containment explicitly returns `not_configured` | Execute, confirm, expire, undo, and independently verify one lab response |
 | Storage | SQLite repositories and migrations; see `DATABASE_STATUS.md` | Durable jobs, identity/session paths, evidence, usage, and canonical incident linkage |
@@ -105,17 +105,23 @@ Specialists exchange structured findings through shared records. Within-area bou
 
 ## 6. Specialist catalog and first-release roles
 
-The initial catalog contains 24 roles. The catalog is a roadmap; activating a role requires tools, evidence and acceptance tests.
+The future catalog contains 60 defensive specialties across five areas, defined in [future defensive scope](FUTURE_SCOPE.md). The roadmap includes threat hunting, telemetry tampering, identity/session response, eradication/recovery, backup protection, deception, AI/LLM/SaaS/CI/CD/supply-chain security and specialized infrastructure defense.
 
-| Area | Catalog |
+| Area | Future catalog size |
 | --- | --- |
-| Alert handling (3) | Triage; enrichment; prioritization |
-| Investigation (7) | Endpoint forensics; network; identity/authentication; malware; threat intelligence; campaign correlation; email/phishing |
-| Infrastructure (4) | Cloud; container/Kubernetes; asset exposure; configuration/hardening |
-| Applications and data (4) | Repository/dependencies; application/API; database; data access/exfiltration |
-| Response and improvement (6) | Containment planning; remediation; recovery verification; detection engineering; evidence review; incident reporting |
+| Alert handling | 8 |
+| Investigation | 14 |
+| Infrastructure | 14 |
+| Applications and data | 12 |
+| Response and improvement | 12 |
 
-First-release core roles: triage, identity, endpoint, network, response planner, verification, and evidence/reporting. Scenario B may need the application/API specialist as an eighth enabled role; evidence review must not pretend to supply application expertise. Confirm this after selecting B. Different instances of the same role may handle separate hosts or tasks; a second opinion must be explicitly requested, not accidental duplicate work.
+Version 1.0 may display all specialties. Future specialties are **Planned - Unavailable in 1.0**, with disabled launch/assignment controls and backend rejection of attempted activation. Display metadata must not register executable roles, accept scheduler jobs/help assignments or grant model/tool access. Only the eight core roles below are planned for 1.0 execution, and require implemented handlers and verified capabilities. Related core roles cover some roadmap specialties without enabling their future tools.
+
+First-release core roles: triage, identity, endpoint, network, response planner, verification, evidence/reporting, and application/API security. The Application & API Security Analyst is included as the eighth core specialist to support scenario B and future application investigations. It examines application/API logs, request behavior and vulnerability context, cites collected evidence, and reports telemetry gaps. Evidence review must not pretend to supply application expertise. The role activates only when its area is selected; real tools and AI execution remain pending O05. Different instances of the same role may handle separate hosts or tasks; a second opinion must be explicitly requested, not accidental duplicate work.
+
+## 6a. Defensive toolkit contract baseline
+
+The full [toolkit contract catalog](TOOLKIT_CONTRACTS.md) maps all 60 specialties to tool families, telemetry, permissions, expected evidence and acceptance checks. The machine-readable contracts are metadata only: eight core bundles are implementation pending, all future tools remain planned, and no live adapters/model calls/response actions are enabled by this baseline. Separate role, tool and connector availability; planning/approval/dispatch/independent verification are distinct boundaries. Shared schemas and isolated fixtures validate the contract; executable gateway, durable invocation audit, budgets and live lab acceptance remain later tasks.
 
 ## 7. Constraints and proposed execution defaults
 

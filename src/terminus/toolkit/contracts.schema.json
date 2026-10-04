@@ -1,0 +1,2061 @@
+{
+  "ToolDescriptor": {
+    "$defs": {
+      "ToolLimits": {
+        "additionalProperties": false,
+        "properties": {
+          "window_seconds": {
+            "default": 3600,
+            "maximum": 3600,
+            "minimum": 1,
+            "title": "Window Seconds",
+            "type": "integer"
+          },
+          "page_size": {
+            "default": 200,
+            "maximum": 200,
+            "minimum": 1,
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "max_pages": {
+            "default": 4,
+            "maximum": 4,
+            "minimum": 1,
+            "title": "Max Pages",
+            "type": "integer"
+          },
+          "timeout_seconds": {
+            "default": 10,
+            "maximum": 10,
+            "minimum": 1,
+            "title": "Timeout Seconds",
+            "type": "integer"
+          },
+          "max_output_bytes": {
+            "default": 65536,
+            "maximum": 65536,
+            "minimum": 1,
+            "title": "Max Output Bytes",
+            "type": "integer"
+          }
+        },
+        "title": "ToolLimits",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "tool_id": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+        "title": "Tool Id",
+        "type": "string"
+      },
+      "version": {
+        "const": "1.0",
+        "title": "Version",
+        "type": "string"
+      },
+      "name": {
+        "maxLength": 2000,
+        "minLength": 1,
+        "title": "Name",
+        "type": "string"
+      },
+      "family": {
+        "enum": [
+          "incident_alerts",
+          "collection_coverage",
+          "identity",
+          "endpoint",
+          "forensics",
+          "network",
+          "threat_investigation",
+          "email",
+          "cloud_infrastructure",
+          "applications",
+          "software_delivery",
+          "data_security",
+          "specialized_environments",
+          "response_planning",
+          "response_execution",
+          "recovery",
+          "verification",
+          "improvement_evidence"
+        ],
+        "title": "Family",
+        "type": "string"
+      },
+      "availability": {
+        "enum": [
+          "planned",
+          "implementation_pending",
+          "not_configured",
+          "available"
+        ],
+        "title": "Availability",
+        "type": "string"
+      },
+      "release": {
+        "enum": [
+          "1.0",
+          "future"
+        ],
+        "title": "Release",
+        "type": "string"
+      },
+      "permitted_roles": {
+        "items": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+          "type": "string"
+        },
+        "title": "Permitted Roles",
+        "type": "array"
+      },
+      "connector_ids": {
+        "items": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+          "type": "string"
+        },
+        "title": "Connector Ids",
+        "type": "array"
+      },
+      "input_contract": {
+        "enum": [
+          "read_query",
+          "response_proposal",
+          "scoped_effect"
+        ],
+        "title": "Input Contract",
+        "type": "string"
+      },
+      "output_contract": {
+        "const": "tool_result",
+        "title": "Output Contract",
+        "type": "string"
+      },
+      "effect": {
+        "enum": [
+          "read",
+          "local_analysis",
+          "proposal",
+          "dispatch"
+        ],
+        "title": "Effect",
+        "type": "string"
+      },
+      "resource_scope": {
+        "const": "incident",
+        "title": "Resource Scope",
+        "type": "string"
+      },
+      "egress": {
+        "enum": [
+          "none",
+          "policy_required"
+        ],
+        "title": "Egress",
+        "type": "string"
+      },
+      "requires_approval": {
+        "title": "Requires Approval",
+        "type": "boolean"
+      },
+      "idempotency_required": {
+        "title": "Idempotency Required",
+        "type": "boolean"
+      },
+      "limits": {
+        "$ref": "#/$defs/ToolLimits"
+      },
+      "acceptance_checks": {
+        "items": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "minItems": 1,
+        "title": "Acceptance Checks",
+        "type": "array"
+      },
+      "expected_evidence": {
+        "items": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "minItems": 1,
+        "title": "Expected Evidence",
+        "type": "array"
+      }
+    },
+    "required": [
+      "tool_id",
+      "version",
+      "name",
+      "family",
+      "availability",
+      "release",
+      "permitted_roles",
+      "connector_ids",
+      "input_contract",
+      "output_contract",
+      "effect",
+      "resource_scope",
+      "egress",
+      "requires_approval",
+      "idempotency_required",
+      "limits",
+      "acceptance_checks",
+      "expected_evidence"
+    ],
+    "title": "ToolDescriptor",
+    "type": "object"
+  },
+  "ToolExecutionContext": {
+    "$defs": {
+      "AgentRun": {
+        "additionalProperties": false,
+        "properties": {
+          "org_id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Org Id",
+            "type": "string"
+          },
+          "incident_id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Incident Id",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "run_id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Run Id",
+            "type": "string"
+          },
+          "task_id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Task Id",
+            "type": "string"
+          },
+          "agent_id": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Agent Id"
+          },
+          "model_connection_id": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Model Connection Id"
+          },
+          "model_name": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Model Name"
+          },
+          "status": {
+            "default": "queued",
+            "enum": [
+              "queued",
+              "running",
+              "completed",
+              "failed",
+              "cancelled"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Started At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Completed At"
+          },
+          "result": {
+            "$ref": "#/$defs/JsonValue",
+            "default": null
+          },
+          "error": {
+            "anyOf": [
+              {
+                "maxLength": 16000,
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Error"
+          }
+        },
+        "required": [
+          "org_id",
+          "incident_id",
+          "task_id"
+        ],
+        "title": "AgentRun",
+        "type": "object"
+      },
+      "JobLease": {
+        "additionalProperties": false,
+        "properties": {
+          "org_id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Org Id",
+            "type": "string"
+          },
+          "incident_id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Incident Id",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "job_id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Job Id",
+            "type": "string"
+          },
+          "task_id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Task Id",
+            "type": "string"
+          },
+          "run_id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Run Id",
+            "type": "string"
+          },
+          "worker_id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Worker Id",
+            "type": "string"
+          },
+          "lease_token": {
+            "maxLength": 200,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Lease Token",
+            "type": "string"
+          },
+          "coordinator_owner_id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Coordinator Owner Id",
+            "type": "string"
+          },
+          "coordinator_token": {
+            "maxLength": 200,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Coordinator Token",
+            "type": "string"
+          },
+          "lease_expires_at": {
+            "format": "date-time",
+            "title": "Lease Expires At",
+            "type": "string"
+          },
+          "attempt": {
+            "maximum": 5,
+            "minimum": 1,
+            "title": "Attempt",
+            "type": "integer"
+          },
+          "task": {
+            "$ref": "#/$defs/Task"
+          },
+          "run": {
+            "$ref": "#/$defs/AgentRun"
+          }
+        },
+        "required": [
+          "org_id",
+          "incident_id",
+          "job_id",
+          "task_id",
+          "run_id",
+          "worker_id",
+          "lease_token",
+          "coordinator_owner_id",
+          "coordinator_token",
+          "lease_expires_at",
+          "attempt",
+          "task",
+          "run"
+        ],
+        "title": "JobLease",
+        "type": "object"
+      },
+      "JsonValue": {},
+      "Task": {
+        "additionalProperties": false,
+        "properties": {
+          "org_id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Org Id",
+            "type": "string"
+          },
+          "incident_id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Incident Id",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "task_id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Task Id",
+            "type": "string"
+          },
+          "parent_task_id": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Parent Task Id"
+          },
+          "area": {
+            "maxLength": 120,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Area",
+            "type": "string"
+          },
+          "role": {
+            "maxLength": 120,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Role",
+            "type": "string"
+          },
+          "objective": {
+            "maxLength": 16000,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Objective",
+            "type": "string"
+          },
+          "status": {
+            "default": "queued",
+            "enum": [
+              "queued",
+              "running",
+              "waiting",
+              "completed",
+              "failed",
+              "cancelled"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "priority": {
+            "default": 100,
+            "maximum": 1000,
+            "minimum": 0,
+            "title": "Priority",
+            "type": "integer"
+          },
+          "idempotency_key": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Idempotency Key"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Started At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Completed At"
+          }
+        },
+        "required": [
+          "org_id",
+          "incident_id",
+          "area",
+          "role",
+          "objective"
+        ],
+        "title": "Task",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "description": "Trusted server-created context; never accept this from model arguments.",
+    "properties": {
+      "org_id": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+        "title": "Org Id",
+        "type": "string"
+      },
+      "incident_id": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+        "title": "Incident Id",
+        "type": "string"
+      },
+      "task_id": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+        "title": "Task Id",
+        "type": "string"
+      },
+      "run_id": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+        "title": "Run Id",
+        "type": "string"
+      },
+      "role": {
+        "enum": [
+          "triage",
+          "identity",
+          "endpoint",
+          "network",
+          "response_planner",
+          "verification",
+          "evidence_reporting",
+          "application_api"
+        ],
+        "title": "Role",
+        "type": "string"
+      },
+      "granted_tool_ids": {
+        "items": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+          "type": "string"
+        },
+        "title": "Granted Tool Ids",
+        "type": "array"
+      },
+      "permitted_resource_ids": {
+        "items": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+          "type": "string"
+        },
+        "title": "Permitted Resource Ids",
+        "type": "array"
+      },
+      "permitted_connector_ids": {
+        "items": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+          "type": "string"
+        },
+        "title": "Permitted Connector Ids",
+        "type": "array"
+      },
+      "policy_version": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+        "title": "Policy Version",
+        "type": "string"
+      },
+      "budget_reservation_id": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+        "title": "Budget Reservation Id",
+        "type": "string"
+      },
+      "invocation_count": {
+        "maximum": 20,
+        "minimum": 0,
+        "title": "Invocation Count",
+        "type": "integer"
+      },
+      "cancelled": {
+        "default": false,
+        "title": "Cancelled",
+        "type": "boolean"
+      },
+      "egress_authorized": {
+        "default": false,
+        "title": "Egress Authorized",
+        "type": "boolean"
+      },
+      "lease": {
+        "$ref": "#/$defs/JobLease"
+      }
+    },
+    "required": [
+      "org_id",
+      "incident_id",
+      "task_id",
+      "run_id",
+      "role",
+      "granted_tool_ids",
+      "permitted_resource_ids",
+      "permitted_connector_ids",
+      "policy_version",
+      "budget_reservation_id",
+      "invocation_count",
+      "lease"
+    ],
+    "title": "ToolExecutionContext",
+    "type": "object"
+  },
+  "ToolResult": {
+    "$defs": {
+      "EvidenceReference": {
+        "additionalProperties": false,
+        "properties": {
+          "evidence_id": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+            "title": "Evidence Id",
+            "type": "string"
+          },
+          "org_id": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+            "title": "Org Id",
+            "type": "string"
+          },
+          "incident_id": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+            "title": "Incident Id",
+            "type": "string"
+          },
+          "content_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Content Hash",
+            "type": "string"
+          }
+        },
+        "required": [
+          "evidence_id",
+          "org_id",
+          "incident_id",
+          "content_hash"
+        ],
+        "title": "EvidenceReference",
+        "type": "object"
+      },
+      "JsonValue": {},
+      "Provenance": {
+        "additionalProperties": false,
+        "properties": {
+          "source_id": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+            "title": "Source Id",
+            "type": "string"
+          },
+          "connector_id": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+            "title": "Connector Id",
+            "type": "string"
+          },
+          "connector_version": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+            "title": "Connector Version",
+            "type": "string"
+          },
+          "source_event_ids": {
+            "items": {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+              "type": "string"
+            },
+            "title": "Source Event Ids",
+            "type": "array"
+          },
+          "source_timestamp": {
+            "format": "date-time",
+            "title": "Source Timestamp",
+            "type": "string"
+          },
+          "collected_at": {
+            "format": "date-time",
+            "title": "Collected At",
+            "type": "string"
+          },
+          "query_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Query Digest",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_id",
+          "connector_id",
+          "connector_version",
+          "source_event_ids",
+          "source_timestamp",
+          "collected_at",
+          "query_digest"
+        ],
+        "title": "Provenance",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "tool_id": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+        "title": "Tool Id",
+        "type": "string"
+      },
+      "version": {
+        "const": "1.0",
+        "title": "Version",
+        "type": "string"
+      },
+      "status": {
+        "enum": [
+          "ok",
+          "empty",
+          "partial",
+          "unavailable",
+          "unsupported",
+          "denied",
+          "error"
+        ],
+        "title": "Status",
+        "type": "string"
+      },
+      "data": {
+        "$ref": "#/$defs/JsonValue",
+        "default": null
+      },
+      "evidence": {
+        "default": [],
+        "items": {
+          "$ref": "#/$defs/EvidenceReference"
+        },
+        "title": "Evidence",
+        "type": "array"
+      },
+      "provenance": {
+        "default": [],
+        "items": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "title": "Provenance",
+        "type": "array"
+      },
+      "coverage": {
+        "default": "unknown",
+        "enum": [
+          "complete",
+          "incomplete",
+          "unknown"
+        ],
+        "title": "Coverage",
+        "type": "string"
+      },
+      "truncated": {
+        "default": false,
+        "title": "Truncated",
+        "type": "boolean"
+      },
+      "gaps": {
+        "default": [],
+        "items": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "title": "Gaps",
+        "type": "array"
+      },
+      "error_code": {
+        "anyOf": [
+          {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Error Code"
+      }
+    },
+    "required": [
+      "tool_id",
+      "version",
+      "status"
+    ],
+    "title": "ToolResult",
+    "type": "object"
+  },
+  "ToolInvocation": {
+    "additionalProperties": false,
+    "description": "Audit envelope contract; persistence and dispatch are later work.",
+    "properties": {
+      "invocation_id": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+        "title": "Invocation Id",
+        "type": "string"
+      },
+      "org_id": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+        "title": "Org Id",
+        "type": "string"
+      },
+      "incident_id": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+        "title": "Incident Id",
+        "type": "string"
+      },
+      "task_id": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+        "title": "Task Id",
+        "type": "string"
+      },
+      "run_id": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+        "title": "Run Id",
+        "type": "string"
+      },
+      "tool_id": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+        "title": "Tool Id",
+        "type": "string"
+      },
+      "tool_version": {
+        "const": "1.0",
+        "title": "Tool Version",
+        "type": "string"
+      },
+      "connector_id": {
+        "anyOf": [
+          {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Connector Id"
+      },
+      "connector_version": {
+        "anyOf": [
+          {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Connector Version"
+      },
+      "arguments_digest": {
+        "pattern": "^[0-9a-f]{64}$",
+        "title": "Arguments Digest",
+        "type": "string"
+      },
+      "policy_version": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+        "title": "Policy Version",
+        "type": "string"
+      },
+      "policy_decision": {
+        "enum": [
+          "allowed",
+          "denied"
+        ],
+        "title": "Policy Decision",
+        "type": "string"
+      },
+      "outcome": {
+        "enum": [
+          "ok",
+          "empty",
+          "partial",
+          "unavailable",
+          "unsupported",
+          "denied",
+          "error",
+          "unknown"
+        ],
+        "title": "Outcome",
+        "type": "string"
+      },
+      "timestamp": {
+        "format": "date-time",
+        "title": "Timestamp",
+        "type": "string"
+      },
+      "evidence_ids": {
+        "default": [],
+        "items": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+          "type": "string"
+        },
+        "title": "Evidence Ids",
+        "type": "array"
+      },
+      "proposal_digest": {
+        "anyOf": [
+          {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Proposal Digest"
+      },
+      "dispatch_intent_id": {
+        "anyOf": [
+          {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Dispatch Intent Id"
+      },
+      "idempotency_key": {
+        "anyOf": [
+          {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Idempotency Key"
+      }
+    },
+    "required": [
+      "invocation_id",
+      "org_id",
+      "incident_id",
+      "task_id",
+      "run_id",
+      "tool_id",
+      "tool_version",
+      "arguments_digest",
+      "policy_version",
+      "policy_decision",
+      "outcome",
+      "timestamp"
+    ],
+    "title": "ToolInvocation",
+    "type": "object"
+  },
+  "ResponseProposal": {
+    "$defs": {
+      "ScopedEffect": {
+        "additionalProperties": false,
+        "description": "Declarative changes using trusted resource references and approved diffs.",
+        "properties": {
+          "action": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+            "title": "Action",
+            "type": "string"
+          },
+          "target_ids": {
+            "items": {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+              "type": "string"
+            },
+            "maxItems": 10,
+            "minItems": 1,
+            "title": "Target Ids",
+            "type": "array"
+          },
+          "parameter_evidence_id": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+            "title": "Parameter Evidence Id",
+            "type": "string"
+          },
+          "duration_seconds": {
+            "maximum": 86400,
+            "minimum": 1,
+            "title": "Duration Seconds",
+            "type": "integer"
+          },
+          "undo_strategy": {
+            "enum": [
+              "owned_resource_only",
+              "restore_approved_snapshot",
+              "irreversible"
+            ],
+            "title": "Undo Strategy",
+            "type": "string"
+          }
+        },
+        "required": [
+          "action",
+          "target_ids",
+          "parameter_evidence_id",
+          "duration_seconds",
+          "undo_strategy"
+        ],
+        "title": "ScopedEffect",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "proposal_id": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+        "title": "Proposal Id",
+        "type": "string"
+      },
+      "org_id": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+        "title": "Org Id",
+        "type": "string"
+      },
+      "incident_id": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+        "title": "Incident Id",
+        "type": "string"
+      },
+      "task_id": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+        "title": "Task Id",
+        "type": "string"
+      },
+      "run_id": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+        "title": "Run Id",
+        "type": "string"
+      },
+      "provider_connection_id": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+        "title": "Provider Connection Id",
+        "type": "string"
+      },
+      "policy_version": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+        "title": "Policy Version",
+        "type": "string"
+      },
+      "effect": {
+        "$ref": "#/$defs/ScopedEffect"
+      },
+      "evidence_ids": {
+        "items": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+          "type": "string"
+        },
+        "maxItems": 100,
+        "minItems": 1,
+        "title": "Evidence Ids",
+        "type": "array"
+      },
+      "prerequisites": {
+        "items": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "maxItems": 20,
+        "minItems": 1,
+        "title": "Prerequisites",
+        "type": "array"
+      },
+      "expected_effect": {
+        "maxLength": 2000,
+        "minLength": 1,
+        "title": "Expected Effect",
+        "type": "string"
+      },
+      "anticipated_impact": {
+        "maxLength": 2000,
+        "minLength": 1,
+        "title": "Anticipated Impact",
+        "type": "string"
+      },
+      "verification_requirements": {
+        "items": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "maxItems": 20,
+        "minItems": 1,
+        "title": "Verification Requirements",
+        "type": "array"
+      },
+      "health_requirements": {
+        "items": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "maxItems": 20,
+        "minItems": 1,
+        "title": "Health Requirements",
+        "type": "array"
+      },
+      "approval_expires_at": {
+        "format": "date-time",
+        "title": "Approval Expires At",
+        "type": "string"
+      }
+    },
+    "required": [
+      "proposal_id",
+      "org_id",
+      "incident_id",
+      "task_id",
+      "run_id",
+      "provider_connection_id",
+      "policy_version",
+      "effect",
+      "evidence_ids",
+      "prerequisites",
+      "expected_effect",
+      "anticipated_impact",
+      "verification_requirements",
+      "health_requirements",
+      "approval_expires_at"
+    ],
+    "title": "ResponseProposal",
+    "type": "object"
+  },
+  "ApprovalBinding": {
+    "additionalProperties": false,
+    "properties": {
+      "approval_id": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+        "title": "Approval Id",
+        "type": "string"
+      },
+      "org_id": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+        "title": "Org Id",
+        "type": "string"
+      },
+      "incident_id": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+        "title": "Incident Id",
+        "type": "string"
+      },
+      "proposal_id": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+        "title": "Proposal Id",
+        "type": "string"
+      },
+      "proposal_digest": {
+        "pattern": "^[0-9a-f]{64}$",
+        "title": "Proposal Digest",
+        "type": "string"
+      },
+      "approver_id": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+        "title": "Approver Id",
+        "type": "string"
+      },
+      "approver_role": {
+        "const": "admin",
+        "title": "Approver Role",
+        "type": "string"
+      },
+      "issued_at": {
+        "format": "date-time",
+        "title": "Issued At",
+        "type": "string"
+      },
+      "approval_expires_at": {
+        "format": "date-time",
+        "title": "Approval Expires At",
+        "type": "string"
+      }
+    },
+    "required": [
+      "approval_id",
+      "org_id",
+      "incident_id",
+      "proposal_id",
+      "proposal_digest",
+      "approver_id",
+      "approver_role",
+      "issued_at",
+      "approval_expires_at"
+    ],
+    "title": "ApprovalBinding",
+    "type": "object"
+  },
+  "ReadQuery": {
+    "additionalProperties": false,
+    "description": "Named resource references, never model-supplied URLs, paths or DSL.",
+    "properties": {
+      "resource_id": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+        "title": "Resource Id",
+        "type": "string"
+      },
+      "start": {
+        "format": "date-time",
+        "title": "Start",
+        "type": "string"
+      },
+      "end": {
+        "format": "date-time",
+        "title": "End",
+        "type": "string"
+      },
+      "page_size": {
+        "default": 200,
+        "maximum": 200,
+        "minimum": 1,
+        "title": "Page Size",
+        "type": "integer"
+      },
+      "max_pages": {
+        "default": 4,
+        "maximum": 4,
+        "minimum": 1,
+        "title": "Max Pages",
+        "type": "integer"
+      },
+      "event_kind": {
+        "default": "evidence",
+        "enum": [
+          "detection",
+          "coverage",
+          "authentication",
+          "process",
+          "file",
+          "network",
+          "application",
+          "artifact",
+          "configuration",
+          "audit",
+          "evidence",
+          "response",
+          "verification",
+          "inventory"
+        ],
+        "title": "Event Kind",
+        "type": "string"
+      }
+    },
+    "required": [
+      "resource_id",
+      "start",
+      "end"
+    ],
+    "title": "ReadQuery",
+    "type": "object"
+  },
+  "ScopedEffect": {
+    "additionalProperties": false,
+    "description": "Declarative changes using trusted resource references and approved diffs.",
+    "properties": {
+      "action": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+        "title": "Action",
+        "type": "string"
+      },
+      "target_ids": {
+        "items": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+          "type": "string"
+        },
+        "maxItems": 10,
+        "minItems": 1,
+        "title": "Target Ids",
+        "type": "array"
+      },
+      "parameter_evidence_id": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+        "title": "Parameter Evidence Id",
+        "type": "string"
+      },
+      "duration_seconds": {
+        "maximum": 86400,
+        "minimum": 1,
+        "title": "Duration Seconds",
+        "type": "integer"
+      },
+      "undo_strategy": {
+        "enum": [
+          "owned_resource_only",
+          "restore_approved_snapshot",
+          "irreversible"
+        ],
+        "title": "Undo Strategy",
+        "type": "string"
+      }
+    },
+    "required": [
+      "action",
+      "target_ids",
+      "parameter_evidence_id",
+      "duration_seconds",
+      "undo_strategy"
+    ],
+    "title": "ScopedEffect",
+    "type": "object"
+  },
+  "VerificationReport": {
+    "$defs": {
+      "EvidenceReference": {
+        "additionalProperties": false,
+        "properties": {
+          "evidence_id": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+            "title": "Evidence Id",
+            "type": "string"
+          },
+          "org_id": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+            "title": "Org Id",
+            "type": "string"
+          },
+          "incident_id": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+            "title": "Incident Id",
+            "type": "string"
+          },
+          "content_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Content Hash",
+            "type": "string"
+          }
+        },
+        "required": [
+          "evidence_id",
+          "org_id",
+          "incident_id",
+          "content_hash"
+        ],
+        "title": "EvidenceReference",
+        "type": "object"
+      },
+      "VerificationObservation": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "enum": [
+              "provider_ack",
+              "endpoint_effect",
+              "attacker_path",
+              "management_health",
+              "service_health"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "collector_run_id": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+            "title": "Collector Run Id",
+            "type": "string"
+          },
+          "source_id": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+            "title": "Source Id",
+            "type": "string"
+          },
+          "source_timestamp": {
+            "format": "date-time",
+            "title": "Source Timestamp",
+            "type": "string"
+          },
+          "evidence": {
+            "$ref": "#/$defs/EvidenceReference"
+          },
+          "passed": {
+            "title": "Passed",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "kind",
+          "collector_run_id",
+          "source_id",
+          "source_timestamp",
+          "evidence",
+          "passed"
+        ],
+        "title": "VerificationObservation",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "org_id": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+        "title": "Org Id",
+        "type": "string"
+      },
+      "incident_id": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+        "title": "Incident Id",
+        "type": "string"
+      },
+      "proposal_digest": {
+        "pattern": "^[0-9a-f]{64}$",
+        "title": "Proposal Digest",
+        "type": "string"
+      },
+      "dispatch_run_id": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+        "title": "Dispatch Run Id",
+        "type": "string"
+      },
+      "dispatched_at": {
+        "format": "date-time",
+        "title": "Dispatched At",
+        "type": "string"
+      },
+      "status": {
+        "enum": [
+          "pending",
+          "failed",
+          "unknown",
+          "verified"
+        ],
+        "title": "Status",
+        "type": "string"
+      },
+      "observations": {
+        "items": {
+          "$ref": "#/$defs/VerificationObservation"
+        },
+        "title": "Observations",
+        "type": "array"
+      }
+    },
+    "required": [
+      "org_id",
+      "incident_id",
+      "proposal_digest",
+      "dispatch_run_id",
+      "dispatched_at",
+      "status",
+      "observations"
+    ],
+    "title": "VerificationReport",
+    "type": "object"
+  },
+  "ToolkitCatalog": {
+    "$defs": {
+      "ConnectorDescriptor": {
+        "additionalProperties": false,
+        "properties": {
+          "connector_id": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+            "title": "Connector Id",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "availability": {
+            "enum": [
+              "planned",
+              "implementation_pending",
+              "not_configured",
+              "available"
+            ],
+            "title": "Availability",
+            "type": "string"
+          },
+          "capabilities": {
+            "items": {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+              "type": "string"
+            },
+            "title": "Capabilities",
+            "type": "array"
+          },
+          "credential_scope": {
+            "const": "organization",
+            "title": "Credential Scope",
+            "type": "string"
+          },
+          "egress": {
+            "enum": [
+              "none",
+              "policy_required"
+            ],
+            "title": "Egress",
+            "type": "string"
+          },
+          "acceptance_checks": {
+            "items": {
+              "maxLength": 2000,
+              "minLength": 1,
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Acceptance Checks",
+            "type": "array"
+          }
+        },
+        "required": [
+          "connector_id",
+          "name",
+          "availability",
+          "capabilities",
+          "credential_scope",
+          "egress",
+          "acceptance_checks"
+        ],
+        "title": "ConnectorDescriptor",
+        "type": "object"
+      },
+      "CoreBundle": {
+        "additionalProperties": false,
+        "properties": {
+          "role": {
+            "enum": [
+              "triage",
+              "identity",
+              "endpoint",
+              "network",
+              "response_planner",
+              "verification",
+              "evidence_reporting",
+              "application_api"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "tool_ids": {
+            "items": {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Tool Ids",
+            "type": "array"
+          },
+          "max_invocations": {
+            "const": 20,
+            "title": "Max Invocations",
+            "type": "integer"
+          },
+          "availability": {
+            "const": "implementation_pending",
+            "title": "Availability",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role",
+          "tool_ids",
+          "max_invocations",
+          "availability"
+        ],
+        "title": "CoreBundle",
+        "type": "object"
+      },
+      "SpecialtyDescriptor": {
+        "additionalProperties": false,
+        "properties": {
+          "specialty_id": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+            "title": "Specialty Id",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "area": {
+            "enum": [
+              "alert_handling",
+              "investigation",
+              "infrastructure",
+              "applications_data",
+              "response_improvement"
+            ],
+            "title": "Area",
+            "type": "string"
+          },
+          "availability": {
+            "enum": [
+              "planned",
+              "implementation_pending"
+            ],
+            "title": "Availability",
+            "type": "string"
+          },
+          "core_role": {
+            "anyOf": [
+              {
+                "enum": [
+                  "triage",
+                  "identity",
+                  "endpoint",
+                  "network",
+                  "response_planner",
+                  "verification",
+                  "evidence_reporting",
+                  "application_api"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Core Role"
+          },
+          "tool_ids": {
+            "items": {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Tool Ids",
+            "type": "array"
+          },
+          "telemetry": {
+            "items": {
+              "maxLength": 2000,
+              "minLength": 1,
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Telemetry",
+            "type": "array"
+          },
+          "permissions": {
+            "items": {
+              "maxLength": 2000,
+              "minLength": 1,
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Permissions",
+            "type": "array"
+          },
+          "expected_evidence": {
+            "items": {
+              "maxLength": 2000,
+              "minLength": 1,
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Expected Evidence",
+            "type": "array"
+          },
+          "acceptance_checks": {
+            "items": {
+              "maxLength": 2000,
+              "minLength": 1,
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Acceptance Checks",
+            "type": "array"
+          }
+        },
+        "required": [
+          "specialty_id",
+          "name",
+          "area",
+          "availability",
+          "core_role",
+          "tool_ids",
+          "telemetry",
+          "permissions",
+          "expected_evidence",
+          "acceptance_checks"
+        ],
+        "title": "SpecialtyDescriptor",
+        "type": "object"
+      },
+      "ToolDescriptor": {
+        "additionalProperties": false,
+        "properties": {
+          "tool_id": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+            "title": "Tool Id",
+            "type": "string"
+          },
+          "version": {
+            "const": "1.0",
+            "title": "Version",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "family": {
+            "enum": [
+              "incident_alerts",
+              "collection_coverage",
+              "identity",
+              "endpoint",
+              "forensics",
+              "network",
+              "threat_investigation",
+              "email",
+              "cloud_infrastructure",
+              "applications",
+              "software_delivery",
+              "data_security",
+              "specialized_environments",
+              "response_planning",
+              "response_execution",
+              "recovery",
+              "verification",
+              "improvement_evidence"
+            ],
+            "title": "Family",
+            "type": "string"
+          },
+          "availability": {
+            "enum": [
+              "planned",
+              "implementation_pending",
+              "not_configured",
+              "available"
+            ],
+            "title": "Availability",
+            "type": "string"
+          },
+          "release": {
+            "enum": [
+              "1.0",
+              "future"
+            ],
+            "title": "Release",
+            "type": "string"
+          },
+          "permitted_roles": {
+            "items": {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+              "type": "string"
+            },
+            "title": "Permitted Roles",
+            "type": "array"
+          },
+          "connector_ids": {
+            "items": {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+              "type": "string"
+            },
+            "title": "Connector Ids",
+            "type": "array"
+          },
+          "input_contract": {
+            "enum": [
+              "read_query",
+              "response_proposal",
+              "scoped_effect"
+            ],
+            "title": "Input Contract",
+            "type": "string"
+          },
+          "output_contract": {
+            "const": "tool_result",
+            "title": "Output Contract",
+            "type": "string"
+          },
+          "effect": {
+            "enum": [
+              "read",
+              "local_analysis",
+              "proposal",
+              "dispatch"
+            ],
+            "title": "Effect",
+            "type": "string"
+          },
+          "resource_scope": {
+            "const": "incident",
+            "title": "Resource Scope",
+            "type": "string"
+          },
+          "egress": {
+            "enum": [
+              "none",
+              "policy_required"
+            ],
+            "title": "Egress",
+            "type": "string"
+          },
+          "requires_approval": {
+            "title": "Requires Approval",
+            "type": "boolean"
+          },
+          "idempotency_required": {
+            "title": "Idempotency Required",
+            "type": "boolean"
+          },
+          "limits": {
+            "$ref": "#/$defs/ToolLimits"
+          },
+          "acceptance_checks": {
+            "items": {
+              "maxLength": 2000,
+              "minLength": 1,
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Acceptance Checks",
+            "type": "array"
+          },
+          "expected_evidence": {
+            "items": {
+              "maxLength": 2000,
+              "minLength": 1,
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Expected Evidence",
+            "type": "array"
+          }
+        },
+        "required": [
+          "tool_id",
+          "version",
+          "name",
+          "family",
+          "availability",
+          "release",
+          "permitted_roles",
+          "connector_ids",
+          "input_contract",
+          "output_contract",
+          "effect",
+          "resource_scope",
+          "egress",
+          "requires_approval",
+          "idempotency_required",
+          "limits",
+          "acceptance_checks",
+          "expected_evidence"
+        ],
+        "title": "ToolDescriptor",
+        "type": "object"
+      },
+      "ToolLimits": {
+        "additionalProperties": false,
+        "properties": {
+          "window_seconds": {
+            "default": 3600,
+            "maximum": 3600,
+            "minimum": 1,
+            "title": "Window Seconds",
+            "type": "integer"
+          },
+          "page_size": {
+            "default": 200,
+            "maximum": 200,
+            "minimum": 1,
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "max_pages": {
+            "default": 4,
+            "maximum": 4,
+            "minimum": 1,
+            "title": "Max Pages",
+            "type": "integer"
+          },
+          "timeout_seconds": {
+            "default": 10,
+            "maximum": 10,
+            "minimum": 1,
+            "title": "Timeout Seconds",
+            "type": "integer"
+          },
+          "max_output_bytes": {
+            "default": 65536,
+            "maximum": 65536,
+            "minimum": 1,
+            "title": "Max Output Bytes",
+            "type": "integer"
+          }
+        },
+        "title": "ToolLimits",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "connectors": {
+        "items": {
+          "$ref": "#/$defs/ConnectorDescriptor"
+        },
+        "title": "Connectors",
+        "type": "array"
+      },
+      "tools": {
+        "items": {
+          "$ref": "#/$defs/ToolDescriptor"
+        },
+        "title": "Tools",
+        "type": "array"
+      },
+      "specialties": {
+        "items": {
+          "$ref": "#/$defs/SpecialtyDescriptor"
+        },
+        "maxItems": 60,
+        "minItems": 60,
+        "title": "Specialties",
+        "type": "array"
+      },
+      "core_bundles": {
+        "items": {
+          "$ref": "#/$defs/CoreBundle"
+        },
+        "maxItems": 8,
+        "minItems": 8,
+        "title": "Core Bundles",
+        "type": "array"
+      }
+    },
+    "required": [
+      "connectors",
+      "tools",
+      "specialties",
+      "core_bundles"
+    ],
+    "title": "ToolkitCatalog",
+    "type": "object"
+  }
+}
