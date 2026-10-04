@@ -11,7 +11,7 @@ import secrets
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field, PrivateAttr
+from pydantic import Field, PrivateAttr, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _logger = logging.getLogger(__name__)
@@ -35,6 +35,9 @@ class Settings(BaseSettings):
     llm_base_url: str = "https://api.groq.com/openai/v1"
     llm_api_key: str = ""
     llm_model: str = "openai/gpt-oss-20b"
+    model_credentials_key: SecretStr = Field(
+        default=SecretStr(""), repr=False, exclude=True
+    )
 
     # ── Wazuh ──────────────────────────────────────────────────────────────────
     wazuh_url: str = ""

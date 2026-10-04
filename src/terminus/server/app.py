@@ -17,13 +17,14 @@ from terminus.config import get_settings
 from terminus.core.base import ConflictError, NotFoundError
 from terminus.models import ReportType
 from terminus.reports.service import generate_daily_report
+from terminus.server.assets_api import router as assets_router
 from terminus.server.bank_router import bank_router
 from terminus.server.console_api import router as console_router
-from terminus.server.assets_api import router as assets_router
 from terminus.server.coordination_api import router as coordination_router
 from terminus.server.copilot import copilot_router, global_copilot_router
 from terminus.server.deps import get_org_store, get_pipeline_runner, get_reports_store
 from terminus.server.graph import graph_router
+from terminus.server.model_connections_api import router as model_connections_router
 from terminus.server.orchestration_api import router as orchestration_router
 from terminus.server.routers import (
     agent_router,
@@ -169,6 +170,7 @@ def create_app() -> FastAPI:
     app.include_router(workflow_router)
     app.include_router(orchestration_router)
     app.include_router(coordination_router)
+    app.include_router(model_connections_router)
     app.include_router(allowlist_router)
     app.include_router(report_router)
     app.include_router(decoy_router)

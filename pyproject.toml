@@ -11,6 +11,7 @@ dependencies = [
     "pydantic-settings>=2.6",
     "httpx2[http2,brotli,zstd]>=0.1",
     "anyio>=4.6",
+    "cryptography>=46,<47",
 ]
 
 [dependency-groups]

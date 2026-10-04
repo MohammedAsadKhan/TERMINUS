@@ -41,3 +41,8 @@ Runtime identity services use `SqliteUserStore`, `SqliteSessionStore`, `SqliteOr
 Local mode retains first-run demo setup. Bootstrap is atomic and does not overwrite existing passwords or restore removed memberships. A generated local license signing secret is retained in the SQLite `local_runtime_secrets` table so licenses remain valid on restart; treat database files and backups as sensitive. An explicitly configured signing secret takes precedence and must remain stable.
 
 For hosting, set `TERMINUS_DEPLOYMENT_MODE=hosted`, a stable `TERMINUS_LICENSE_SECRET`, and serve HTTPS. Hosted cookies are Secure/HttpOnly/SameSite Strict. Hosted mode creates no demo account and rejects the local demo identity even if a local database is reused. Optional first-run owner credentials use `TERMINUS_BOOTSTRAP_ADMIN_EMAIL` and `TERMINUS_BOOTSTRAP_ADMIN_PASSWORD` together (password at least 12 characters); the configured owner gets a separate organization. Bootstrap settings do not rotate an existing password. See [.env.example](../.env.example).
+
+
+## Named model connection storage (M01, October 4)
+
+`model_connections` stores organization-scoped provider metadata, versioned settings and authenticated encrypted credential envelopes. `model_connection_audit` stores immutable bounded mutation records without request bodies or credentials. Additive schema installation participates in surrounding SQLite transactions. The separate `TERMINUS_MODEL_CREDENTIALS_KEY` is never stored in SQLite and must be backed up outside the database; no automatic key or legacy credential import is performed. See [model connection setup and handoff](MODEL_CONNECTIONS.md). Configuration is unverified and does not enable provider execution.

@@ -83,3 +83,10 @@ If a mandatory scenario cannot pass by the freeze date, the PM explicitly change
 ## October 4 investigation-reader implementation update
 
 The [bounded investigation readers and handoff](INVESTIGATION_READERS.md) implement T03: five explicitly installed internal readers, separate manager/indexer connections, versioned server-derived permissions and conservative evidence collection. Fabricated production host/history/reputation fallbacks are removed. Fixture acceptance does not establish live telemetry or specialist execution. Next dependencies are named credential storage, data policy/redaction and durable model budgets before O05 integration; lab and approval-bound response gates remain open. The default contract catalog and future specialties remain unavailable.
+
+
+## October 4: named model connection registry (M01)
+
+The [model connection registry and handoff](MODEL_CONNECTIONS.md) adds multiple named provider/local configurations, encrypted API keys and a masked authenticated settings API. Current admin membership is required for writes, current membership for reads; edits/deletion use version checks and mutation audit is immutable and redacted. The master key comes from `TERMINUS_MODEL_CREDENTIALS_KEY`, outside SQLite; no fallback key is generated. Credentials are bound to organization/connection and cannot silently follow a changed provider or destination. Schema creation and writes preserve enclosing transactions.
+
+All connections remain unverified and perform no outbound calls. The existing single-provider investigation pipeline is unchanged. Native provider adapters, role/data-sharing policy, model routing, budget admission and console settings integration remain M02-M05/U04; this configuration registry does not grant model execution. Tests use temporary databases and placeholder credentials.
