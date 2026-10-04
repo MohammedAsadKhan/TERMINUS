@@ -139,6 +139,13 @@ class ModelAdmissionService:
             raise ModelAdmissionDeniedError("Current organization operator required")
         return task
 
+    def task_for(self, lease: JobLease, actor: str) -> Task:
+        """Revalidate scheduler ownership and operator membership; raises if stale."""
+        try:
+            return self._task(lease, actor)
+        except (ValueError, LookupError, TypeError, KeyError):
+            raise ModelAdmissionDeniedError("Model ownership denied") from None
+
     def _inputs(
         self,
         lease: JobLease,
