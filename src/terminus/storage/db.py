@@ -61,6 +61,13 @@ class Database:
         conn = self._get_connection()
         return conn.execute(sql, params)
 
+    def close(self) -> None:
+        """Release the calling thread's connection; other threads are unaffected."""
+        conn = getattr(self._local, "conn", None)
+        if conn is not None:
+            conn.close()
+            self._local.conn = None
+
     def executemany(
         self, sql: str, params_seq: list[tuple[Any, ...] | dict[str, Any]]
     ) -> sqlite3.Cursor:
@@ -465,6 +472,7 @@ class Database:
 
         _init_incident_links(conn)
         _init_orchestration_tables(conn)
+        _init_scheduler_tables(conn)
 
 
 def _init_incident_links(conn: sqlite3.Connection) -> None:
@@ -597,6 +605,43 @@ def _init_orchestration_tables(conn: sqlite3.Connection) -> None:
         CREATE TRIGGER IF NOT EXISTS orchestration_action_events_no_delete
             BEFORE DELETE ON orchestration_action_events
             BEGIN SELECT RAISE(ABORT, 'action audit is append-only'); END;
+    """)
+
+
+def _init_scheduler_tables(conn: sqlite3.Connection) -> None:
+    """Add explicit scheduler admission and a database-wide coordinator lease."""
+    conn.executescript("""
+        CREATE TABLE IF NOT EXISTS orchestration_scheduler_jobs (
+            sequence INTEGER PRIMARY KEY AUTOINCREMENT,
+            job_id TEXT NOT NULL UNIQUE,
+            org_id TEXT NOT NULL, incident_id TEXT NOT NULL, task_id TEXT NOT NULL,
+            role TEXT NOT NULL, priority INTEGER NOT NULL,
+            status TEXT NOT NULL CHECK(status IN
+                ('queued','running','retry_wait','waiting','completed','failed','cancelled')),
+            attempt INTEGER NOT NULL DEFAULT 0 CHECK(attempt BETWEEN 0 AND 5),
+            max_attempts INTEGER NOT NULL CHECK(max_attempts BETWEEN 1 AND 5),
+            available_at TEXT NOT NULL, worker_id TEXT, lease_token TEXT,
+            lease_expires_at TEXT, heartbeat_at TEXT, run_id TEXT,
+            coordinator_owner_id TEXT, coordinator_token TEXT,
+            cancellation_requested INTEGER NOT NULL DEFAULT 0,
+            error TEXT, recovery_reason TEXT, created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL, payload_json TEXT NOT NULL,
+            UNIQUE(org_id, task_id),
+            CHECK(attempt <= max_attempts),
+            FOREIGN KEY(org_id, incident_id, task_id)
+                REFERENCES orchestration_tasks(org_id, incident_id, task_id),
+            FOREIGN KEY(org_id, run_id)
+                REFERENCES orchestration_agent_runs(org_id, run_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_scheduler_eligible
+            ON orchestration_scheduler_jobs(status, available_at, priority DESC, sequence);
+        CREATE INDEX IF NOT EXISTS idx_scheduler_org_status
+            ON orchestration_scheduler_jobs(org_id, status, sequence);
+        CREATE TABLE IF NOT EXISTS orchestration_scheduler_coordinator (
+            singleton INTEGER PRIMARY KEY CHECK(singleton = 1),
+            owner_id TEXT NOT NULL, lease_token TEXT NOT NULL,
+            lease_expires_at TEXT NOT NULL, heartbeat_at TEXT NOT NULL
+        );
     """)
 
 
