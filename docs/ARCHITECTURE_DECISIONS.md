@@ -89,3 +89,11 @@ Application & API Security Analyst (`application_api`) belongs to `applications_
 ## T01 - Declarative full toolkit contracts
 
 The approved contract-first baseline is recorded in TOOLKIT_CONTRACTS.md and the packaged toolkit JSON fragments. It maps 60 specialties to 93 proposed tools and 48 connector candidates, with eight pending core bundles. Strict schemas and non-executing validation fixtures define scoped evidence, lease/context checks, approval hashes and independent verification. It installs no handlers or gateway, enables no adapters/credentials, and changes no live workflow/Copilot tool permissions. Copilot write authorization, redaction, fabricated SIEM helpers, approval binding/expiry, quota and response reconciliation are recorded remediation tasks for subsequent implementation.
+
+## T02 - Internal read-only executable foundation
+
+The registry accepts explicit trusted async read/local-analysis implementations, separate connector readiness and exact catalog descriptors. Default installation is empty. Core bundles restrict resolution; future roles, effects, approval-requiring and external-egress tools cannot execute. The internal gateway validates arguments, scope and ownership, persists a reservation before handler I/O, bounds execution/output, and conservatively audits uncertainty. It has no public API and does not redirect legacy Copilot/workflow tool paths.
+
+SQLite admission caps reservations at 20 per task across runs/restarts and denial audit at another 20. Reservations and completions are immutable; late/stale results cannot establish success. Fenced evidence writes require a matching pending invocation and current ownership/deadline. Read outcomes bind persisted evidence to invocation/query/resource/provenance. Unknown read execution has no fabricated dispatch identity; actual dispatch contracts retain their approval/intent requirements.
+
+This foundation adds no production adapter, credential access, model egress or response action. Model spend/redaction policy, authenticated context construction, real specialists and live lab checks remain pending. See [tool execution operations](TOOL_GATEWAY.md).

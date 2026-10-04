@@ -483,6 +483,7 @@ def test_unknown_effect_requires_intent_and_never_implies_verification():
         "run_id": "run-1",
         "tool_id": "response.block",
         "tool_version": "1.0",
+        "effect": "dispatch",
         "arguments_digest": "0" * 64,
         "policy_version": "policy-v1",
         "policy_decision": "allowed",

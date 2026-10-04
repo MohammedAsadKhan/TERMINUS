@@ -73,6 +73,8 @@ Critical path: real lab evidence -> authenticated ingestion -> scoped response c
 
 ## Release sign-off
 
+The internal [read-only tool foundation](TOOL_GATEWAY.md) is implemented with explicit installation, role/scope/lease checks, durable invocation quotas/audit and fenced evidence. No production adapters or live specialist/model/response paths are enabled by this foundation; these remain release gates.
+
 PM and technical/demo owners sign off only when mandatory slices pass. Record commit, environment/version, test evidence, known issues and exact scenario steps. Both mandatory scenarios pass three reset runs; denial, duplicate, timeout, missing connector and restart behavior pass. Source ZIP contains source, prebuilt UI and installation manual in DOCX/PDF. No secrets, live databases or unlabelled mock results are submitted.
 
 If a mandatory scenario cannot pass by the freeze date, the PM explicitly changes the release promise and presentation claims. Do not downgrade live defense to simulation without calling out that scope change.

@@ -223,6 +223,7 @@ class ToolExecutionContext(Contract):
     permitted_connector_ids: tuple[Id, ...]
     policy_version: Id
     budget_reservation_id: Id
+    invocation_id: Id | None = None
     invocation_count: int = Field(ge=0, le=20)
     cancelled: bool = False
     egress_authorized: bool = False
@@ -298,7 +299,7 @@ class ToolResult(Contract):
 
 
 class ToolInvocation(Contract):
-    """Audit envelope contract; persistence and dispatch are later work."""
+    """Bounded audit envelope; read uncertainty is separate from dispatch intent."""
 
     invocation_id: Id
     org_id: Id
@@ -307,8 +308,10 @@ class ToolInvocation(Contract):
     run_id: Id
     tool_id: Id
     tool_version: Literal["1.0"]
+    effect: Literal["read", "local_analysis", "dispatch"] = "read"
     connector_id: Id | None = None
     connector_version: Id | None = None
+    connector_versions: tuple[tuple[Id, Id], ...] = ()
     arguments_digest: Digest
     policy_version: Id
     policy_decision: Literal["allowed", "denied"]
@@ -330,8 +333,15 @@ class ToolInvocation(Contract):
 
     @model_validator(mode="after")
     def uncertain_dispatch_has_intent(self) -> ToolInvocation:
-        if self.outcome == "unknown" and not (
-            self.proposal_digest and self.dispatch_intent_id and self.idempotency_key
+        identity = (self.proposal_digest, self.dispatch_intent_id, self.idempotency_key)
+        if any(identity) and not all(identity):
+            raise ValueError("dispatch identities must be bound together")
+        if self.effect != "dispatch" and any(identity):
+            raise ValueError("read invocations cannot carry dispatch identities")
+        if (
+            self.effect == "dispatch"
+            and self.outcome == "unknown"
+            and not all(identity)
         ):
             raise ValueError("unknown effects require recorded dispatch identity")
         return self

@@ -688,6 +688,19 @@
         "title": "Budget Reservation Id",
         "type": "string"
       },
+      "invocation_id": {
+        "anyOf": [
+          {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Invocation Id"
+      },
       "invocation_count": {
         "maximum": 20,
         "minimum": 0,
@@ -910,7 +923,7 @@
   },
   "ToolInvocation": {
     "additionalProperties": false,
-    "description": "Audit envelope contract; persistence and dispatch are later work.",
+    "description": "Bounded audit envelope; read uncertainty is separate from dispatch intent.",
     "properties": {
       "invocation_id": {
         "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
@@ -947,6 +960,16 @@
         "title": "Tool Version",
         "type": "string"
       },
+      "effect": {
+        "default": "read",
+        "enum": [
+          "read",
+          "local_analysis",
+          "dispatch"
+        ],
+        "title": "Effect",
+        "type": "string"
+      },
       "connector_id": {
         "anyOf": [
           {
@@ -972,6 +995,26 @@
         ],
         "default": null,
         "title": "Connector Version"
+      },
+      "connector_versions": {
+        "default": [],
+        "items": {
+          "maxItems": 2,
+          "minItems": 2,
+          "prefixItems": [
+            {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+              "type": "string"
+            },
+            {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$",
+              "type": "string"
+            }
+          ],
+          "type": "array"
+        },
+        "title": "Connector Versions",
+        "type": "array"
       },
       "arguments_digest": {
         "pattern": "^[0-9a-f]{64}$",

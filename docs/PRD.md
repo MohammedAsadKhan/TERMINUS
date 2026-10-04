@@ -121,7 +121,7 @@ First-release core roles: triage, identity, endpoint, network, response planner,
 
 ## 6a. Defensive toolkit contract baseline
 
-The full [toolkit contract catalog](TOOLKIT_CONTRACTS.md) maps all 60 specialties to tool families, telemetry, permissions, expected evidence and acceptance checks. The machine-readable contracts are metadata only: eight core bundles are implementation pending, all future tools remain planned, and no live adapters/model calls/response actions are enabled by this baseline. Separate role, tool and connector availability; planning/approval/dispatch/independent verification are distinct boundaries. Shared schemas and isolated fixtures validate the contract; executable gateway, durable invocation audit, budgets and live lab acceptance remain later tasks.
+The full [toolkit contract catalog](TOOLKIT_CONTRACTS.md) maps all 60 specialties to tool families, telemetry, permissions, expected evidence and acceptance checks. The machine-readable contracts are metadata only: eight core bundles are implementation pending, all future tools remain planned, and no live adapters/model calls/response actions are enabled by this baseline. Separate role, tool and connector availability; planning/approval/dispatch/independent verification are distinct boundaries. The internal [read-only tool foundation](TOOL_GATEWAY.md) implements explicit registration, permission/ownership checks, bounded execution, durable invocation quotas/audit and fenced evidence collection. Production adapters, authenticated context wiring, model budgets and live lab acceptance remain pending.
 
 ## 7. Constraints and proposed execution defaults
 

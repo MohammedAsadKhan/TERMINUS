@@ -1,5 +1,7 @@
 # Terminus full defensive toolkit contracts
 
+The contract baseline remains declarative. The subsequent [read-only execution foundation](TOOL_GATEWAY.md) adds explicit installed-handler registration, durable call quotas/audit and fenced evidence collection without enabling any production adapter, model call or response effect.
+
 Approved contract-first delivery, October 4, 2026. Product authority: [PRD](PRD.md); release boundary: [MVP](MVP_RELEASE.md) and [future scope](FUTURE_SCOPE.md).
 
 ## Delivered boundary
@@ -51,7 +53,7 @@ The `ToolContractValidator` provides non-executing fixture checks against tempor
 
 ## Future gateway and effects
 
-The next implementation must build one immutable executable registry and gateway. Resolve trusted context from scheduler ownership and authenticated policy; expose only the intersection of installed handlers, role grants, tenant/incident resources and connector readiness. Persist evidence and invocation audit before synthesis. Apply secret redaction, data-locality checks and untrusted-evidence wrapping before model or external-intelligence egress. Enforce cumulative budgets atomically. Never silently strip tools or downgrade policy on provider failure.
+The [read-only execution foundation](TOOL_GATEWAY.md) supplies the immutable registry, gateway, evidence writer and durable invocation quota/audit. Production integration must resolve trusted context from scheduler ownership and authenticated policy, and install only verified handlers/connectors. Apply secret redaction, data-locality checks and untrusted-evidence wrapping before model or external-intelligence egress. Model-spend budgets remain pending. Never silently strip tools or downgrade policy on provider failure.
 
 Separate Copilot investigation reads from configuration-changing tools. Configuration writes require fresh server-side operator/admin authorization and audit; specialist grants cannot inherit Copilot write permissions. Existing paths are documented remediation targets, not repaired by this contract-only change.
 
@@ -59,7 +61,7 @@ Response planning cannot approve or dispatch. A later trusted response service m
 
 ## Build dependencies and known gaps
 
-1. Implement the executable registry, gateway, durable invocation audit and evidence envelope using these contracts; add backend future-role rejection at every admission boundary.
+1. The internal read registry, gateway, durable invocation audit and evidence envelope are implemented; production handlers, authenticated context construction and future-role rejection at every external admission boundary remain integration work.
 2. Implement incident/coverage reads, manager endpoint context and bounded indexer authentication searches. Remove fabricated SIEM history/healthy-host fallbacks and mock reputation claims from production evidence paths.
 3. Implement M01-M05 credentials, model capability, data policy and durable budgets before live AI or external intelligence. No source-tenant or credential selection by model arguments.
 4. Connect eight specialist handlers and configured workflow-agent identities to real task/run IDs and immutable citations. Existing investigator citation propagation is implemented; enforced finding-to-evidence linkage remains pending.
@@ -70,4 +72,4 @@ Lab source authentication, Wazuh version/permissions and collected event types m
 
 ## Validation
 
-Contract tests use temporary SQLite databases and explicit synthetic fixtures. They validate all 60 mappings, eight bundles, 18 families, reference integrity, dormant catalog state, future grant denial, hostile arguments, bounded outcomes, copied-model scope bypasses, lease/cancellation, cross-incident evidence/hash checks, restart reads, approval expiry/digest and acknowledgement-versus-independent verification. Fixture round trips are contract evidence only; they are not live investigation or response verification. Invocation persistence, timeout execution, cumulative quotas, adapters and gateway integration remain later acceptance tests.
+Contract tests use temporary SQLite databases and explicit synthetic fixtures. They validate all 60 mappings, eight bundles, 18 families, reference integrity, dormant catalog state, future grant denial, hostile arguments, bounded outcomes, copied-model scope bypasses, lease/cancellation, cross-incident evidence/hash checks, restart reads, approval expiry/digest and acknowledgement-versus-independent verification. The read-foundation tests additionally exercise invocation persistence, callback deadlines, durable task quotas and evidence binding. Fixtures do not establish live investigation or response verification; adapters, model budgets and production integration remain later acceptance tests.

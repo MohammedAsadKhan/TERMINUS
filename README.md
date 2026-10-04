@@ -37,11 +37,11 @@ The repository includes the operations console, incident and identity persistenc
 | **Persistent foundation** | SQLite-backed identities, sessions, incidents, workflows, tasks, runs and immutable evidence. Daily report history and campaign stitching still use process memory. |
 | **Durable scheduling** | Dedicated Python/asyncio process, fenced leases, bounded concurrency, cancellation, retry and conservative holds after uncertain dispatch. |
 | **Coordination** | Main orchestrator, lazy area coordinators and eight core role definitions. Real specialist execution handlers are pending. |
-| **Defensive toolkit** | **60 specialties · 18 families · 93 tools · 48 connector candidates.** Schemas and fixtures are implemented; catalog entries enable no live tools. |
+| **Defensive toolkit** | **60 specialties · 18 families · 93 tools · 48 connector candidates.** Contracts plus an internal read-only registry/gateway, durable invocation quota/audit and fenced evidence writer. No production adapters are installed. |
 | **Model control** | Existing LLM integration; multi-key/provider routing, local-model policy, redaction and durable budgets are planned. |
 | **Live defense** | Wazuh-backed approved response, reconciliation, expiry/undo and independent verification require implementation and lab testing. |
 
-> **Verification snapshot:** 336 automated tests passed against a temporary SQLite database on October 4, 2026. This verifies repository behavior and contracts. Live SIEM, model-provider and defense demonstrations require separate evidence.
+> **Verification snapshot:** 421 automated tests passed against a temporary SQLite database on October 4, 2026, including 109 toolkit checks. This verifies repository behavior and contracts. Live SIEM, model-provider and defense demonstrations require separate evidence.
 
 ## How it fits together
 
@@ -138,7 +138,7 @@ Include updated generated files in `src/terminus/server/static/console/` with fr
 
 ## Build toward a real defense demonstration
 
-1. **Tool foundation:** executable registry, permission gateway, evidence envelopes and invocation audit.
+1. **Tool foundation:** internal registry, gateway, evidence writer and invocation audit implemented; wire trusted context and verified adapters next.
 2. **Evidence collection:** bounded incident, coverage, endpoint and authentication readers; explicit gaps when telemetry is missing.
 3. **Model policy:** credentials, provider/local-model support, data-sharing rules and budget enforcement.
 4. **Specialist execution:** real handlers, workflow identities and observable task/tool activity.
