@@ -3,11 +3,17 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 
 import httpx2
 import pytest
 
+from terminus.model_gateway.ledger import (
+    BudgetConflictError,
+    ModelBudgetStore,
+    window_key_for,
+)
 from terminus.model_gateway.models import ModelConnectionCreate, ModelConnectionUpdate
 from terminus.model_gateway.policy import ModelPolicyWrite, PolicyGrant
 from terminus.model_gateway.routing import (
@@ -15,7 +21,9 @@ from terminus.model_gateway.routing import (
     ModelRoutingService,
     RouteRef,
 )
-from tests.test_model_admission import client, reply, setup  # noqa: F401
+from tests.test_model_admission import NOW, client, reply, setup  # noqa: F401
+
+WINDOW = window_key_for(NOW)
 
 DOWN = lambda req: httpx2.Response(503)  # noqa: E731
 GOOD = lambda req: httpx2.Response(200, json=reply())  # noqa: E731
@@ -32,8 +40,27 @@ def factory(local, hosted, local_cb=GOOD, hosted_cb=GOOD):
     return make
 
 
+def budget_store(fixture, limit=1_000_000_000):
+    """Idempotent shared-DB ledger with prices for both fixture connections."""
+    db = fixture[7]
+    store = ModelBudgetStore(db, clock=lambda: NOW)
+    for connection in (fixture[3], fixture[4]):
+        with contextlib.suppress(BudgetConflictError):
+            _ = store.put_price(
+                "org",
+                "admin",
+                connection.connection_id,
+                "fixture-model",
+                input_per_mtok_micro_usd=1_000_000,
+                output_per_mtok_micro_usd=2_000_000,
+            )
+    with contextlib.suppress(BudgetConflictError):
+        _ = store.put_budget("org", "admin", WINDOW, limit_micro_usd=limit)
+    return store
+
+
 def router(fixture):
-    return ModelRoutingService(fixture[0])
+    return ModelRoutingService(fixture[0], budget_store(fixture))
 
 
 def rows(db):

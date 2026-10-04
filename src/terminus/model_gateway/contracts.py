@@ -256,6 +256,28 @@ class ModelUsage(_Contract):
     input_tokens: int | None = Field(default=None, ge=0, le=1000000000)
     output_tokens: int | None = Field(default=None, ge=0, le=1000000000)
     total_tokens: int | None = Field(default=None, ge=0, le=1000000000)
+    cached_input_tokens: int | None = Field(default=None, ge=0, le=1000000000)
+    reasoning_tokens: int | None = Field(default=None, ge=0, le=1000000000)
+
+    # Convention (adapters normalize to it; None means unknown, never 0):
+    # input_tokens = ALL prompt tokens including cached; cached_input_tokens =
+    # the subset served from cache; output_tokens = ALL generated tokens
+    # including reasoning; reasoning_tokens = the subset spent on reasoning.
+    @model_validator(mode="after")
+    def subsets_within_totals(self) -> ModelUsage:
+        if (
+            self.cached_input_tokens is not None
+            and self.input_tokens is not None
+            and self.cached_input_tokens > self.input_tokens
+        ):
+            raise ValueError("cached_input_tokens exceeds input_tokens")
+        if (
+            self.reasoning_tokens is not None
+            and self.output_tokens is not None
+            and self.reasoning_tokens > self.output_tokens
+        ):
+            raise ValueError("reasoning_tokens exceeds output_tokens")
+        return self
 
 
 class ModelResponse(_Contract):

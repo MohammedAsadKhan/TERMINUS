@@ -248,13 +248,37 @@ def _decode_usage(value: JsonValue | None) -> ModelUsage:
     if not isinstance(value, dict):
         raise ModelProtocolError("Compatible response usage is invalid")
     try:
+        input_tokens = _token_count(value, "prompt_tokens")
+        hit = _token_count(value, "prompt_cache_hit_tokens")  # DeepSeek direct
+        miss = _token_count(value, "prompt_cache_miss_tokens")
+        cached = _detail_count(value, "prompt_tokens_details", "cached_tokens")
+        if cached is None:
+            cached = hit
+        elif hit is not None and hit != cached:
+            raise ModelProtocolError("Compatible response token usage is invalid")
+        if input_tokens is None and hit is not None and miss is not None:
+            input_tokens = hit + miss
+        # OpenAI/DeepSeek completion_tokens already include reasoning tokens.
         return ModelUsage(
-            input_tokens=_token_count(value, "prompt_tokens"),
+            input_tokens=input_tokens,
             output_tokens=_token_count(value, "completion_tokens"),
             total_tokens=_token_count(value, "total_tokens"),
+            cached_input_tokens=cached,
+            reasoning_tokens=_detail_count(
+                value, "completion_tokens_details", "reasoning_tokens"
+            ),
         )
     except ValueError as exc:
         raise ModelProtocolError("Compatible response token usage is invalid") from exc
+
+
+def _detail_count(usage: dict[str, JsonValue], group: str, key: str) -> int | None:
+    details = usage.get(group)
+    if details is None:
+        return None
+    if not isinstance(details, dict):
+        raise ModelProtocolError("Compatible response token usage is invalid")
+    return _token_count(details, key)
 
 
 def _token_count(usage: dict[str, JsonValue], key: str) -> int | None:

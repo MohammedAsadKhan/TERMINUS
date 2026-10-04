@@ -2,13 +2,16 @@
 
 Candidates come only from exact policy grants (role, area, connection version,
 model). Every attempt is independently admitted; no path substitutes scripted
-findings, and fallback never widens a grant. Fixture execution only until M05
-financial admission and production transport land.
+findings, and fallback never widens a grant. Every attempt also needs financial
+admission: an org-wide reservation is committed before any provider I/O and is
+settled, left ambiguous, or released only when I/O provably never started.
+Fixture execution only until production transport lands.
 """
 
 from __future__ import annotations
 
 import asyncio
+import contextlib
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import ClassVar, Final, Literal, NoReturn
@@ -22,6 +25,12 @@ from terminus.model_gateway.admission import (
 )
 from terminus.model_gateway.contracts import ModelResponse
 from terminus.model_gateway.fixture_client import FixtureModelClient
+from terminus.model_gateway.ledger import (
+    ModelBudgetStore,
+    ModelReservation,
+    ReservationRequest,
+    UsageReport,
+)
 from terminus.model_gateway.models import ModelConnectionView, Provider
 from terminus.orchestration.scheduler_models import JobLease
 from terminus.toolkit.catalog import CORE_ROLES
@@ -102,6 +111,10 @@ class RouteAttempt(_Contract):
     outcome: str
     admission_id: str
     request_digest: str
+    reservation_id: str
+    cost_known: bool
+    cost_micro_usd: int | None
+    usage_known: bool
 
 
 class RoutedModelResult(_Contract):
@@ -133,8 +146,13 @@ def _safe_code(code: str | None) -> str:
 class ModelRoutingService:
     """Routing and audit only; admission owns authorization of every attempt."""
 
-    def __init__(self, admission: ModelAdmissionService) -> None:
+    def __init__(
+        self, admission: ModelAdmissionService, budgets: ModelBudgetStore
+    ) -> None:
+        if admission.scheduler.db is not budgets.db:
+            raise ModelRoutingDeniedError("Model services require one database")
         self.admission: ModelAdmissionService = admission
+        self.budgets: ModelBudgetStore = budgets
         db = admission.scheduler.db
         with db.transaction() as conn:
             _ = conn.execute("""CREATE TABLE IF NOT EXISTS model_routing_audit (
@@ -146,8 +164,14 @@ class ModelRoutingService:
                 provider TEXT, model TEXT, policy_version INTEGER,
                 rationale TEXT, outcome TEXT NOT NULL,
                 admission_id TEXT, request_digest TEXT,
-                required_capabilities TEXT NOT NULL, created_at TEXT NOT NULL
+                required_capabilities TEXT NOT NULL, created_at TEXT NOT NULL,
+                reservation_id TEXT
             )""")
+            info = conn.execute("PRAGMA table_info(model_routing_audit)").fetchall()
+            if "reservation_id" not in {str(row[1]) for row in info}:  # pyright: ignore[reportAny]
+                _ = conn.execute(
+                    "ALTER TABLE model_routing_audit ADD COLUMN reservation_id TEXT"
+                )
             _ = conn.execute("""CREATE TRIGGER IF NOT EXISTS model_routing_audit_no_update
                 BEFORE UPDATE ON model_routing_audit BEGIN
                 SELECT RAISE(ABORT, 'model routing audit is immutable'); END""")
@@ -167,12 +191,18 @@ class ModelRoutingService:
         rationale: str | None = None,
         admission_id: str | None = None,
         request_digest: str | None = None,
+        reservation_id: str | None = None,
     ) -> None:
         ctx.seq += 1
         connection = candidate.connection if candidate else None
         db = self.admission.scheduler.db
         _ = db.execute(
-            "INSERT INTO model_routing_audit VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            """INSERT INTO model_routing_audit
+               (audit_id, route_id, seq, org_id, incident_id, task_id, run_id,
+                kind, connection_id, connection_version, provider, model,
+                policy_version, rationale, outcome, admission_id, request_digest,
+                required_capabilities, created_at, reservation_id)
+               VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (
                 str(uuid4()),
                 ctx.route_id,
@@ -193,6 +223,7 @@ class ModelRoutingService:
                 request_digest,
                 ",".join(sorted(ctx.required)),
                 self.admission.scheduler.clock().isoformat(),
+                reservation_id,
             ),
         )
 
@@ -348,18 +379,61 @@ class ModelRoutingService:
                 excluded.append(item)
                 self._log(ctx, "excluded", item.reason, candidate=candidate)
                 continue
-            self._log(
-                ctx,
-                "attempt_started",
-                "admitted",
-                candidate=candidate,
-                rationale=rationale,
-                admission_id=call.admission_id,
-                request_digest=call.request_digest,
-            )
+            try:
+                reservation = self.budgets.reserve(
+                    ctx.org_id,
+                    actor_user_id,
+                    ReservationRequest(
+                        idempotency_key=(
+                            f"{ctx.route_id}:{len(attempts) + 1}:{call.admission_id}"
+                        ),
+                        incident_id=call.incident_id,
+                        task_id=call.task_id,
+                        run_id=call.run_id,
+                        connection_id=candidate.connection.connection_id,
+                        connection_version=candidate.connection.version,
+                        model=candidate.model,
+                        request_bytes=len(call.request.model_dump_json().encode()),
+                        max_output_tokens=call.request.max_output_tokens,
+                    ),
+                )
+            except (ValueError, LookupError):
+                # No provider I/O; the unused admission binding is never invoked.
+                item = RouteExclusion(
+                    connection_id=candidate.connection.connection_id,
+                    model=candidate.model,
+                    reason="budget_denied",
+                )
+                excluded.append(item)
+                self._log(
+                    ctx,
+                    "excluded",
+                    item.reason,
+                    candidate=candidate,
+                    admission_id=call.admission_id,
+                    request_digest=call.request_digest,
+                )
+                continue
+            rid = reservation.reservation_id
+            try:
+                self._log(
+                    ctx,
+                    "attempt_started",
+                    "admitted",
+                    candidate=candidate,
+                    rationale=rationale,
+                    admission_id=call.admission_id,
+                    request_digest=call.request_digest,
+                    reservation_id=rid,
+                )
+            except BaseException:
+                # Provider I/O provably never started.
+                self._ledger_safely(self.budgets.release, ctx.org_id, rid)
+                raise
             try:
                 response = await self.admission.respond_fixture(call, client)
             except asyncio.CancelledError:
+                self._ledger_safely(self.budgets.mark_ambiguous, ctx.org_id, rid)
                 self._log(
                     ctx,
                     "attempt_cancelled",
@@ -368,9 +442,11 @@ class ModelRoutingService:
                     rationale=rationale,
                     admission_id=call.admission_id,
                     request_digest=call.request_digest,
+                    reservation_id=rid,
                 )
                 raise
             except ModelAdmissionDeniedError:
+                self._ledger_safely(self.budgets.mark_ambiguous, ctx.org_id, rid)
                 self._log(
                     ctx,
                     "attempt_denied",
@@ -379,12 +455,33 @@ class ModelRoutingService:
                     rationale=rationale,
                     admission_id=call.admission_id,
                     request_digest=call.request_digest,
+                    reservation_id=rid,
                 )
                 raise ModelRoutingDeniedError("Model attempt denied") from None
+            except BaseException:
+                self._ledger_safely(self.budgets.mark_ambiguous, ctx.org_id, rid)
+                self._ledger_safely(
+                    self._log,
+                    ctx,
+                    "attempt_failed",
+                    "failed_unknown",
+                    candidate=candidate,
+                    rationale=rationale,
+                    admission_id=call.admission_id,
+                    request_digest=call.request_digest,
+                    reservation_id=rid,
+                )
+                raise
+            settled = self._settle(ctx.org_id, rid, response)
             outcome = (
                 f"error:{_safe_code(response.error_code)}"
                 if response.status == "error"
                 else response.status
+            )
+            cost = (
+                settled.actual_cost_micro_usd
+                if settled.state in ("settled", "reconciled")
+                else None
             )
             attempts.append(
                 RouteAttempt(
@@ -398,6 +495,12 @@ class ModelRoutingService:
                     outcome=outcome,
                     admission_id=call.admission_id,
                     request_digest=call.request_digest,
+                    reservation_id=rid,
+                    cost_known=cost is not None,
+                    cost_micro_usd=cost,
+                    usage_known=response.status != "error"
+                    and response.usage.input_tokens is not None
+                    and response.usage.output_tokens is not None,
                 )
             )
             self._log(
@@ -408,6 +511,7 @@ class ModelRoutingService:
                 rationale=rationale,
                 admission_id=call.admission_id,
                 request_digest=call.request_digest,
+                reservation_id=rid,
             )
             if response.status != "error" or response.error_code not in FALLBACK_ERRORS:
                 break
@@ -421,6 +525,37 @@ class ModelRoutingService:
             excluded=tuple(excluded),
             exhausted=response.status == "error",
         )
+
+    @staticmethod
+    def _ledger_safely(
+        action: Callable[..., object], *args: object, **kwargs: object
+    ) -> None:
+        """Best-effort conservative ledger/audit write that never masks the cause."""
+        with contextlib.suppress(Exception):
+            _ = action(*args, **kwargs)
+
+    def _settle(
+        self, org_id: str, reservation_id: str, response: ModelResponse
+    ) -> ModelReservation:
+        """Settle known usage; every error and unknown usage stays ambiguous."""
+        usage = response.usage
+        report = (
+            UsageReport()
+            if response.status == "error"
+            else UsageReport(
+                input_tokens=usage.input_tokens,
+                output_tokens=usage.output_tokens,
+                cached_input_tokens=usage.cached_input_tokens,
+                reasoning_tokens=usage.reasoning_tokens,
+            )
+        )
+        try:
+            return self.budgets.settle(org_id, reservation_id, report)
+        except Exception:
+            # Keep the reserve counted rather than lose track of spend.
+            return self.budgets.mark_ambiguous(
+                org_id, reservation_id, reason_code="settle_failed"
+            )
 
     def _owned_logged(self, ctx: _RouteContext, lease: JobLease, actor: str) -> None:
         try:

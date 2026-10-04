@@ -61,21 +61,50 @@ def _optional_count(container: dict[str, JsonValue], key: str) -> int | None:
     return value
 
 
+def _drop_nulls(payload: dict[str, JsonValue]) -> dict[str, JsonValue]:
+    return {key: value for key, value in payload.items() if value is not None}
+
+
 def _usage(
     payload: dict[str, JsonValue],
     *,
     input_key: str,
     output_key: str,
     total_key: str | None = None,
+    provider: str = "",
 ) -> ModelUsage:
+    # Normalized to ModelUsage convention: input/output include cached/reasoning.
     input_tokens = _optional_count(payload, input_key)
     output_tokens = _optional_count(payload, output_key)
     total_tokens = _optional_count(payload, total_key) if total_key else None
+    cached: int | None = None
+    reasoning: int | None = None
+    if provider == "anthropic":
+        # Anthropic input_tokens EXCLUDES cache read/creation tokens; output
+        # includes thinking but has no separate reasoning count (stays None).
+        # Explicit JSON null is treated as absent (unknown).
+        read = _optional_count(_drop_nulls(payload), "cache_read_input_tokens")
+        creation = _optional_count(_drop_nulls(payload), "cache_creation_input_tokens")
+        cached = read
+        if read is None and creation is None:
+            pass  # no cache information: reported input_tokens is unambiguous
+        elif read is None or creation is None or input_tokens is None:
+            input_tokens = None  # a needed component is unknown
+        else:
+            input_tokens = input_tokens + read + creation
+    elif provider == "gemini":
+        # Gemini candidatesTokenCount EXCLUDES thoughtsTokenCount.
+        cached = _optional_count(payload, "cachedContentTokenCount")
+        reasoning = _optional_count(payload, "thoughtsTokenCount")
+        if reasoning is not None:
+            output_tokens = None if output_tokens is None else output_tokens + reasoning
     try:
         return ModelUsage(
             input_tokens=input_tokens,
             output_tokens=output_tokens,
             total_tokens=total_tokens,
+            cached_input_tokens=cached,
+            reasoning_tokens=reasoning,
         )
     except ValidationError:
         raise ModelProtocolError("Invalid provider usage") from None
@@ -233,6 +262,7 @@ class AnthropicCodec:
             _object(usage_payload),
             input_key="input_tokens",
             output_key="output_tokens",
+            provider="anthropic",
         )
 
         text: list[str] = []
@@ -402,6 +432,7 @@ class GeminiCodec:
             input_key="promptTokenCount",
             output_key="candidatesTokenCount",
             total_key="totalTokenCount",
+            provider="gemini",
         )
         candidates = _array(payload.get("candidates", []))
         if not candidates:

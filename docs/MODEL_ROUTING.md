@@ -18,4 +18,4 @@ Implemented October 4, 2026 by Mohammed with Claude Code (Sonnet 5.5). Fixture-o
 
 ## Remaining
 
-M05 reservations/ledger must wrap each attempt; production transport remains gated on M03+M04+M05; tool continuation admission, routing settings UI and live evaluation (M06) are open.
+M05 is complete ([MODEL_BUDGETS.md](MODEL_BUDGETS.md)): every attempt reserves before I/O and settles or stays ambiguous. Still open: production transport remains gated on M03+M04+M05; tool continuation admission, routing settings UI and live evaluation (M06) are open.

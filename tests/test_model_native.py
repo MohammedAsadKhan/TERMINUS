@@ -352,6 +352,8 @@ def test_gemini_decodes_structured_output_and_actual_usage() -> None:
         "input_tokens": 13,
         "output_tokens": 5,
         "total_tokens": 21,
+        "cached_input_tokens": None,
+        "reasoning_tokens": None,
     }
 
 
