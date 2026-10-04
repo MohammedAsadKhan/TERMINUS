@@ -53,6 +53,7 @@ Add one row per claimed task. Re-read the current shared version before claiming
 
 | M04 | Mohammed | Claude Code (Sonnet 5.5) | 2026-10-04 | verified | [Routing](MODEL_ROUTING.md); 731 isolated tests pass | M05 budgets next; no live transport, tool continuation or routing UI |
 | M05 | Mohammed | Claude Code orchestrator with Claude Sonnet subagents | 2026-10-04 | verified | [Budgets and ledger](MODEL_BUDGETS.md); 831 isolated tests pass | Production transport, settings API/UI, stale-recovery runner remain pending |
+| M06 | Mohammed | Claude Code orchestrator with Claude Sonnet subagents | 2026-10-04 | in progress | [Evaluation and coverage](MODEL_EVALUATION.md); 877 isolated tests pass | Contract-only: no live model verified (no transport, credentials or O05 handlers); `demo_ready` false. Task stays open for live evaluation |
 
 ## Phase 0 Scope and contracts
 
