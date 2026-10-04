@@ -67,6 +67,7 @@ class WorkflowExecutionContext:
     side_effects_executed: bool = False
     unknown_outcome: bool = False
     ticket_created: bool = False
+    incident_id: str | None = None
     notified: set[str] = field(default_factory=set)
     node_outputs: dict[str, Any] = field(default_factory=dict)
     executed_nodes: list[str] = field(default_factory=list)
@@ -130,6 +131,7 @@ class WorkflowEngine:
             alert=alert,
             report=report_val,
             dry_run=dry_run,
+            incident_id=kwargs.get("incident_id"),
         )
 
         # Initialize all edge states as PENDING
@@ -147,6 +149,7 @@ class WorkflowEngine:
                     definition_snapshot=workflow,
                     alert=alert,
                     base_report=base_report,
+                    incident_id=ctx.incident_id,
                 )
             except Exception as e:
                 logger.error(f"Failed to persist workflow run {run_id}: {e}")
@@ -159,6 +162,7 @@ class WorkflowEngine:
         self._finalize_run_status(ctx)
         if not dry_run:
             self._persist_final_run(workflow, ctx)
+            await self._persist_incident_report(ctx, deployment)
 
         return ctx
 
@@ -209,6 +213,7 @@ class WorkflowEngine:
             edge_states=edge_states,
             errors=errors,
             dry_run=False,
+            incident_id=run.get("incident_id") or report.incident_id,
         )
 
         # Restore past node outputs and statuses
@@ -246,6 +251,7 @@ class WorkflowEngine:
         # Finalize and persist
         self._finalize_run_status(ctx)
         self._persist_final_run(workflow, ctx)
+        await self._persist_incident_report(ctx, deployment)
 
         return ctx
 
@@ -426,7 +432,12 @@ class WorkflowEngine:
                     org_id=OrgId(ctx.org_id),
                     persona_prompt=persona_instr,
                 )
-                ctx.report = dataclasses.replace(ctx.report, verdict=re_report.verdict, evidence=re_report.evidence)
+                ctx.report = dataclasses.replace(
+                    ctx.report,
+                    verdict=re_report.verdict,
+                    evidence=re_report.evidence,
+                    evidence_citations=re_report.evidence_citations,
+                )
                 return "SUCCESS", {"verdict": re_report.verdict.model_dump()}, "default", False
 
             # 5. tool_slack (D1, D4)
@@ -444,14 +455,23 @@ class WorkflowEngine:
             # 6. tool_jira (D1, D4)
             if ntype == NodeType.TOOL_JIRA.value:
                 project = cfg.get("project") or "SEC"
-                ctx.ticket_created = True
-
                 if ctx.dry_run:
+                    ctx.ticket_created = True
                     return "SUCCESS", {"dry_run": True, "project": project, "ticket_created": True}, "default", False
 
-                t = await deployment.ticket_store.create_ticket(ctx.report, OrgId(ctx.org_id))
+                t = ctx.incident_id or str(await deployment.ticket_store.create_ticket(ctx.report, OrgId(ctx.org_id)))
+                ctx.incident_id = str(t)
+                ctx.report = dataclasses.replace(ctx.report, incident_id=ctx.incident_id)
+                ctx.ticket_created = True
+                export = getattr(deployment, "export_ticket", None) if getattr(type(deployment), "export_ticket", None) else None
+                try:
+                    external_id = await export(str(t), ctx.report, OrgId(ctx.org_id)) if export else None
+                except Exception:
+                    ctx.unknown_outcome = True
+                    ctx.side_effects_executed = True
+                    raise
                 ctx.side_effects_executed = True
-                return "SUCCESS", {"action": "jira_ticket_created", "ticket": t}, "default", False
+                return "SUCCESS", {"action": "ticket_created", "ticket": t, "external_ticket_id": external_id}, "default", False
 
             # 7. tool_isolate (D1, D11, D12, D16)
             if ntype == NodeType.TOOL_ISOLATE.value:
@@ -577,10 +597,16 @@ class WorkflowEngine:
             ctx.status = "COMPLETED"
             ctx.outcome = "HANDLED"
 
+    async def _persist_incident_report(self, ctx: WorkflowExecutionContext, deployment: PipelineDeployment | None) -> None:
+        update = getattr(deployment.ticket_store, "update_ticket_report", None) if deployment and getattr(type(deployment.ticket_store), "update_ticket_report", None) else None
+        if ctx.incident_id and update:
+            await update(ctx.incident_id, OrgId(ctx.org_id), ctx.report)
+
     def _persist_final_run(self, workflow: Workflow, ctx: WorkflowExecutionContext) -> None:
         """Persists final run summary and broadcasts SSE update (D7, D20, D21)."""
         now_iso = datetime.now(UTC).isoformat()
         try:
+            self.run_repo.update_run_report(ctx.org_id, ctx.run_id, ctx.report, ctx.incident_id)
             self.run_repo.update_run(
                 org_id=ctx.org_id,
                 run_id=ctx.run_id,

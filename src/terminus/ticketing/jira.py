@@ -53,6 +53,7 @@ class JiraTickets(TicketStore):
                 "description": (
                     f"Organization: {org_id}\n"
                     f"Alert ID: {alert.id}\n"
+                    f"Terminus incident ID: {report.incident_id or 'unassigned'}\n"
                     f"Level: {alert.level}\n"
                     f"Verdict Severity: {report.verdict.severity.value.upper()}\n"
                     f"Summary: {report.verdict.summary}\n\n"

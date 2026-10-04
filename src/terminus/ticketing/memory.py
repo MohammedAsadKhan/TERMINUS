@@ -5,6 +5,7 @@ from __future__ import annotations
 import secrets
 import threading
 from datetime import UTC, datetime
+from typing import Any
 
 from terminus.core.base import NotFoundError
 from terminus.core.ids import OrgId, TicketId
@@ -16,7 +17,7 @@ class MemoryTickets(TicketStore):
     """Thread-safe in-memory ticket store."""
 
     _lock: threading.Lock
-    _tickets: dict[tuple[OrgId, TicketId], dict[str, str]]
+    _tickets: dict[tuple[OrgId, TicketId], dict[str, Any]]
 
     def __init__(self) -> None:
         """Initialize memory tickets store."""
@@ -62,6 +63,7 @@ class MemoryTickets(TicketStore):
             "agent_name": report.evidence.agent_name or alert.agent_name or "Unknown host",
             "threat_intel": report.evidence.threat_intel,
             "context_notes": report.evidence.context_notes,
+            "evidence_citations": report.evidence_citations,
             "full_log": alert.full_log,
             "policy_tier": report.policy.tier.value,
             "policy_reason": report.policy.reason,
@@ -83,7 +85,7 @@ class MemoryTickets(TicketStore):
             self._tickets[(org_id, ticket_id)] = ticket_data
         return ticket_id
 
-    async def get_ticket(self, ticket_id: TicketId, org_id: OrgId) -> dict[str, str]:
+    async def get_ticket(self, ticket_id: TicketId, org_id: OrgId) -> dict[str, Any]:
         """Fetch ticket details from memory store."""
         with self._lock:
             ticket = self._tickets.get((org_id, ticket_id))
@@ -91,7 +93,7 @@ class MemoryTickets(TicketStore):
             raise NotFoundError(f"Ticket {ticket_id} not found for org {org_id}")
         return ticket
 
-    async def list_tickets(self, org_id: OrgId) -> list[dict[str, str]]:
+    async def list_tickets(self, org_id: OrgId) -> list[dict[str, Any]]:
         """Fetch all tickets for the specified org."""
         with self._lock:
             return [

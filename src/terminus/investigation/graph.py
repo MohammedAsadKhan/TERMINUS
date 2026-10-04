@@ -30,10 +30,13 @@ class GraphEventStore:
 
     def record(self, alert: SiemAlert, org_id: OrgId, report: InvestigationReport, incident_id: str | None) -> None:
         self.db.execute(
-            """INSERT OR IGNORE INTO graph_events
+            """INSERT INTO graph_events
             (org_id, alert_id, incident_id, occurred_at, ingested_at, source_ip, host,
              rule_description, mitre, level, severity, policy_tier, campaign_id, raw_event)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(org_id, alert_id) DO UPDATE SET
+                incident_id=COALESCE(excluded.incident_id, graph_events.incident_id),
+                severity=excluded.severity, policy_tier=excluded.policy_tier""",
             (
                 str(org_id), alert.id, incident_id, _event_time(alert.timestamp), datetime.now(UTC).isoformat(),
                 alert.src_ip, alert.agent_name or str(alert.agent_id or "Unknown host"),

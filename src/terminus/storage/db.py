@@ -9,7 +9,8 @@ from __future__ import annotations
 import re
 import sqlite3
 import threading
-from contextlib import suppress
+from collections.abc import Iterator
+from contextlib import contextmanager, suppress
 from pathlib import Path
 from typing import Any
 
@@ -54,24 +55,59 @@ class Database:
             self._local.conn = conn
         return self._local.conn
 
-    def execute(self, sql: str, params: tuple[Any, ...] | dict[str, Any] = ()) -> sqlite3.Cursor:
+    def execute(
+        self, sql: str, params: tuple[Any, ...] | dict[str, Any] = ()
+    ) -> sqlite3.Cursor:
         conn = self._get_connection()
         return conn.execute(sql, params)
 
-    def executemany(self, sql: str, params_seq: list[tuple[Any, ...] | dict[str, Any]]) -> sqlite3.Cursor:
+    def executemany(
+        self, sql: str, params_seq: list[tuple[Any, ...] | dict[str, Any]]
+    ) -> sqlite3.Cursor:
         conn = self._get_connection()
         return conn.executemany(sql, params_seq)
 
-    def fetchone(self, sql: str, params: tuple[Any, ...] | dict[str, Any] = ()) -> dict[str, Any] | None:
+    def fetchone(
+        self, sql: str, params: tuple[Any, ...] | dict[str, Any] = ()
+    ) -> dict[str, Any] | None:
         cur = self.execute(sql, params)
         row = cur.fetchone()
         if row is None:
             return None
         return dict(row)
 
-    def fetchall(self, sql: str, params: tuple[Any, ...] | dict[str, Any] = ()) -> list[dict[str, Any]]:
+    def fetchall(
+        self, sql: str, params: tuple[Any, ...] | dict[str, Any] = ()
+    ) -> list[dict[str, Any]]:
         cur = self.execute(sql, params)
         return [dict(row) for row in cur.fetchall()]
+
+    @contextmanager
+    def transaction(self) -> Iterator[sqlite3.Connection]:
+        """Serialize an atomic read/modify/write operation across processes."""
+        conn = self._get_connection()
+        if conn.in_transaction:
+            # Bootstrap can group user, organization, and membership writes;
+            # each adapter still gets its own rollback boundary when nested.
+            counter = getattr(self._local, "savepoint_counter", 0) + 1
+            self._local.savepoint_counter = counter
+            savepoint = f"terminus_savepoint_{counter}"
+            conn.execute(f"SAVEPOINT {savepoint}")
+            try:
+                yield conn
+                conn.execute(f"RELEASE SAVEPOINT {savepoint}")
+            except BaseException:
+                conn.execute(f"ROLLBACK TO SAVEPOINT {savepoint}")
+                conn.execute(f"RELEASE SAVEPOINT {savepoint}")
+                raise
+            return
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            yield conn
+            conn.commit()
+        except BaseException:
+            conn.rollback()
+            raise
 
     def _init_db(self) -> None:
         """Create all required tables, apply column migrations, and build indexes."""
@@ -92,6 +128,16 @@ class Database:
                 password_hash TEXT NOT NULL,
                 display_name TEXT NOT NULL,
                 created_at TEXT NOT NULL
+            );
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS sessions (
+                token_hash TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                expires_at TEXT NOT NULL,
+                revoked_at TEXT,
+                FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
             );
             """,
             """
@@ -141,9 +187,12 @@ class Database:
                 mitigation_status TEXT DEFAULT 'NOT_EXECUTED',
                 evidence_citations_json TEXT DEFAULT '[]',
                 raw_payload_json TEXT DEFAULT '{}',
+                report_json TEXT DEFAULT '{}',
                 created_at TEXT NOT NULL,
                 updated_at TEXT,
                 resolved_at TEXT,
+                resolution_category TEXT,
+                resolution_notes TEXT NOT NULL DEFAULT '',
                 FOREIGN KEY (org_id) REFERENCES organizations(org_id) ON DELETE CASCADE
             );
             """,
@@ -370,6 +419,11 @@ class Database:
 
         # Apply column migrations for preexisting tables
         for table, col, col_def in [
+            ("incidents", "evidence_citations_json", "TEXT DEFAULT '[]'"),
+            ("incidents", "raw_payload_json", "TEXT DEFAULT '{}'"),
+            ("incidents", "report_json", "TEXT DEFAULT '{}'"),
+            ("incidents", "resolution_category", "TEXT"),
+            ("incidents", "resolution_notes", "TEXT NOT NULL DEFAULT ''"),
             ("workflows", "priority", "INTEGER NOT NULL DEFAULT 100"),
             ("workflows", "version", "INTEGER NOT NULL DEFAULT 1"),
             ("workflows", "created_by", "TEXT"),
@@ -385,6 +439,8 @@ class Database:
 
         # Create indexes after columns are guaranteed to exist
         index_statements = [
+            "CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);",
+            "CREATE INDEX IF NOT EXISTS idx_sessions_expiry ON sessions(expires_at);",
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_soc_agents_org_agent ON soc_agents(org_id, agent_id);",
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_workflows_org_wf ON workflows(org_id, workflow_id);",
             "CREATE INDEX IF NOT EXISTS idx_incidents_org_status ON incidents(org_id, status);",
@@ -407,6 +463,142 @@ class Database:
         for stmt in index_statements:
             conn.execute(stmt)
 
+        _init_incident_links(conn)
+        _init_orchestration_tables(conn)
+
+
+def _init_incident_links(conn: sqlite3.Connection) -> None:
+    """Admit one canonical incident per tenant/alert without erasing history.
+
+    Older databases may have multiple incidents for the same alert. The oldest
+    timestamp, then ID, chooses their stable canonical record; all originals
+    remain addressable and their evidence, status, and audit references survive.
+    """
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        conn.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_incidents_org_ticket "
+            "ON incidents(org_id, ticket_id)"
+        )
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS incident_alert_links (
+                org_id TEXT NOT NULL, alert_id TEXT NOT NULL, ticket_id TEXT NOT NULL,
+                PRIMARY KEY(org_id, alert_id),
+                FOREIGN KEY(org_id, ticket_id) REFERENCES incidents(org_id, ticket_id)
+            )
+        """)
+        conn.execute("""
+            INSERT OR IGNORE INTO incident_alert_links (org_id, alert_id, ticket_id)
+            SELECT i.org_id, i.alert_id, i.ticket_id FROM incidents AS i
+            WHERE NOT EXISTS (
+                SELECT 1 FROM incidents AS older
+                WHERE older.org_id = i.org_id AND older.alert_id = i.alert_id
+                AND (older.created_at < i.created_at OR
+                    (older.created_at = i.created_at AND older.ticket_id < i.ticket_id))
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS incident_external_tickets (
+                org_id TEXT NOT NULL, ticket_id TEXT NOT NULL, provider TEXT NOT NULL,
+                external_id TEXT, state TEXT NOT NULL, error TEXT,
+                updated_at TEXT NOT NULL,
+                PRIMARY KEY(org_id, ticket_id, provider),
+                UNIQUE(org_id, provider, external_id),
+                FOREIGN KEY(org_id, ticket_id) REFERENCES incidents(org_id, ticket_id)
+            )
+        """)
+        conn.commit()
+    except BaseException:
+        conn.rollback()
+        raise
+
+
+def _init_orchestration_tables(conn: sqlite3.Connection) -> None:
+    """Add durable orchestration tables without altering existing incident data.
+
+    Tasks carry canonical incident IDs. Composite keys enforce tenant and incident scope for every task
+    reference. JSON retains the strict record; indexed columns support reads/CAS.
+    """
+    conn.executescript("""
+        CREATE TABLE IF NOT EXISTS orchestration_tasks (
+            org_id TEXT NOT NULL, task_id TEXT NOT NULL, incident_id TEXT NOT NULL,
+            parent_task_id TEXT, status TEXT NOT NULL CHECK(status IN
+                ('queued','running','waiting','completed','failed','cancelled')),
+            idempotency_key TEXT, request_hash TEXT NOT NULL, created_at TEXT NOT NULL,
+            payload_json TEXT NOT NULL, PRIMARY KEY(org_id, task_id),
+            UNIQUE(org_id, incident_id, task_id), UNIQUE(org_id, idempotency_key),
+            FOREIGN KEY(org_id) REFERENCES organizations(org_id),
+            FOREIGN KEY(org_id, incident_id, parent_task_id)
+                REFERENCES orchestration_tasks(org_id, incident_id, task_id)
+        );
+        CREATE TABLE IF NOT EXISTS orchestration_agent_runs (
+            org_id TEXT NOT NULL, run_id TEXT NOT NULL, incident_id TEXT NOT NULL,
+            task_id TEXT NOT NULL, status TEXT NOT NULL CHECK(status IN
+                ('queued','running','completed','failed','cancelled')),
+            created_at TEXT NOT NULL, payload_json TEXT NOT NULL,
+            PRIMARY KEY(org_id, run_id),
+            FOREIGN KEY(org_id, incident_id, task_id)
+                REFERENCES orchestration_tasks(org_id, incident_id, task_id)
+        );
+        CREATE TABLE IF NOT EXISTS orchestration_evidence (
+            org_id TEXT NOT NULL, evidence_id TEXT NOT NULL, incident_id TEXT NOT NULL,
+            task_id TEXT NOT NULL, created_at TEXT NOT NULL, payload_json TEXT NOT NULL,
+            PRIMARY KEY(org_id, evidence_id),
+            FOREIGN KEY(org_id, incident_id, task_id)
+                REFERENCES orchestration_tasks(org_id, incident_id, task_id)
+        );
+        CREATE TABLE IF NOT EXISTS orchestration_help_requests (
+            org_id TEXT NOT NULL, help_request_id TEXT NOT NULL, incident_id TEXT NOT NULL,
+            task_id TEXT NOT NULL, status TEXT NOT NULL CHECK(status IN
+                ('open','assigned','resolved','cancelled')),
+            created_at TEXT NOT NULL, payload_json TEXT NOT NULL,
+            PRIMARY KEY(org_id, help_request_id),
+            FOREIGN KEY(org_id, incident_id, task_id)
+                REFERENCES orchestration_tasks(org_id, incident_id, task_id)
+        );
+        CREATE TABLE IF NOT EXISTS orchestration_action_attempts (
+            org_id TEXT NOT NULL, attempt_id TEXT NOT NULL, incident_id TEXT NOT NULL,
+            task_id TEXT NOT NULL, status TEXT NOT NULL CHECK(status IN
+                ('proposed','approved','dispatched','acknowledged','verified','failed','unknown','rejected')),
+            created_at TEXT NOT NULL, payload_json TEXT NOT NULL,
+            PRIMARY KEY(org_id, attempt_id), UNIQUE(org_id, incident_id, attempt_id),
+            FOREIGN KEY(org_id, incident_id, task_id)
+                REFERENCES orchestration_tasks(org_id, incident_id, task_id)
+        );
+        CREATE TABLE IF NOT EXISTS orchestration_action_events (
+            sequence INTEGER PRIMARY KEY AUTOINCREMENT,
+            org_id TEXT NOT NULL, event_id TEXT NOT NULL, incident_id TEXT NOT NULL,
+            attempt_id TEXT NOT NULL, created_at TEXT NOT NULL, payload_json TEXT NOT NULL,
+            UNIQUE(org_id, event_id),
+            FOREIGN KEY(org_id, incident_id, attempt_id)
+                REFERENCES orchestration_action_attempts(org_id, incident_id, attempt_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_orch_tasks_incident
+            ON orchestration_tasks(org_id, incident_id, created_at, task_id);
+        CREATE INDEX IF NOT EXISTS idx_orch_runs_task
+            ON orchestration_agent_runs(org_id, task_id, created_at, run_id);
+        CREATE INDEX IF NOT EXISTS idx_orch_evidence_task
+            ON orchestration_evidence(org_id, task_id, created_at, evidence_id);
+        CREATE INDEX IF NOT EXISTS idx_orch_help_task
+            ON orchestration_help_requests(org_id, task_id, created_at, help_request_id);
+        CREATE INDEX IF NOT EXISTS idx_orch_actions_task
+            ON orchestration_action_attempts(org_id, task_id, created_at, attempt_id);
+        CREATE INDEX IF NOT EXISTS idx_orch_events_attempt
+            ON orchestration_action_events(org_id, attempt_id, created_at, event_id);
+        CREATE TRIGGER IF NOT EXISTS orchestration_evidence_no_update
+            BEFORE UPDATE ON orchestration_evidence
+            BEGIN SELECT RAISE(ABORT, 'evidence is immutable'); END;
+        CREATE TRIGGER IF NOT EXISTS orchestration_evidence_no_delete
+            BEFORE DELETE ON orchestration_evidence
+            BEGIN SELECT RAISE(ABORT, 'evidence is immutable'); END;
+        CREATE TRIGGER IF NOT EXISTS orchestration_action_events_no_update
+            BEFORE UPDATE ON orchestration_action_events
+            BEGIN SELECT RAISE(ABORT, 'action audit is append-only'); END;
+        CREATE TRIGGER IF NOT EXISTS orchestration_action_events_no_delete
+            BEFORE DELETE ON orchestration_action_events
+            BEGIN SELECT RAISE(ABORT, 'action audit is append-only'); END;
+    """)
+
 
 def _migrate_tenant_scoped_primary_key(  # noqa: C901, PLR0912, PLR0915
     conn: sqlite3.Connection, table: str, id_column: str
@@ -425,7 +617,9 @@ def _migrate_tenant_scoped_primary_key(  # noqa: C901, PLR0912, PLR0915
     rows = conn.execute(f'PRAGMA table_info("{table}")').fetchall()
     if not rows:
         return
-    primary_key = [row["name"] for row in sorted(rows, key=lambda row: row["pk"]) if row["pk"]]
+    primary_key = [
+        row["name"] for row in sorted(rows, key=lambda row: row["pk"]) if row["pk"]
+    ]
     if primary_key == ["org_id", id_column]:
         return
     columns = {row["name"] for row in rows}
@@ -459,9 +653,12 @@ def _migrate_tenant_scoped_primary_key(  # noqa: C901, PLR0912, PLR0915
 
     temporary_table = f"{table}__tenant_key_migration"
     if conn.execute(
-        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (temporary_table,)
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
+        (temporary_table,),
     ).fetchone():
-        raise sqlite3.DatabaseError(f"Migration staging table already exists: {temporary_table}")
+        raise sqlite3.DatabaseError(
+            f"Migration staging table already exists: {temporary_table}"
+        )
 
     # Refuse a rebuild if another table has an inbound foreign key. These
     # current tables have no inbound references; silently dropping a referenced
@@ -473,7 +670,9 @@ def _migrate_tenant_scoped_primary_key(  # noqa: C901, PLR0912, PLR0915
         ).fetchall()
     ]
     for child_table in table_names:
-        for foreign_key in conn.execute(f'PRAGMA foreign_key_list("{child_table}")').fetchall():
+        for foreign_key in conn.execute(
+            f'PRAGMA foreign_key_list("{child_table}")'
+        ).fetchall():
             if foreign_key["table"] == table:
                 raise sqlite3.DatabaseError(
                     f"Cannot safely migrate {table}: {child_table} has an inbound foreign key"
@@ -550,7 +749,9 @@ def _migrate_tenant_scoped_primary_key(  # noqa: C901, PLR0912, PLR0915
         table_key_match = table_pk.match(definition)
         if table_key_match:
             saw_primary_key = True
-            definitions[index] = f"PRIMARY KEY (org_id, {id_column}){table_key_match.group(2)}"
+            definitions[index] = (
+                f"PRIMARY KEY (org_id, {id_column}){table_key_match.group(2)}"
+            )
             replaced_table_key = True
             continue
         if re.match(rf"(?is)^{quoted_id}\s+", definition):
@@ -564,7 +765,13 @@ def _migrate_tenant_scoped_primary_key(  # noqa: C901, PLR0912, PLR0915
         )
     if not replaced_table_key:
         definitions.append(f"PRIMARY KEY (org_id, {id_column})")
-    create_sql = create_sql[: open_paren + 1] + "\n    " + ",\n    ".join(definitions) + "\n" + create_sql[close_paren:]
+    create_sql = (
+        create_sql[: open_paren + 1]
+        + "\n    "
+        + ",\n    ".join(definitions)
+        + "\n"
+        + create_sql[close_paren:]
+    )
 
     conn.execute("BEGIN IMMEDIATE")
     try:
@@ -580,8 +787,13 @@ def _migrate_tenant_scoped_primary_key(  # noqa: C901, PLR0912, PLR0915
             # An explicit single-column unique index on the old ID would
             # recreate the same cross-tenant restriction the migration fixes.
             if statement.lstrip().upper().startswith("CREATE UNIQUE INDEX"):
-                index_info = re.search(r"(?is)\bON\s+[\"`\[]?\w+[\"`\]]?\s*\((.*?)\)", statement)
-                if index_info and re.sub(r"[\"`\[\]\s]", "", index_info.group(1)) == id_column:
+                index_info = re.search(
+                    r"(?is)\bON\s+[\"`\[]?\w+[\"`\]]?\s*\((.*?)\)", statement
+                )
+                if (
+                    index_info
+                    and re.sub(r"[\"`\[\]\s]", "", index_info.group(1)) == id_column
+                ):
                     continue
             conn.execute(statement)
         conn.commit()

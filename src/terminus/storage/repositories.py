@@ -53,6 +53,8 @@ class SqliteIncidentRepository:
         evidence_citations: list[dict[str, Any]] | None = None,
         raw_payload: dict[str, Any] | None = None,
     ) -> TicketId:
+        if report.alert_id != report.evidence.alert.id:
+            raise ConflictError("Report and evidence must refer to the same alert")
         self._ensure_org(str(org_id))
         ticket_id = TicketId("TICK-" + secrets.token_hex(4).upper())
         alert = report.evidence.alert
@@ -71,8 +73,10 @@ class SqliteIncidentRepository:
 
         now_iso = alert.timestamp or datetime.now(UTC).isoformat()
         rec_actions_str = json.dumps(report.verdict.recommended_actions)
-        citations_str = json.dumps(evidence_citations or [])
-        payload_str = json.dumps(raw_payload or alert.model_dump())
+        citations_str = json.dumps(
+            report.evidence_citations if evidence_citations is None else evidence_citations
+        )
+        payload_str = json.dumps(alert.model_dump() if raw_payload is None else raw_payload)
 
         sql = """
         INSERT INTO incidents (
@@ -81,10 +85,10 @@ class SqliteIncidentRepository:
             agent_name, threat_intel, context_notes, full_log,
             policy_tier, policy_reason, status, asset_criticality,
             kill_chain_stage, threat_intel_score, time_to_decision_sec,
-            mitigation_status, evidence_citations_json, raw_payload_json,
+            mitigation_status, evidence_citations_json, raw_payload_json, report_json,
             created_at, updated_at, resolved_at
         ) VALUES (
-            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
         )
         """
         params = (
@@ -106,17 +110,148 @@ class SqliteIncidentRepository:
             "OPEN",
             "MEDIUM",
             kill_chain_stage,
-            "Verified",
-            0.42,
+            "Not assessed",
+            None,
             "NOT_EXECUTED",
             citations_str,
             payload_str,
+            json.dumps({**report.to_dict(), "evidence_citations": json.loads(citations_str),
+                        "incident_id": str(ticket_id)}),
             now_iso,
             now_iso,
             "",
         )
-        self.db.execute(sql, params)
-        return ticket_id
+        # Hold the writer lock across lookup, insert, and mapping publication:
+        # separate workers and restarted processes all return the same ID.
+        with self.db.transaction() as conn:
+            existing = conn.execute(
+                "SELECT ticket_id FROM incident_alert_links WHERE org_id = ? AND alert_id = ?",
+                (str(org_id), alert.id),
+            ).fetchone()
+            if existing:
+                return TicketId(existing["ticket_id"])
+            conn.execute(sql, params)
+            conn.execute(
+                "INSERT INTO incident_alert_links (org_id, alert_id, ticket_id) VALUES (?, ?, ?)",
+                (str(org_id), alert.id, str(ticket_id)),
+            )
+            return ticket_id
+
+    async def get_by_alert(self, alert_id: str, org_id: OrgId | str) -> dict[str, Any] | None:
+        row = self.db.fetchone(
+            "SELECT i.* FROM incidents i JOIN incident_alert_links l "
+            "ON i.org_id = l.org_id AND i.ticket_id = l.ticket_id "
+            "WHERE l.org_id = ? AND l.alert_id = ?",
+            (str(org_id), alert_id),
+        )
+        return self._format_ticket(row) if row else None
+
+    async def update_ticket_report(
+        self,
+        ticket_id: TicketId | str,
+        org_id: OrgId | str,
+        report: InvestigationReport,
+        evidence_citations: list[dict[str, Any]] | None = None,
+        raw_payload: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Persist the final assessment without changing incident identity/lifecycle."""
+        citations = report.evidence_citations if evidence_citations is None else evidence_citations
+        if report.incident_id is not None and report.incident_id != str(ticket_id):
+            raise ConflictError("A report cannot change an incident's canonical identity")
+        report_data = {**report.to_dict(), "evidence_citations": citations, "incident_id": str(ticket_id)}
+        alert = report.evidence.alert
+        if report.alert_id != alert.id:
+            raise ConflictError("Report and evidence must refer to the same alert")
+        with self.db.transaction() as conn:
+            row = conn.execute(
+                "SELECT alert_id FROM incidents WHERE ticket_id = ? AND org_id = ?",
+                (str(ticket_id), str(org_id)),
+            ).fetchone()
+            if not row:
+                raise NotFoundError(f"Ticket {ticket_id} not found for org {org_id}")
+            if row["alert_id"] != alert.id:
+                raise ConflictError("A report cannot change an incident's alert identity")
+            conn.execute(
+                """UPDATE incidents SET severity = ?, confidence = ?, summary = ?,
+                   recommended_actions = ?, agent_name = ?, threat_intel = ?,
+                   context_notes = ?, policy_tier = ?, policy_reason = ?,
+                   evidence_citations_json = ?, report_json = ?, updated_at = ?
+                   WHERE ticket_id = ? AND org_id = ?""",
+                (
+                    report.verdict.severity.value, report.verdict.confidence.value,
+                    report.verdict.summary, json.dumps(report.verdict.recommended_actions),
+                    report.evidence.agent_name or alert.agent_name or "Unknown host",
+                    report.evidence.threat_intel, report.evidence.context_notes,
+                    report.policy.tier.value, report.policy.reason, json.dumps(citations),
+                    json.dumps(report_data), datetime.now(UTC).isoformat(),
+                    str(ticket_id), str(org_id),
+                ),
+            )
+            if raw_payload is not None:
+                conn.execute(
+                    "UPDATE incidents SET raw_payload_json = ? WHERE ticket_id = ? AND org_id = ?",
+                    (json.dumps(raw_payload), str(ticket_id), str(org_id)),
+                )
+        return await self.get_ticket(ticket_id, org_id)
+
+    async def claim_external_ticket(
+        self, ticket_id: TicketId | str, org_id: OrgId | str, provider: str = "jira"
+    ) -> bool:
+        """Reserve one external dispatch; an uncertain prior dispatch stays reserved."""
+        await self.get_ticket(ticket_id, org_id)
+        cursor = self.db.execute(
+            "INSERT OR IGNORE INTO incident_external_tickets "
+            "(org_id, ticket_id, provider, state, updated_at) VALUES (?, ?, ?, 'pending', ?)",
+            (str(org_id), str(ticket_id), provider, datetime.now(UTC).isoformat()),
+        )
+        return cursor.rowcount == 1
+
+    async def bind_external_ticket(
+        self, ticket_id: TicketId | str, org_id: OrgId | str, external_id: str,
+        provider: str = "jira",
+    ) -> dict[str, Any]:
+        if not external_id:
+            raise ValueError("External ticket ID cannot be empty")
+        await self.get_ticket(ticket_id, org_id)
+        with self.db.transaction() as conn:
+            existing = conn.execute(
+                "SELECT external_id FROM incident_external_tickets "
+                "WHERE org_id = ? AND ticket_id = ? AND provider = ?",
+                (str(org_id), str(ticket_id), provider),
+            ).fetchone()
+            if existing and existing["external_id"] not in (None, external_id):
+                raise ConflictError("Incident already has a different external ticket")
+            conn.execute(
+                "INSERT INTO incident_external_tickets "
+                "(org_id, ticket_id, provider, external_id, state, updated_at) "
+                "VALUES (?, ?, ?, ?, 'bound', ?) ON CONFLICT(org_id, ticket_id, provider) "
+                "DO UPDATE SET external_id = excluded.external_id, state = 'bound', "
+                "error = NULL, updated_at = excluded.updated_at",
+                (str(org_id), str(ticket_id), provider, external_id, datetime.now(UTC).isoformat()),
+            )
+        result = await self.get_external_ticket(ticket_id, org_id, provider)
+        assert result is not None  # noqa: S101
+        return result
+
+    async def get_external_ticket(
+        self, ticket_id: TicketId | str, org_id: OrgId | str, provider: str = "jira"
+    ) -> dict[str, Any] | None:
+        await self.get_ticket(ticket_id, org_id)
+        return self.db.fetchone(
+            "SELECT * FROM incident_external_tickets WHERE org_id = ? AND ticket_id = ? AND provider = ?",
+            (str(org_id), str(ticket_id), provider),
+        )
+
+    async def mark_external_ticket_unknown(
+        self, ticket_id: TicketId | str, org_id: OrgId | str, error: str,
+        provider: str = "jira",
+    ) -> None:
+        await self.get_ticket(ticket_id, org_id)
+        self.db.execute(
+            "UPDATE incident_external_tickets SET state = 'unknown', error = ?, updated_at = ? "
+            "WHERE org_id = ? AND ticket_id = ? AND provider = ? AND state = 'pending'",
+            (error, datetime.now(UTC).isoformat(), str(org_id), str(ticket_id), provider),
+        )
 
     async def get_ticket(self, ticket_id: TicketId | str, org_id: OrgId | str) -> dict[str, Any]:
         sql = "SELECT * FROM incidents WHERE ticket_id = ? AND org_id = ?"
@@ -132,19 +267,35 @@ class SqliteIncidentRepository:
         status: str | None = None,
         severity: str | None = None,
     ) -> list[dict[str, Any]]:
-        sql = "SELECT * FROM incidents WHERE org_id = ?"
+        sql = (
+            "SELECT i.* FROM incidents i JOIN incident_alert_links l "
+            "ON i.org_id = l.org_id AND i.ticket_id = l.ticket_id WHERE i.org_id = ?"
+        )
         params: list[Any] = [str(org_id)]
         if status:
-            sql += " AND status = ?"
+            sql += " AND i.status = ?"
             params.append(status)
         if severity:
-            sql += " AND severity = ?"
+            sql += " AND i.severity = ?"
             params.append(severity)
-        sql += " ORDER BY created_at DESC LIMIT ?"
+        sql += " ORDER BY i.created_at DESC LIMIT ?"
         params.append(limit)
 
         rows = self.db.fetchall(sql, tuple(params))
         return [self._format_ticket(r) for r in rows]
+
+    async def get_incident_counts(self, org_id: OrgId | str) -> dict[str, int]:
+        """Aggregate canonical incidents without the queue's pagination limit."""
+        row = self.db.fetchone(
+            """SELECT COUNT(*) AS total,
+               COALESCE(SUM(CASE WHEN i.status NOT IN ('RESOLVED', 'CLOSED', 'FALSE_POSITIVE') THEN 1 ELSE 0 END), 0) AS open,
+               COALESCE(SUM(CASE WHEN i.status IN ('RESOLVED', 'CLOSED', 'FALSE_POSITIVE') THEN 1 ELSE 0 END), 0) AS resolved,
+               COALESCE(SUM(CASE WHEN LOWER(i.severity) = 'critical' THEN 1 ELSE 0 END), 0) AS critical
+               FROM incidents i JOIN incident_alert_links l
+               ON i.org_id = l.org_id AND i.ticket_id = l.ticket_id WHERE i.org_id = ?""",
+            (str(org_id),),
+        )
+        return {key: int((row or {}).get(key, 0)) for key in ("total", "open", "resolved", "critical")}
 
     async def update_ticket_status(
         self,
@@ -152,17 +303,25 @@ class SqliteIncidentRepository:
         org_id: OrgId | str,
         new_status: str,
         mitigation_status: str | None = None,
+        resolution_category: str | None = None,
+        resolution_notes: str | None = None,
     ) -> dict[str, Any]:
         now_iso = datetime.now(UTC).isoformat()
         resolved_at = now_iso if new_status in ("RESOLVED", "CLOSED", "FALSE_POSITIVE") else ""
         sql = """
         UPDATE incidents
-        SET status = ?, updated_at = ?, resolved_at = COALESCE(NULLIF(?, ''), resolved_at)
+        SET status = ?, updated_at = ?, resolved_at = ?
         """
         params: list[Any] = [new_status, now_iso, resolved_at]
         if mitigation_status is not None:
             sql += ", mitigation_status = ?"
             params.append(mitigation_status)
+        if resolution_category is not None:
+            sql += ", resolution_category = ?"
+            params.append(resolution_category)
+        if resolution_notes is not None:
+            sql += ", resolution_notes = ?"
+            params.append(resolution_notes)
         sql += " WHERE ticket_id = ? AND org_id = ?"
         params.extend([str(ticket_id), str(org_id)])
         self.db.execute(sql, tuple(params))
@@ -183,6 +342,23 @@ class SqliteIncidentRepository:
             res["raw_payload"] = json.loads(res.get("raw_payload_json") or "{}")
         except Exception:
             res["raw_payload"] = {}
+        try:
+            res["report"] = json.loads(res.get("report_json") or "{}")
+        except (TypeError, ValueError):
+            res["report"] = {}
+        alert = (res["report"].get("evidence") or {}).get("alert") or res["raw_payload"]
+        for key, source in (
+            ("mitre", "mitre"), ("agent_id", "agent_id"), ("source_ip", "src_ip"),
+            ("source_location", "location"), ("timestamp", "timestamp"),
+        ):
+            res[key] = alert.get(source)
+        res["campaign_id"] = res["report"].get("campaign_id")
+        res["campaign_alert_count"] = res["report"].get("campaign_alert_count", 0)
+        res["external_tickets"] = self.db.fetchall(
+            "SELECT provider, external_id, state FROM incident_external_tickets "
+            "WHERE org_id = ? AND ticket_id = ?",
+            (res["org_id"], res["ticket_id"]),
+        )
         return res
 
 
@@ -677,6 +853,7 @@ class SqliteWorkflowRunRepository:
         alert: dict[str, Any] | SiemAlert,
         base_report: dict[str, Any] | InvestigationReport,
         attempt: int = 1,
+        incident_id: str | None = None,
     ) -> dict[str, Any]:
         self._ensure_org(str(org_id))
         now_iso = datetime.now(UTC).isoformat()
@@ -689,16 +866,39 @@ class SqliteWorkflowRunRepository:
             run_id, workflow_id, org_id, alert_id, attempt,
             status, outcome, side_effects, unknown_outcome,
             definition_snapshot, alert_json, base_report_json,
-            edge_states_json, errors_json, heartbeat_at, started_at
+            edge_states_json, errors_json, heartbeat_at, started_at, incident_id
         ) VALUES (
-            ?, ?, ?, ?, ?, ?, NULL, 0, 0, ?, ?, ?, '{}', '[]', ?, ?
+            ?, ?, ?, ?, ?, ?, NULL, 0, 0, ?, ?, ?, '{}', '[]', ?, ?, ?
         )
         """
         self.db.execute(sql, (
             run_id, workflow_id, str(org_id), alert_id, attempt,
-            "RUNNING", snap_json, alert_json, report_json, now_iso, now_iso
+            "RUNNING", snap_json, alert_json, report_json, now_iso, now_iso, incident_id
         ))
         return self.get_run(org_id, run_id) or {}
+
+    def update_run_report(
+        self, org_id: str, run_id: str,
+        report: dict[str, Any] | InvestigationReport, incident_id: str,
+    ) -> None:
+        """Checkpoint the latest report and stable incident before pause/resume."""
+        report_data = report.to_dict() if isinstance(report, InvestigationReport) else report
+        with self.db.transaction() as conn:
+            run = conn.execute(
+                "SELECT alert_id, incident_id FROM workflow_runs WHERE org_id = ? AND run_id = ?",
+                (str(org_id), run_id),
+            ).fetchone()
+            if not run:
+                raise NotFoundError(f"Workflow run {run_id} not found for org {org_id}")
+            if run["incident_id"] not in (None, "", incident_id):
+                raise ConflictError("A workflow run cannot change its incident identity")
+            if run["alert_id"] != report_data.get("alert_id"):
+                raise ConflictError("A workflow report cannot change its alert identity")
+            conn.execute(
+                "UPDATE workflow_runs SET base_report_json = ?, incident_id = ? "
+                "WHERE org_id = ? AND run_id = ?",
+                (json.dumps(report_data), incident_id, str(org_id), run_id),
+            )
 
     def get_run(self, org_id: str, run_id: str) -> dict[str, Any] | None:
         sql = "SELECT * FROM workflow_runs WHERE run_id = ? AND org_id = ?"
@@ -1073,16 +1273,17 @@ class SqliteAlertClaimRepository:
         status: str,
         outcome: str,
         side_effects: int,
-        report: InvestigationReport | dict[str, Any] | None,
+        report: InvestigationReport | dict[str, Any] | None = None,
         incident_id: str | None = None,
         completed_at: str = "",
     ) -> None:
         now_iso = completed_at or datetime.now(UTC).isoformat()
-        report_json = json.dumps(report.to_dict() if hasattr(report, "to_dict") else report) if report else None
+        report_json = json.dumps(report.to_dict() if hasattr(report, "to_dict") else report) if report is not None else None
 
         sql = """
         UPDATE alert_claims
-        SET status = ?, outcome = ?, side_effects = ?, report_json = ?, incident_id = ?, completed_at = ?
+        SET status = ?, outcome = ?, side_effects = ?,
+            report_json = COALESCE(?, report_json), incident_id = COALESCE(?, incident_id), completed_at = ?
         WHERE org_id = ? AND alert_id = ?
         """
         self.db.execute(sql, (

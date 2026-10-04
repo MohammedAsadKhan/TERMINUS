@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import secrets
 from typing import Annotated
 
 from fastapi import Cookie, Depends, Header, HTTPException, status
@@ -10,6 +11,7 @@ from terminus.agent.investigator import InvestigationAgent
 from terminus.agent.tools import InvestigationTools
 from terminus.auth.models import User
 from terminus.auth.service import AuthService, UserStore
+from terminus.auth.storage import SqliteSessionStore, SqliteUserStore
 from terminus.config import Settings, get_settings
 from terminus.core.ids import OrgId, SessionToken
 from terminus.correlation.stitcher import CampaignStitcher
@@ -28,6 +30,7 @@ from terminus.notifiers.slack import SlackNotifier
 from terminus.notifiers.twilio import TwilioSmsNotifier
 from terminus.orgs.models import Membership, Organization, OrganizationRole
 from terminus.orgs.service import OrganizationService
+from terminus.orgs.storage import SqliteMembershipStore, SqliteOrganizationStore
 from terminus.orgs.store import MembershipStore, OrganizationStore
 from terminus.pipeline.deployment import PipelineDeployment
 from terminus.pipeline.runner import PipelineRunner
@@ -35,6 +38,7 @@ from terminus.pipeline.workflow_engine import WorkflowEngine
 from terminus.policies.engine import PolicyEngine
 from terminus.siem.static import StaticSiemClient
 from terminus.siem.wazuh import WazuhClient
+from terminus.storage.db import Database
 from terminus.storage.repositories import (
     SqliteActionLogRepository,
     SqliteAgentRepository,
@@ -49,7 +53,6 @@ from terminus.storage.repositories import (
     SqliteWorkflowRunRepository,
 )
 from terminus.ticketing.jira import JiraTickets
-from terminus.ticketing.memory import MemoryTickets
 
 # ─── Global Database & Repositories ──────────────────────────────────────────────────
 
@@ -65,45 +68,46 @@ _sqlite_alert_claim_repo = SqliteAlertClaimRepository()
 _sqlite_allowlist_repo = SqliteAllowlistRepository()
 _sqlite_action_log_repo = SqliteActionLogRepository()
 
-# In-memory stores kept for backwards compatibility
-_user_store = UserStore()
-_org_store = OrganizationStore()
-_membership_store = MembershipStore()
-_ticket_store = MemoryTickets()
+# Persistent identity stores; campaign aggregation/report history remain in memory.
+_identity_db = Database.get_instance()
+_user_store = SqliteUserStore(_identity_db)
+_org_store = SqliteOrganizationStore(_identity_db)
+_membership_store = SqliteMembershipStore(_identity_db)
+_ticket_store = _sqlite_incident_repo
 _campaign_stitcher = CampaignStitcher()
-_auth_service = AuthService(_user_store)
+_auth_service = AuthService(_user_store, session_store=SqliteSessionStore(_identity_db))
 _reports_store: dict[str, dict[str, DailyIncidentReport]] = {}
 
 
 def bootstrap_default_admin() -> None:
-    """Bootstrap default admin user and organization so login always works out-of-the-box."""
-    admin_email = "admin@terminus.local"
-    admin_pass = "Password123!"
-    user = _user_store.get_by_email(admin_email)
-    if not user:
-        try:
-            user = _auth_service.register(
-                admin_email, admin_pass, display_name="Terminus Administrator"
-            )
-        except Exception:
-            user = _user_store.get_by_email(admin_email)
-    if user:
-        settings = get_settings()
-        license_svc = LicenseService(secret=settings.license_secret)
-        org_service = OrganizationService(org_store=_org_store, membership_store=_membership_store, license_service=license_svc)
-        if not org_service.list_for_user(user.user_id):
-            try:
-                from datetime import UTC, datetime
+    """Initialize a new local demo or explicitly configured hosted owner once."""
+    from datetime import UTC, datetime
 
-                from terminus.licensing.models import LicenseTier
+    from terminus.licensing.models import LicenseTier
 
-                org_id = OrgId("org-terminus-demo")
-                license_ref = license_svc.generate(org_id=org_id, tier=LicenseTier.TRIAL, days=30)
-                _org_store.create(Organization(org_id=org_id, name="Terminus Security Operations", created_at=datetime.now(UTC), license_ref=license_ref), org_id)
-                _membership_store.create(Membership(org_id=org_id, user_id=user.user_id, role=OrganizationRole.ADMIN))
-            except Exception:
-                pass
-
+    settings = get_settings()
+    configured = bool(settings.bootstrap_admin_email)
+    if settings.deployment_mode == "hosted" and not configured:
+        return
+    admin_email = settings.bootstrap_admin_email or "admin@terminus.local"
+    admin_pass = settings.bootstrap_admin_password or "Password123!"
+    license_svc = LicenseService(secret=settings.license_secret)
+    with _identity_db.transaction():
+        # Never reset an existing password or restore a removed membership.
+        if _user_store.get_by_email(admin_email):
+            return
+        user = _auth_service.register(admin_email, admin_pass, "Terminus Administrator")
+        org_id = OrgId("org-bootstrap-" + secrets.token_hex(8)) if configured else OrgId("org-terminus-demo")
+        existing = _identity_db.fetchone("SELECT license_ref FROM organizations WHERE org_id=?", (org_id,))
+        if existing and _membership_store.memberships_for(org_id):
+            raise ValueError("Demo organization already has an owner; configure a bootstrap account")
+        license_ref = license_svc.generate(org_id=org_id, tier=LicenseTier.TRIAL, days=30)
+        org = Organization(org_id=org_id, name="Terminus Security Operations", created_at=datetime.now(UTC), license_ref=license_ref)
+        if existing:
+            _org_store.update(org, org_id)
+        else:
+            _org_store.create(org, org_id)
+        _membership_store.create(Membership(org_id=org_id, user_id=user.user_id, role=OrganizationRole.ADMIN))
 
 bootstrap_default_admin()
 
@@ -213,11 +217,11 @@ def get_user_store() -> UserStore:
     return _user_store
 
 
-def get_org_store() -> OrganizationStore:
+def get_org_store() -> SqliteOrganizationStore:
     return _org_store
 
 
-def get_membership_store() -> MembershipStore:
+def get_membership_store() -> SqliteMembershipStore:
     return _membership_store
 
 
@@ -285,14 +289,14 @@ def get_pipeline_runner(
     composite_notifier = CompositeNotifier(notifiers)
 
     if settings.jira_url and settings.jira_token:
-        ticket_store = JiraTickets(
+        external_ticket_store = JiraTickets(
             jira_url=settings.jira_url,
             username=settings.jira_user,
             api_token=settings.jira_token,
             project_key=settings.jira_project,
         )
     else:
-        ticket_store = _ticket_store
+        external_ticket_store = None
 
     policy_engine = PolicyEngine()
     tools = InvestigationTools(siem)
@@ -302,7 +306,8 @@ def get_pipeline_runner(
         policy_engine=policy_engine,
         agent=agent,
         notifier=composite_notifier,
-        ticket_store=ticket_store,
+        ticket_store=_sqlite_incident_repo,
+        external_ticket_store=external_ticket_store,
     )
     return PipelineRunner(deployment, workflow_engine=WorkflowEngine(), stitcher=_campaign_stitcher)
 
@@ -333,7 +338,10 @@ def get_current_user(
         )
 
     try:
-        return auth_service.verify(SessionToken(token_str))
+        user = auth_service.verify(SessionToken(token_str))
+        if get_settings().deployment_mode == "hosted" and user.email == "admin@terminus.local":
+            raise ValueError("Local demo account is disabled in hosted mode")
+        return user
     except ValueError as err:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -350,7 +358,7 @@ def get_current_org(
         user_orgs = membership_store.orgs_for_user(user.user_id)
         if user_orgs:
             return user_orgs[0].org_id
-        return OrgId("org-default")
+        raise HTTPException(status_code=403, detail="User has no organization membership")
 
     org_id = OrgId(x_org_id)
     role = membership_store.role_of(org_id, user.user_id)

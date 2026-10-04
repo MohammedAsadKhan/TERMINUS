@@ -7,6 +7,7 @@ within the target organization.
 
 from __future__ import annotations
 
+from contextlib import AbstractContextManager, nullcontext
 from datetime import UTC, datetime
 from secrets import token_urlsafe
 
@@ -16,6 +17,7 @@ from terminus.licensing.models import License
 from terminus.licensing.service import LicenseService
 from terminus.licensing.tiers import MAX_SEATS_BY_TIER
 from terminus.orgs.models import Membership, Organization, OrganizationRole
+from terminus.orgs.storage import SqliteMembershipStore, SqliteOrganizationStore
 from terminus.orgs.store import MembershipStore, OrganizationStore
 
 
@@ -36,20 +38,29 @@ class OrganizationService(Service):
 
     def __init__(
         self,
-        org_store: OrganizationStore,
-        member_store: MembershipStore | None = None,
+        org_store: OrganizationStore | SqliteOrganizationStore,
+        member_store: MembershipStore | SqliteMembershipStore | None = None,
         license_service: LicenseService | None = None,
-        membership_store: MembershipStore | None = None,
+        membership_store: MembershipStore | SqliteMembershipStore | None = None,
     ) -> None:
-        self._orgs = org_store
-        self._members = member_store or membership_store
-        if self._members is None:
+        self._orgs: OrganizationStore | SqliteOrganizationStore = org_store
+        effective_members = member_store or membership_store
+        if effective_members is None:
             raise TypeError(
                 "OrganizationService requires member_store or membership_store"
             )
+        self._members: MembershipStore | SqliteMembershipStore = effective_members
         if license_service is None:
             raise TypeError("OrganizationService requires license_service")
-        self._licenses = license_service
+        self._licenses: LicenseService = license_service
+
+    def _transaction(self) -> AbstractContextManager[object]:
+        """Use SQLite admission locks when durable stores are configured."""
+        if isinstance(self._orgs, SqliteOrganizationStore):
+            return self._orgs.transaction()
+        if isinstance(self._members, SqliteMembershipStore):
+            return self._members.transaction()
+        return nullcontext()
 
     def create_org(
         self,
@@ -85,17 +96,18 @@ class OrganizationService(Service):
             created_at=now,
             license_ref=license_ref,
         )
-        self._orgs.create(org, org_id)
+        with self._transaction():
+            self._orgs.create(org, org_id)
 
-        # Creator becomes admin.
-        membership = Membership(
-            org_id=org_id,
-            user_id=effective_creator,
-            role=OrganizationRole.ADMIN,
-        )
-        self._members.create(membership)
+            # Creator becomes admin.
+            membership = Membership(
+                org_id=org_id,
+                user_id=effective_creator,
+                role=OrganizationRole.ADMIN,
+            )
+            self._members.create(membership)
 
-        return org
+            return org
 
     def _require_admin(self, org_id: OrgId, actor: UserId) -> None:
         """Raise ForbiddenError if actor is not an admin of the org."""
@@ -125,24 +137,25 @@ class OrganizationService(Service):
         if effective_actor is None:
             raise TypeError("add_member requires actor or actor_id")
 
-        self._require_admin(org_id, effective_actor)
+        with self._transaction():
+            self._require_admin(org_id, effective_actor)
 
-        # Check seat limit from license.
-        org = self._orgs.get(org_id, org_id)
-        if org.license_ref:
-            try:
-                lic = self._licenses.validate(org.license_ref)
-                current_members = self._members.memberships_for(org_id)
-                if lic.max_seats > 0 and len(current_members) >= lic.max_seats:
-                    msg = f"Org {org_id} has reached its seat limit of {lic.max_seats}"
-                    raise SeatLimitError(msg)
-            except Exception as exc:
-                if isinstance(exc, SeatLimitError):
-                    raise
-                # License invalid/expired — still allow adding members in MVP.
+            # Check seat limit from license.
+            org = self._orgs.get(org_id, org_id)
+            if org.license_ref:
+                try:
+                    lic = self._licenses.validate(org.license_ref)
+                    current_members = self._members.memberships_for(org_id)
+                    if lic.max_seats > 0 and len(current_members) >= lic.max_seats:
+                        msg = f"Org {org_id} has reached its seat limit of {lic.max_seats}"
+                        raise SeatLimitError(msg)
+                except Exception as exc:
+                    if isinstance(exc, SeatLimitError):
+                        raise
+                    # License invalid/expired — still allow adding members in MVP.
 
-        membership = Membership(org_id=org_id, user_id=user_id, role=role)
-        return self._members.create(membership)
+            membership = Membership(org_id=org_id, user_id=user_id, role=role)
+            return self._members.create(membership)
 
     def remove_member(
         self,
@@ -156,14 +169,15 @@ class OrganizationService(Service):
         if effective_actor is None:
             raise TypeError("remove_member requires actor or actor_id")
 
-        self._require_admin(org_id, effective_actor)
+        with self._transaction():
+            self._require_admin(org_id, effective_actor)
 
-        target = self._members.get(org_id, user_id)
-        if target.role == OrganizationRole.ADMIN and self._admin_count(org_id) <= 1:
-            msg = "Cannot remove the last admin of an organization"
-            raise LastAdminError(msg)
+            target = self._members.get(org_id, user_id)
+            if target.role == OrganizationRole.ADMIN and self._admin_count(org_id) <= 1:
+                msg = "Cannot remove the last admin of an organization"
+                raise LastAdminError(msg)
 
-        self._members.delete(org_id, user_id)
+            self._members.delete(org_id, user_id)
 
     def change_role(
         self,
@@ -178,19 +192,20 @@ class OrganizationService(Service):
         if effective_actor is None:
             raise TypeError("change_role requires actor or actor_id")
 
-        self._require_admin(org_id, effective_actor)
+        with self._transaction():
+            self._require_admin(org_id, effective_actor)
 
-        current = self._members.get(org_id, user_id)
-        if (
-            current.role == OrganizationRole.ADMIN
-            and new_role != OrganizationRole.ADMIN
-            and self._admin_count(org_id) <= 1
-        ):
-            msg = "Cannot demote the last admin of an organization"
-            raise LastAdminError(msg)
+            current = self._members.get(org_id, user_id)
+            if (
+                current.role == OrganizationRole.ADMIN
+                and new_role != OrganizationRole.ADMIN
+                and self._admin_count(org_id) <= 1
+            ):
+                msg = "Cannot demote the last admin of an organization"
+                raise LastAdminError(msg)
 
-        updated = Membership(org_id=org_id, user_id=user_id, role=new_role)
-        return self._members.update(updated)
+            updated = Membership(org_id=org_id, user_id=user_id, role=new_role)
+            return self._members.update(updated)
 
     def role_of(self, org_id: OrgId, user_id: UserId) -> OrganizationRole | None:
         """Return the user's role in the organization, or None."""
@@ -215,25 +230,26 @@ class OrganizationService(Service):
                 "activate_license requires actor/actor_id and token/raw_license"
             )
 
-        self._require_admin(org_id, effective_actor)
+        with self._transaction():
+            self._require_admin(org_id, effective_actor)
 
-        lic = self._licenses.validate(effective_token)
-        if lic.org_id != org_id:
-            from terminus.licensing.crypto import LicenseError
+            lic = self._licenses.validate(effective_token)
+            if lic.org_id != org_id:
+                from terminus.licensing.crypto import LicenseError
 
-            msg = "License does not belong to this organization"
-            raise LicenseError(msg, reason="org_mismatch")
+                msg = "License does not belong to this organization"
+                raise LicenseError(msg, reason="org_mismatch")
 
-        # Update org with new license ref.
-        org = self._orgs.get(org_id, org_id)
-        updated_org = Organization(
-            org_id=org.org_id,
-            name=org.name,
-            created_at=org.created_at,
-            license_ref=effective_token,
-        )
-        self._orgs.update(updated_org, org_id)
-        return lic
+            # Update org with new license ref.
+            org = self._orgs.get(org_id, org_id)
+            updated_org = Organization(
+                org_id=org.org_id,
+                name=org.name,
+                created_at=org.created_at,
+                license_ref=effective_token,
+            )
+            self._orgs.update(updated_org, org_id)
+            return lic
 
     def list_for_user(self, user_id: UserId) -> list[Organization]:
         """Return all organizations the user is a member of."""

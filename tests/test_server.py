@@ -236,6 +236,11 @@ def test_copilot_global_chat(client: TestClient) -> None:
     token = login_res.json()["session_token"]
     headers = {"Authorization": token}
 
+    # A registered user must own or join an organization before reading its data.
+    created_org = client.post("/orgs", headers=headers, json={"name": "Copilot Workspace"})
+    assert created_org.status_code == 201
+    headers["X-Org-ID"] = created_org.json()["org_id"]
+
     # Query Copilot
     res = client.post(
         "/copilot/chat",

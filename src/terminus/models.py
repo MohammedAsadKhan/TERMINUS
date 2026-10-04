@@ -6,7 +6,7 @@ into a Pydantic model here. Internal value objects are frozen dataclasses.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
 
@@ -173,6 +173,8 @@ class InvestigationReport:
     evidence: Evidence
     campaign_id: str | None = None
     campaign_alert_count: int = 0
+    evidence_citations: list[dict[str, Any]] = field(default_factory=list)
+    incident_id: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -182,6 +184,8 @@ class InvestigationReport:
             "evidence": self.evidence.to_dict(),
             "campaign_id": self.campaign_id,
             "campaign_alert_count": self.campaign_alert_count,
+            "evidence_citations": self.evidence_citations,
+            "incident_id": self.incident_id,
         }
 
     @classmethod
@@ -193,6 +197,8 @@ class InvestigationReport:
             evidence=Evidence.from_dict(d["evidence"]),
             campaign_id=d.get("campaign_id"),
             campaign_alert_count=d.get("campaign_alert_count", 0),
+            evidence_citations=d.get("evidence_citations") or [],
+            incident_id=d.get("incident_id"),
         )
 
 

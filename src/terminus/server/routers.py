@@ -13,6 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from terminus.auth.models import PublicUser, User
 from terminus.auth.service import AuthService, DuplicateEmailError, UserStore
+from terminus.config import get_settings
 from terminus.core.base import ConflictError
 from terminus.core.ids import OrgId, SessionToken, UserId
 from terminus.licensing.crypto import LicenseError
@@ -255,9 +256,11 @@ async def login(
 ) -> LoginResponse:
     """Authenticate with email and password to receive a session token."""
     try:
+        if get_settings().deployment_mode == "hosted" and req.email.strip().lower() == "admin@terminus.local":
+            raise ValueError("Invalid email or password")
         token = auth_service.login(email=req.email, password=req.password)
         user = auth_service.verify(token)
-        response.set_cookie("terminus_session", token, httponly=True, secure=request.url.scheme == "https", samesite="strict", max_age=43200)
+        response.set_cookie("terminus_session", token, httponly=True, secure=get_settings().cookie_secure or request.url.scheme == "https", samesite="strict", max_age=43200)
         return LoginResponse(session_token=token, user=PublicUser.model_validate(user))
     except ValueError as err:
         raise HTTPException(
@@ -427,6 +430,14 @@ async def execute_incident_action(
     statuses = {"close_ticket": "RESOLVED", "reopen_ticket": "OPEN", "start_investigation": "INVESTIGATING"}
     if req.action_type not in statuses:
         raise HTTPException(501, "Live containment requires a verified response connector. No external action was executed.")
+    update = getattr(ticket_store, "update_ticket_status", None)
+    if update:
+        ticket = await update(
+            ticket_id, org_id, statuses[req.action_type],
+            resolution_category=(req.resolution_category or "inconclusive") if req.action_type == "close_ticket" else None,
+            resolution_notes=(req.resolution_notes or "").strip() if req.action_type == "close_ticket" else None,
+        )
+        return {"status": "success", "ticket": ticket, "message": f"Incident marked {ticket['status'].lower()}"}
     ticket["status"] = statuses[req.action_type]
     ticket["updated_at"] = datetime.now(UTC).isoformat()
     ticket["resolved_at"] = ticket["updated_at"] if req.action_type == "close_ticket" else ""
@@ -443,11 +454,21 @@ async def get_metrics_summary(
 ) -> dict[str, Any]:
     """Fetch decision-reduction SLA metrics (MTTD, MTTR, Signal-to-Noise Ratio)."""
     tickets = await pipeline_runner.deployment.ticket_store.list_tickets(org_id)
-    return {
+    aggregate = getattr(pipeline_runner.deployment.ticket_store, "get_incident_counts", None) if getattr(type(pipeline_runner.deployment.ticket_store), "get_incident_counts", None) else None
+    totals = await aggregate(org_id) if aggregate else None
+    counts = {
+        "total_incidents_processed": totals["total"],
+        "open_incidents": totals["open"],
+        "resolved_incidents": totals["resolved"],
+        "critical_incidents": totals["critical"],
+    } if totals is not None else {
         "total_incidents_processed": len(tickets),
         "open_incidents": sum(t.get("status") != "RESOLVED" for t in tickets),
         "resolved_incidents": sum(t.get("status") == "RESOLVED" for t in tickets),
         "critical_incidents": sum(t.get("severity") == "critical" and t.get("status") != "RESOLVED" for t in tickets),
+    }
+    return {
+        **counts,
         "mttd_seconds": None, "mttr_seconds": None, "signal_to_noise_pct": None,
         "auto_containment_rate_pct": None,
     }

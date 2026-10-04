@@ -95,4 +95,5 @@ class InvestigationAgent:
             policy=policy,
             verdict=verdict,
             evidence=evidence,
+            evidence_citations=citations,
         )

@@ -13,6 +13,7 @@ from __future__ import annotations
 import logging
 from dataclasses import replace
 
+from terminus.core.base import ConflictError
 from terminus.core.ids import OrgId
 from terminus.correlation.stitcher import CampaignStitcher
 from terminus.investigation.graph import GraphEventStore
@@ -45,7 +46,7 @@ class PipelineRunner:
         self.db = db
         self.workflow_engine = workflow_engine or WorkflowEngine(db=db)
         self.stitcher = stitcher or CampaignStitcher()
-        self.graph_store = GraphEventStore()
+        self.graph_store = GraphEventStore(db=db)
         self.claim_repo = claim_repo or SqliteAlertClaimRepository(db=db)
         self.workflow_repo = workflow_repo or SqliteWorkflowRepository(db=db)
 
@@ -82,13 +83,32 @@ class PipelineRunner:
                         return InvestigationReport.from_dict(json.loads(existing_claim["report_json"]))
                     except Exception:
                         pass
+                raise ConflictError("Alert is already being processed or its stored result is unavailable")
 
         # 2. Temporal Campaign Stitching
-        campaign = self.stitcher.process(alert, org_str)
+        try:
+            campaign = self.stitcher.process(alert, org_str)
+        except Exception:
+            self.claim_repo.update_claim_status(org_str, alert_id, "FAILED", "FAILED_BEFORE_SIDE_EFFECTS", 0, None)
+            raise
 
         # 3. Pre-Engine Autonomous Base Investigation (D3)
-        base_report = await self.deployment.agent.investigate(alert, OrgId(org_str))
+        try:
+            base_report = await self.deployment.agent.investigate(alert, OrgId(org_str))
+        except Exception:
+            self.claim_repo.update_claim_status(org_str, alert_id, "FAILED", "FAILED_BEFORE_SIDE_EFFECTS", 0, None)
+            raise
         report = replace(base_report, campaign_id=campaign.campaign_id, campaign_alert_count=campaign.alert_count)
+
+        # Persist the authoritative incident before a workflow can reference it.
+        incident_id: str | None = None
+        if report.policy.should_investigate and getattr(type(self.deployment.ticket_store), "update_ticket_report", None):
+            try:
+                incident_id = str(await self.deployment.ticket_store.create_ticket(report, OrgId(org_str)))
+            except Exception:
+                self.claim_repo.update_claim_status(org_str, alert_id, "FAILED", "FAILED_BEFORE_SIDE_EFFECTS", 0, None)
+                raise
+            report = replace(report, incident_id=incident_id)
 
         # 4. First-Match Workflow Evaluation (D2)
         matching_workflow = None
@@ -115,6 +135,7 @@ class PipelineRunner:
                     base_report=report,
                     deployment=self.deployment,
                     dry_run=False,
+                    incident_id=incident_id,
                 )
                 if wf_ctx.report:
                     report = wf_ctx.report
@@ -122,17 +143,28 @@ class PipelineRunner:
                 logger.error(f"Unexpected workflow execution error: {e}")
 
         # 6. Gap-Filling for Incident Ticketing and Notifications (D4)
-        incident_id: str | None = None
         ticket_already_created = bool(wf_ctx and wf_ctx.ticket_created)
 
-        if report.policy.should_investigate and not ticket_already_created:
+        if report.policy.should_investigate and not incident_id and not ticket_already_created:
             try:
                 created_id = await self.deployment.ticket_store.create_ticket(report, OrgId(org_str))
                 incident_id = str(created_id)
             except Exception as e:
                 logger.error(f"Error in gap-filling ticket creation: {e}")
         elif ticket_already_created:
-            incident_id = str(getattr(wf_ctx, "incident_id", None) or f"WF-TICK-{alert_id}")
+            incident_id = wf_ctx.incident_id or incident_id
+
+        update_report = getattr(self.deployment.ticket_store, "update_ticket_report", None) if getattr(type(self.deployment.ticket_store), "update_ticket_report", None) else None
+        if incident_id and update_report:
+            await update_report(incident_id, OrgId(org_str), report)
+
+        if incident_id and report.policy.should_investigate:
+            try:
+                export = getattr(type(self.deployment), "export_ticket", None)
+                if export:
+                    await self.deployment.export_ticket(incident_id, report, OrgId(org_str))
+            except Exception:
+                logger.warning("External ticket export failed; canonical incident remains stored")
 
         # Record in 7-day investigation graph store
         try:
