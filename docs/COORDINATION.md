@@ -8,7 +8,7 @@ An incident objective creates a scheduled `main_orchestrator` task. Its handler 
 
 A completed coordinator means its delegation pass finished. It does not mean the specialist tasks finished, the incident was closed, or an endpoint was protected. Incident-tree inspection returns actual persisted task/run/evidence records and a separate aggregate. No incident closure or action verification is inferred from a summary.
 
-The five areas are `alert_handling`, `investigation`, `infrastructure`, `applications_data`, and `response_improvement`. The initial specialty catalog covers eight default roles: triage, identity, endpoint, network, response planning, verification, evidence/reporting, and Application & API Security Analyst (`application_api`). Selecting `applications_data` now delegates to this specialist by default; its real tools and AI execution remain pending O05. Additional cloud/container/repository capabilities require real handlers before they can claim coverage.
+The five areas are `alert_handling`, `investigation`, `infrastructure`, `applications_data`, and `response_improvement`. The initial specialty catalog covers eight default roles: triage, identity, endpoint, network, response planning, verification, evidence/reporting, and Application & API Security Analyst (`application_api`). Selecting `applications_data` now delegates to this specialist by default. The eight core roles have fixed, read-only tool plans in `terminus.orchestration.specialists.roles`; catalog-only tools (network, application, reporting and similar) are reported as explicit `tool_not_installed` gaps, never as findings. No plan contains a dispatch tool, and response proposals are deferred to A03. Plans read incident resources an administrator binds per incident as `incident-ref` and `endpoint-ref`; an unbound reference yields a denied gap. Model-assisted execution is not configured by the deployed handlers. Additional cloud/container/repository capabilities require real handlers before they can claim coverage.
 
 ## Deployment
 
@@ -18,7 +18,7 @@ Use the same database path as FastAPI:
 uv run --frozen python -m terminus.orchestration.scheduler_cli --database C:\path\to\terminus.db --coordination
 ```
 
-This enables only main/area delegation. To execute specialists, add explicit trusted `--handler ROLE=MODULE:FUNCTION` arguments for deployed implementations. Missing handlers leave tasks queued. Coordination roles cannot be overridden through `--handler` when `--coordination` is enabled. FastAPI never starts a second scheduler automatically.
+This enables only main/area delegation. To execute specialists, add explicit trusted `--handler ROLE=MODULE:FUNCTION` arguments for deployed implementations. Missing handlers leave tasks queued. Coordination roles cannot be overridden through `--handler` when `--coordination` is enabled. Deployable specialist handlers live in `terminus.orchestration.specialists.deploy` (for example `--handler triage=terminus.orchestration.specialists.deploy:triage`, one per core role) and coexist with `--coordination`. They require `TERMINUS_SPECIALIST_DATABASE` and `TERMINUS_SPECIALIST_ACTOR_USER_ID` (a service account that is an operator member); without them each run fails with a configuration error rather than producing a result. FastAPI never starts a second scheduler automatically.
 
 ## HTTP boundaries
 

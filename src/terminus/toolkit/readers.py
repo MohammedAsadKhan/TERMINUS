@@ -24,6 +24,11 @@ from terminus.toolkit.context import (
     TrustedReadContextFactory,
 )
 from terminus.toolkit.evidence import ToolEvidenceWriter, query_digest
+from terminus.toolkit.evidence_tools import (
+    EVIDENCE_TOOL_IDS,
+    EvidenceReader,
+    evidence_store_catalog,
+)
 from terminus.toolkit.gateway import ToolGateway
 from terminus.toolkit.models import (
     EvidenceReference,
@@ -46,6 +51,7 @@ _TOOLS = (
     "identity.auth_events",
     "endpoint.agent",
     "collection.coverage",
+    *EVIDENCE_TOOL_IDS,
 )
 
 
@@ -90,7 +96,8 @@ class InvestigationReadService:
         )
         self.validator: ToolContractValidator = ToolContractValidator(scheduler)
         self.writer: ToolEvidenceWriter = ToolEvidenceWriter(self.validator, self.audit)
-        catalog = load_catalog()
+        catalog = evidence_store_catalog(load_catalog())
+        evidence_reader = EvidenceReader(self)
         configured = ["terminus_store"]
         if manager is not None:
             configured.append("wazuh_manager")
@@ -100,7 +107,13 @@ class InvestigationReadService:
         self.registry: ExecutableToolRegistry = ExecutableToolRegistry(
             catalog,
             installed=tuple(
-                InstalledTool(descriptors[name], self._handler(name)) for name in _TOOLS
+                InstalledTool(
+                    descriptors[name],
+                    evidence_reader.handler(name)
+                    if name in EVIDENCE_TOOL_IDS
+                    else self._handler(name),
+                )
+                for name in _TOOLS
             ),
             configured_connector_ids=configured,
         )

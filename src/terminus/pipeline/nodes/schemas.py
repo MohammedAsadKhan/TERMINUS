@@ -55,6 +55,7 @@ class AgentLlmConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     agent_id: str | None = None
+    role: str | None = None
     system_prompt_override: str | None = None
     model: str | None = None
 

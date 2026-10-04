@@ -32,6 +32,7 @@ from terminus.models import (
 )
 from terminus.pipeline.deployment import PipelineDeployment
 from terminus.pipeline.nodes.schemas import NodeType
+from terminus.pipeline.specialist_bridge import SpecialistBridge, simulate
 from terminus.pipeline.triggers import trigger_matches
 from terminus.privacy.redactor import SecretRedactor
 from terminus.storage.db import Database
@@ -87,8 +88,10 @@ class WorkflowEngine:
         run_repo: SqliteWorkflowRunRepository | None = None,
         approval_repo: SqliteApprovalRepository | None = None,
         allowlist_repo: SqliteAllowlistRepository | None = None,
+        specialist_bridge: SpecialistBridge | None = None,
     ) -> None:
         self.db = db
+        self.specialist_bridge = specialist_bridge
         self.run_repo = run_repo or SqliteWorkflowRunRepository(db=db)
         self.approval_repo = approval_repo or SqliteApprovalRepository(db=db)
         self.allowlist_repo = allowlist_repo or SqliteAllowlistRepository(db=db)
@@ -244,6 +247,13 @@ class WorkflowEngine:
                             ctx.edge_states[edge.id] = "LIVE" if handle == "true" else "DEAD"
                         else:
                             ctx.edge_states[edge.id] = "LIVE" if handle == "false" else "DEAD"
+
+        # Re-evaluate nodes waiting on a specialist run; the idempotency key returns
+        # the same task, and a terminal recorded run lets the node complete.
+        for nid in [n for n, st in ctx.node_statuses.items() if st == "WAITING_SPECIALIST"]:
+            ctx.executed_nodes[:] = [x for x in ctx.executed_nodes if x != nid]
+            del ctx.node_statuses[nid]
+            ctx.node_outputs.pop(nid, None)
 
         # Continue traversal
         await self._traverse(workflow, ctx, deployment)
@@ -414,31 +424,43 @@ class WorkflowEngine:
 
             # 4. agent_llm (D1, D3)
             if ntype == NodeType.AGENT_LLM.value:
-                persona_instr = cfg.get("persona_instructions") or ""
+                # With a bridge, only recorded specialist runs are reported (no verdict is
+                # fabricated). Without one, live mode keeps the legacy unrecorded agent.
                 if ctx.dry_run:
-                    sim_verdict = Verdict(
-                        severity=Severity.HIGH,
-                        confidence=Confidence.HIGH,
-                        summary=f"[Dry-Run] ReAct Agent executed with persona: {persona_instr[:60]}...",
-                        recommended_actions=["Verify endpoint telemetry", "Execute playbook containment"],
+                    sim = simulate(cfg).to_output()
+                    sim["persona"] = cfg.get("persona_instructions") or ""
+                    return "SUCCESS", sim, "default", False
+                if self.specialist_bridge is None:
+                    legacy_agent = InvestigationAgent(llm=deployment.agent.llm)
+                    re_report = await legacy_agent.investigate(
+                        alert=ctx.alert,
+                        org_id=OrgId(ctx.org_id),
+                        persona_prompt=cfg.get("persona_instructions") or "",
                     )
-                    ctx.report = dataclasses.replace(ctx.report, verdict=sim_verdict)
-                    return "SUCCESS", {"verdict": sim_verdict.model_dump(), "persona": persona_instr}, "default", False
-
-                # Live LLM execution
-                agent = InvestigationAgent(llm=deployment.agent.llm)
-                re_report = await agent.investigate(
-                    alert=ctx.alert,
-                    org_id=OrgId(ctx.org_id),
-                    persona_prompt=persona_instr,
+                    ctx.report = dataclasses.replace(
+                        ctx.report,
+                        verdict=re_report.verdict,
+                        evidence=re_report.evidence,
+                        evidence_citations=re_report.evidence_citations,
+                    )
+                    return "SUCCESS", {"verdict": re_report.verdict.model_dump(), "legacy_unrecorded": True}, "default", False
+                outcome = self.specialist_bridge.request(
+                    org_id=ctx.org_id,
+                    incident_id=ctx.incident_id,
+                    run_id=ctx.run_id,
+                    node_id=node.id,
+                    workflow_id=workflow.id,
+                    config=cfg,
                 )
-                ctx.report = dataclasses.replace(
-                    ctx.report,
-                    verdict=re_report.verdict,
-                    evidence=re_report.evidence,
-                    evidence_citations=re_report.evidence_citations,
-                )
-                return "SUCCESS", {"verdict": re_report.verdict.model_dump()}, "default", False
+                spec_out = outcome.to_output()
+                if outcome.state == "completed":
+                    return "SUCCESS", spec_out, "default", False
+                if outcome.state == "waiting":
+                    return "WAITING_SPECIALIST", spec_out, "default", True
+                if outcome.state in ("failed", "unresolved_agent"):
+                    ctx.errors.append(f"Specialist node {node.id}: {outcome.gap}")
+                    return ("FAILED" if outcome.state == "failed" else "UNRESOLVED_AGENT"), spec_out, "on_error", False
+                return "NOT_EXECUTED", spec_out, "default", False
 
             # 5. tool_slack (D1, D4)
             if ntype == NodeType.TOOL_SLACK.value:
@@ -587,6 +609,9 @@ class WorkflowEngine:
         if any(st == "WAITING_APPROVAL" for st in ctx.node_statuses.values()):
             ctx.status = "WAITING_APPROVAL"
             ctx.outcome = "WAITING_APPROVAL"
+        elif any(st == "WAITING_SPECIALIST" for st in ctx.node_statuses.values()):
+            ctx.status = "WAITING_SPECIALIST"
+            ctx.outcome = "WAITING_SPECIALIST"
         elif ctx.errors or any(st in ("FAILED", "BLOCKED") for st in ctx.node_statuses.values()):
             ctx.status = "FAILED"
             if ctx.side_effects_executed:
