@@ -1,193 +1,200 @@
-# TERMINUS — Autonomous AI Security Operations & SOAR Platform
+<div align="center">
 
-[![Python 3.12](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg)](https://fastapi.tiangolo.com)
-[![Pytest](https://img.shields.io/badge/pytest-149%20passed-brightgreen.svg)](https://docs.pytest.org/)
-[![License](https://img.shields.io/badge/license-Enterprise-blue.svg)](LICENSE)
-[![Architecture](https://img.shields.io/badge/Architecture-Dual--Engine%20SOC-purple.svg)](ARCHITECTURE.md)
+<img src="docs/assets/terminus-banner.svg" alt="TERMINUS — Investigate. Decide. Respond." width="100%" />
 
-**TERMINUS** is an enterprise-grade, multi-tenant Autonomous AI Security Operations Center (AI SOC) and SOAR platform built as an independent, deterministic service layer on top of SIEM telemetry (e.g., Wazuh, Syslog). It pairs a deterministic, sub-millisecond policy engine with specialized ReAct AI investigation agents, visual DAG automation playbooks with mandatory human-in-the-loop approval gates, and deterministic blast-radius containment guardrails.
+**An AI security operations workspace built around evidence, controlled orchestration and human oversight.**
 
----
+[![Python](https://img.shields.io/badge/Python-3.12%2B-2563EB?style=flat-square)](pyproject.toml)
+[![Backend](https://img.shields.io/badge/Backend-FastAPI-2563EB?style=flat-square)](src/terminus/server/)
+[![Console](https://img.shields.io/badge/Console-React%20%2B%20TypeScript-2563EB?style=flat-square)](web/)
+[![Storage](https://img.shields.io/badge/Storage-SQLite%20WAL-2563EB?style=flat-square)](docs/DATABASE_STATUS.md)
+[![Release](https://img.shields.io/badge/Release-1.0%20in%20development-64748B?style=flat-square)](docs/MVP_RELEASE.md)
 
-## Key Capabilities
+[**Get started**](#run-terminus) &nbsp; · &nbsp; [**Architecture**](#how-it-fits-together) &nbsp; · &nbsp; [**Release plan**](docs/MVP_RELEASE.md) &nbsp; · &nbsp; [**Team checklist**](docs/EXECUTION_CHECKLIST.md)
 
-- **Deterministic Tier-0 Noise Filter**: Sub-millisecond pre-filtering (<1ms) evaluating rules before invoking LLMs. Filters 70–85% of benign noise at **0 token cost**.
-- **ReAct AI Forensic Investigator Swarms**: Multi-turn reasoning swarms (*Triage Sentinel*, *Forensic Investigator*, *Containment Operator*) equipped with parameterized forensic tools (`siem_search`, `threat_intel_lookup`, `powershell_deobfuscator`).
-- **Visual DAG Workflow Engine**: Validated graph-based playbooks with strict node schemas (`extra="forbid"`), resolved-edge join semantics (D9), and non-raising execution safety (D6).
-- **Deterministic Blast-Radius Containment (D11, D12, D14)**: Mathematically enforces that critical infrastructure (Domain Controllers, core subnets, and default gateways) cannot be isolated by probabilistic AI hallucination.
-- **Fleet-Wide Dual Containment Quota**: Sliding-window rate limiter enforcing a maximum of 10 global host isolations and 3 per subnet per 15-minute window with automated lease TTL expiration.
-- **Dynamic Sigma & YARA Rule Synthesizer**: Closed-loop detection engineering that drafts validated Sigma and YARA rules from investigated incidents.
-- **Wilson Score Statistical Backtesting**: Evaluates historical detection telemetry with 95% Wilson confidence lower bounds ($w^-$) to eliminate false-positive overfitting.
-- **Idempotent Claim Leases & Concurrency (D5, D24)**: Atomic SQLite WAL claims with 60-second background lease sweepers and crash recovery.
-- **Real-Time Tenant-Isolated SSE Stream**: Server-Sent Events bus streaming live incident investigations, agent thought steps, and approval requests to the UI.
-- **Interactive SOC Analyst Console**: React 19 / Vite / Ant Design workspace featuring dynamic incident queues, force-directed graph canvas, ReAct Copilot, and visual DAG designer.
-- **Asset Inventory**: Organization-scoped SQLite records for repositories, containers, cloud accounts, virtual machines, domains, and devices. Admins can register and remove inventory records; monitoring coverage is explicitly shown as not connected until collectors/providers are implemented.
+<sub>Defensive security operations</sub>
+
+</div>
 
 ---
 
-## 3-Step Windows Quickstart (Grading Walkthrough)
+## Security operations, with a clear line of sight
 
-TERMINUS is packaged for turnkey evaluation without requiring pre-installed Node.js or complex database setup:
+Terminus brings incidents, investigation, agents, response workflows and asset inventory into one analyst workspace. Its direction is simple: turn security telemetry into traceable findings, route work to the right specialists, and require scoped approval and independent verification for consequential responses.
 
-The prebuilt console is tracked in `src/terminus/server/static/console/` so evaluators can launch the service without a frontend build. After changing frontend source, run `npm ci` and `npm run build` from `web/` and include the updated generated assets. The setup executables configure the service; they do not bundle the full service and console.
+The repository includes the operations console, incident and identity persistence, visual playbooks, a durable scheduler and deterministic main/area coordination. The toolkit catalog defines the next integration layer; live specialist handlers and verified lab defense remain release work.
 
-The current runtime uses SQLite, with automatic migration of legacy agent and workflow keys. Authentication, organizations, memberships, sessions, and report history still use process memory. See [Database status](docs/DATABASE_STATUS.md) for persistence and setup configuration limitations. Live containment requires an implemented response connector; the current demo supports simulation and guardrail evaluation.
+| Investigate | Coordinate | Respond |
+| :--- | :--- | :--- |
+| Incident queues, Copilot investigation surfaces and source-linked evidence records. | Durable tasks, tracked runs, bounded scheduling and five logical areas. | Visual playbooks and guardrails, with approval-bound live response planned. |
 
-### 1. Setup & Configuration Wizard
-Double-click `TerminusSetupWizard.exe` (or run `setup_terminus.bat`):
-* Interactive pre-flight checks: live port collision scanning (Port `8000`) and live "Test LLM Connection" probe.
-* Configures service daemon port, SQLite WAL database (`terminus.db`), and AI reasoning backend (Groq / OpenAI / Ollama / vLLM).
-* Provisions the root administrator (`admin@terminus.local` / `Password123!`), generates cryptographic enterprise license tokens, and exports `docs/wazuh_integration.xml`.
+## Release at a glance
 
-### 2. Start the Standalone Service Daemon
-Double-click `run_demo_service.bat`:
-* Boots the FastAPI backend service on `http://localhost:8000`.
-* Auto-provisions baseline agent fleet personas, DAG playbooks, and containment allowlists.
-* Automatically opens the Web Operations Console: **[http://localhost:8000/console/](http://localhost:8000/console/)**.
+| Layer | Current state |
+| :--- | :--- |
+| **Analyst console** | Overview, incidents, Copilot, reports, agents, workflows, organization and settings surfaces. |
+| **Asset inventory** | Organization-scoped repositories, containers, clouds, VMs, domains and devices. Registration does not establish monitoring or protection. |
+| **Persistent foundation** | SQLite-backed identities, sessions, incidents, workflows, tasks, runs and immutable evidence. Daily report history and campaign stitching still use process memory. |
+| **Durable scheduling** | Dedicated Python/asyncio process, fenced leases, bounded concurrency, cancellation, retry and conservative holds after uncertain dispatch. |
+| **Coordination** | Main orchestrator, lazy area coordinators and eight core role definitions. Real specialist execution handlers are pending. |
+| **Defensive toolkit** | **60 specialties · 18 families · 93 tools · 48 connector candidates.** Schemas and fixtures are implemented; catalog entries enable no live tools. |
+| **Model control** | Existing LLM integration; multi-key/provider routing, local-model policy, redaction and durable budgets are planned. |
+| **Live defense** | Wazuh-backed approved response, reconciliation, expiry/undo and independent verification require implementation and lab testing. |
 
-### 3. Stream Live Multi-Stage Cyberattacks
-In a second terminal window, double-click `launch_attack_simulation.bat`:
-* Streams realistic adversary attack waves against the running service:
-  1. **Wave 1 — Reconnaissance & Brute Force**: Demonstrates sub-millisecond Tier-0 noise suppression (0 token spend).
-  2. **Wave 2 — LockBit 3.0 Ransomware Detonation**: Triggers ReAct forensic investigation and pauses for **Mandatory Human Approval** before host isolation.
-  3. **Wave 3 — Active Directory Mimikatz DCSync Attack**: Demonstrates deterministic guardrails **blocking** unauthorized isolation of Domain Controller `dc01.corp.internal`.
-  4. **Wave 4 — AI Copilot Campaign Correlation**: Correlates multi-host adversary behavior across the MITRE ATT&CK matrix.
+> **Verification snapshot:** 336 automated tests passed against a temporary SQLite database on October 4, 2026. This verifies repository behavior and contracts. Live SIEM, model-provider and defense demonstrations require separate evidence.
 
-### Platform Reset & Teardown
-To reset the database or clean the environment, run `uninstall_terminus.bat`:
-* **Soft Reset**: Cleans database state, test artifacts, and logs while preserving the virtual environment.
-* **Full Teardown**: Gracefully terminates services and completely cleans virtual environments and build artifacts.
-
----
-
-## System Architecture
+## How it fits together
 
 ```mermaid
 flowchart TD
-    subgraph TelemetrySource ["Telemetry & SIEM Ingestion"]
-        Wazuh["Wazuh SIEM / Syslog Webhook"]
-        Sim["Adversary Stream (.bat)"]
-        Honeypot["Native Honeypot (:5000)"]
-    end
-
-    subgraph Service ["TERMINUS Standalone Service (:8000)"]
-        Sensor["Dynamic Connection Sensor"]
-        Tier0["Tier-0 Policy Filter (<1ms, 0 Tokens)"]
-        ReAct["ReAct Persona Swarms"]
-        DAG["Visual DAG Workflow Engine"]
-        Safety["Deterministic Guardrails (D11, D12, D14)"]
-        Lease["Idempotent Claim Leases (D5, D24)"]
-        DB[(SQLite WAL Multi-Reader DB)]
-    end
-
-    subgraph OperationsConsole ["Analyst Operations Console"]
-        UI["Web Console (:8000/console/)"]
-        Copilot["Interactive AI Copilot"]
-        Canvas["Topology Investigation Canvas"]
-        SSE["Tenant-Isolated SSE Bus (/stream)"]
-    end
-
-    Wazuh -->|POST /webhook/wazuh| Sensor
-    Sim -->|POST /webhook/alert| Sensor
-    Honeypot --> Sensor
-    Sensor --> Tier0
-    Tier0 -->|Triage / Escalate| ReAct
-    ReAct --> DAG
-    DAG --> Safety
-    Safety --> Lease --> DB
-    Safety -->|Live Updates| SSE
-    SSE --> UI
-    UI <--> Copilot
-    UI <--> Canvas
+    SIEM["Security telemetry / Wazuh"] --> API["FastAPI · incident pipeline"]
+    API <--> DB[("SQLite WAL · durable state")]
+    UI["React operations console"] <--> API
+    API --> MAIN["Main orchestrator"]
+    MAIN --> AREAS["Five lazy area coordinators"]
+    AREAS --> SCHED["Shared durable scheduler"]
+    SCHED <--> DB
+    SCHED -. "next: installed specialist handlers" .-> ROLES["Eight core specialists"]
+    ROLES -.-> GATE["Planned tool / model gateway"]
+    GATE -.-> READ["Bounded evidence readers"]
+    GATE -.-> PLAN["Scoped response proposal"]
+    PLAN -.-> APPROVE["Human approval bound to proposal"]
+    APPROVE -.-> EFFECT["Dispatch · reconcile · undo"]
+    EFFECT -.-> VERIFY["Independent effect + service-health checks"]
+    classDef foundation fill:#EFF6FF,stroke:#2563EB,color:#172554;
+    classDef planned fill:#F8FAFC,stroke:#94A3B8,color:#334155,stroke-dasharray:5 5;
+    class API,DB,UI,MAIN,AREAS,SCHED foundation;
+    class ROLES,GATE,READ,PLAN,APPROVE,EFFECT,VERIFY planned;
 ```
+
+Solid connections show the current foundation; dotted connections show planned specialist/tool/response integration. The API and scheduler run as separate processes on the same host and SQLite file. Scheduler completion alone never proves that an endpoint is protected.
+
+[Scheduler operations](docs/SCHEDULER.md) · [Coordination contracts](docs/COORDINATION.md) · [Architecture decisions](docs/ARCHITECTURE_DECISIONS.md)
+
+## Eight specialists for the first release
+
+| Role | Responsibility |
+| :--- | :--- |
+| **Triage** | Prioritize alerts, reduce duplicates and scope the incident. |
+| **Identity** | Investigate authentication, accounts and privilege activity. |
+| **Endpoint** | Examine host, process, file and persistence evidence. |
+| **Network** | Correlate connections and network observations. |
+| **Application & API** | Investigate application requests and related host activity. |
+| **Response planner** | Propose scoped actions, prerequisites and expected impact. |
+| **Verification** | Independently check effects, recovery and legitimate service health. |
+| **Evidence & reporting** | Assemble cited findings, timelines and incident reports. |
+
+These are core role definitions, not a claim that eight live handlers are installed. Planning is separate from dispatch. The broader [60-specialty roadmap](docs/FUTURE_SCOPE.md) remains **planned and unavailable in 1.0**.
+
+## Run Terminus
+
+### Local development
+
+Install Python 3.12+ and [uv](https://docs.astral.sh/uv/), then run from the repository root:
+
+```powershell
+uv sync --frozen
+Copy-Item .env.example .env
+# Edit .env for the integrations you intend to use.
+uv run --frozen uvicorn terminus.server.app:create_app --factory --host 127.0.0.1 --port 8000
+```
+
+Open **http://127.0.0.1:8000/console/**. The prebuilt console is tracked, so an initial launch needs no frontend build.
+
+Local mode supports the first-run demo login: `admin@terminus.local` / `Password123!`. Existing credentials are not reset at startup. Hosted mode creates no demo account.
+
+### Windows evaluation
+
+1. Run `TerminusSetupWizard.exe` or `setup_terminus.bat` for setup.
+2. Run `run_demo_service.bat` to launch the service and open the console.
+3. Optionally run `launch_attack_simulation.bat` to submit **synthetic attack telemetry**.
+
+The setup executable configures the project; it does not bundle the full service. The simulation submits demonstration events, rather than executing ransomware or proving real defense. Existing provider-connected paths may make model calls when configured.
+
+[Evaluation walkthrough](docs/GRADING_GUIDE.md) · [Build instructions](docs/BUILD.md)
+
+### Configuration and storage
+
+Use [.env.example](.env.example) for current settings. The runtime uses Python `sqlite3` and local `terminus.db`; PostgreSQL, MySQL, MongoDB and Redis are not active storage backends. A database URL entered in the setup wizard does not switch the runtime backend.
+
+For hosting, configure `TERMINUS_DEPLOYMENT_MODE=hosted`, a stable `TERMINUS_LICENSE_SECRET` and HTTPS. Optional first-run owner bootstrap uses the paired `TERMINUS_BOOTSTRAP_ADMIN_EMAIL` and `TERMINUS_BOOTSTRAP_ADMIN_PASSWORD` settings. Preserve the database on persistent storage and use SQLite's backup API for live backups.
+
+[Database and deployment details](docs/DATABASE_STATUS.md)
+
+<details>
+<summary><strong>Working on the console?</strong></summary>
+
+From `web/`, install the locked dependencies and rebuild the tracked console assets:
+
+```powershell
+cd web
+npm ci
+npm run build
+```
+
+Include updated generated files in `src/terminus/server/static/console/` with frontend changes.
+
+</details>
+
+## Build toward a real defense demonstration
+
+1. **Tool foundation:** executable registry, permission gateway, evidence envelopes and invocation audit.
+2. **Evidence collection:** bounded incident, coverage, endpoint and authentication readers; explicit gaps when telemetry is missing.
+3. **Model policy:** credentials, provider/local-model support, data-sharing rules and budget enforcement.
+4. **Specialist execution:** real handlers, workflow identities and observable task/tool activity.
+5. **Scenario A:** real alert → investigation → approved temporary block → independent verification → undo.
+6. **Scenario B and deployment:** instrument the selected application, prove the second scenario locally, then reproduce deployment on AWS.
+
+The local lab comes first. Cloud deployment, SYN-flood extensions and the future native Watcher have their own acceptance gates. Follow the [shared checklist](docs/EXECUTION_CHECKLIST.md): claim a task before starting, and mark it **Done by** only after its required checks pass.
+
+## Verify changes
+
+Run the suite with a disposable database selected **before test collection**:
+
+```powershell
+uv run --frozen python -c "import tempfile,pathlib,pytest; from terminus.storage.db import Database; Database.reset_instance(str(pathlib.Path(tempfile.mkdtemp(prefix='terminus-tests-'))/'tests.db')); raise SystemExit(pytest.main(['-q']))"
+```
+
+For toolkit contract work:
+
+```powershell
+uv run --frozen pytest -q tests/test_toolkit_contracts.py
+uv run --frozen ruff check src/terminus/toolkit tests/test_toolkit_contracts.py
+```
+
+Fixtures verify contracts and repository behavior; they do not establish live connector readiness.
+
+## Find your way around
+
+```text
+TERMINUS/
+├── src/terminus/
+│   ├── agent/           Existing investigation implementation
+│   ├── orchestration/  Durable storage, scheduler and coordination
+│   ├── toolkit/        Typed contracts and declarative tool catalogs
+│   ├── pipeline/       Workflow graph and execution machinery
+│   ├── containment/    Guardrails and current containment paths
+│   ├── server/         FastAPI routes and prebuilt console
+│   └── storage/        SQLite database and repositories
+├── web/                React / TypeScript console source
+├── tests/              Automated checks and recorded fixtures
+├── docs/               Release scope, architecture and team runbooks
+└── scripts/            Setup, demonstration and supporting utilities
+```
+
+| Start here | What it answers |
+| :--- | :--- |
+| [Product requirements](docs/PRD.md) | What are we building, and which rules govern it? |
+| [1.0 release scope](docs/MVP_RELEASE.md) | What must work for the first release? |
+| [Team execution checklist](docs/EXECUTION_CHECKLIST.md) | What remains, who claimed it, and what proves completion? |
+| [Toolkit contracts](docs/TOOLKIT_CONTRACTS.md) | Which tools, permissions and evidence does each specialty need? |
+| [Future scope](docs/FUTURE_SCOPE.md) | How does the defensive catalog expand beyond 1.0? |
+| [Architecture decisions](docs/ARCHITECTURE_DECISIONS.md) | What is implemented, and where are the remaining gaps? |
 
 ---
 
-## 24 Pinned Architectural Decisions (`D1`–`D24`)
+<div align="center">
 
-| Decision | Implementation Guarantee | Test Suite |
-| :--- | :--- | :--- |
-| **D1** | Strict node schemas (`extra="forbid"`) preventing payload injection. | `tests/workflows/test_phase1.py` |
-| **D2** | Deterministic workflow execution priority (`ORDER BY priority ASC, created_at ASC`). | `tests/workflows/test_phase5.py` |
-| **D3** | Base investigation commits before visual workflow triggers execute. | `tests/workflows/test_phase5.py` |
-| **D4** | Workflows default to disabled draft state upon creation. | `tests/workflows/test_phase6.py` |
-| **D5** | Atomic alert claims with idempotent leases and safe crash reclaim. | `tests/workflows/test_phase5.py` |
-| **D6** | Non-raising workflow engine mapping errors to `on_error` branches. | `tests/workflows/test_phase4.py` |
-| **D7** | Clean architectural separation of run `Status` vs `Outcome`. | `tests/workflows/test_phase0.py` |
-| **D8** | Visual handles schema mapped deterministically (`default`, `true_case`, `false_case`, `on_error`). | `tests/workflows/test_phase1.py` |
-| **D9** | Resolved-edge join semantics: joins fire when all incoming non-skipped paths complete. | `tests/workflows/test_phase4.py` |
-| **D10** | Strict multi-tenant isolation keyed by `OrgId` across all repositories. | `tests/test_server.py` |
-| **D11** | Deterministic containment gating: isolation MUST pass condition or human approval. | `tests/workflows/test_phase1.py` |
-| **D12** | Immutable organizational allowlists protect Domain Controllers and core subnets. | `tests/workflows/test_phase1.py` |
-| **D13** | Secret redactor scrubs API keys, passwords, and tokens from all telemetry. | `tests/workflows/test_phase0.py` |
-| **D14** | `force_override` requires admin role, non-LLM origin, and never bypasses invalid IPs. | `tests/workflows/test_phase1.py` |
-| **D15** | Approval timeouts resolve to `EXPIRED` (`system:expired`) and resume workflow. | `tests/workflows/test_phase5.py` |
-| **D16** | Shielded timeout execution wrappers prevent orphaned external side-effects. | `tests/workflows/test_phase4.py` |
-| **D17** | ReAct forensic agent swarms operate with scoped toolbelts and prompt interpolation. | `tests/workflows/test_phase3.py` |
-| **D18** | Optimistic concurrency control via integer version incrementing. | `tests/workflows/test_phase6.py` |
-| **D19** | Dynamic auto-layout engine computes clean visual node coordinates. | `tests/workflows/test_phase6.py` |
-| **D20** | Gap-filling ticketing and notifications when custom playbooks omit them. | `tests/workflows/test_phase5.py` |
-| **D21** | Structural workflow edits force state transition to disabled for analyst re-validation. | `tests/workflows/test_phase6.py` |
-| **D22** | Metadata updates preserve active enabled/disabled workflow status. | `tests/workflows/test_phase6.py` |
-| **D23** | Interactive dry-run testing executes full graph evaluation with zero side-effects. | `tests/workflows/test_phase4.py` |
-| **D24** | 60-second autonomous background sweeper recovers stale runs and expires approvals. | `tests/workflows/test_phase5.py` |
+**TERMINUS** · Evidence before conclusions. Approval before consequential action. Verification before success.
 
----
-
-## Automated Test Harness & Verification
-
-TERMINUS is backed by a 100% automated test suite covering all 8 development phases:
-
-```bash
-# Run full automated test suite (149 tests)
-uv run pytest -q
-
-# Run with verbose output and duration analysis
-uv run pytest -v --durations=10
-```
-
----
-
-## Directory Structure
-
-```
-terminus/
-├── TerminusSetupWizard.exe  # Standalone Windows GUI Setup & Installation Wizard
-├── setup_terminus.bat       # Interactive CLI Setup & Environment Builder
-├── run_demo_service.bat     # Launches the Standalone Autonomous SOC Service Daemon
-├── launch_attack_simulation.bat # Live Multi-Stage Adversary Attack Telemetry Streamer
-├── uninstall_terminus.bat   # Interactive Platform Uninstaller & Reset Tool
-├── src/terminus/            # Core Python Platform Package
-│   ├── agent/               # ReAct Forensic Investigation Swarms & Scoped Tools
-│   ├── auth/                # Session Tokens & Timing-Safe Password Hashing
-│   ├── containment/         # Deterministic Blast-Radius Safety Guardrails & Quotas (D11, D12)
-│   ├── core/                # Value Objects, Typed IDs, and Base Exceptions
-│   ├── licensing/           # Cryptographic HMAC-SHA256 Licensing Token Engine
-│   ├── llm/                 # OpenAI/Groq/vLLM LLM Client & Strict JSON Parser
-│   ├── notifiers/           # Slack Webhooks, Twilio SMS, and Log Notifier Fan-out
-│   ├── orgs/                # Multi-Tenant SaaS Organization & Seat Management
-│   ├── pipeline/            # Visual DAG Engine, Node Registry & Background Sweeper
-│   ├── policies/            # Sub-Millisecond Tier-0 Policy Rules Engine
-│   ├── privacy/             # Automated Secret & Sensitive Token Redactor (D13)
-│   ├── server/              # FastAPI Application, SSE Streaming Bus & Routers
-│   ├── service/             # Telemetry Connection Sensor & Baseline Auto-Config
-│   ├── storage/             # SQLite WAL Repositories (Claims, Runs, Workflows, Logs)
-│   └── tuning/              # Dynamic Sigma/YARA Rule Synthesizer & Wilson Score Backtesting
-├── docs/                    # Architectural Specifications & Evaluation Guides
-│   ├── GRADING_GUIDE.md     # 5-Minute Evaluation Walkthrough for Graders
-│   └── wazuh_integration.xml # Auto-generated Wazuh Integration XML Block
-├── scripts/                 # Setup, Flood Simulation & Verification Utilities
-├── tests/                   # 149 Unit, Concurrency, and E2E Workflow Test Suites
-│   └── workflows/           # Phases 0-8 Comprehensive Verification Suites
-├── web/                     # React 19 + Vite + Ant Design Analyst Console Source
-├── pyproject.toml           # Tooling & Dependency Configuration
-├── ARCHITECTURE.md          # Complete Engineering Architecture Specification
-└── README.md                # Platform Documentation & Overview
-```
-
----
-
-## Evaluation Reference
-
-For grading and live evaluation instructions, see **[docs/GRADING_GUIDE.md](docs/GRADING_GUIDE.md)**.
+</div>
