@@ -38,10 +38,10 @@ The repository includes the operations console, incident and identity persistenc
 | **Durable scheduling** | Dedicated Python/asyncio process, fenced leases, bounded concurrency, cancellation, retry and conservative holds after uncertain dispatch. |
 | **Coordination** | Main orchestrator, lazy area coordinators and eight core role definitions. Real specialist execution handlers are pending. |
 | **Defensive toolkit** | **60 specialties · 18 families · 93 tools · 48 connector candidates.** Contracts plus an internal read-only registry/gateway, durable invocation quota/audit and fenced evidence writer. Five bounded investigation readers are available through explicit internal installation; live lab and specialist integration remain pending. |
-| **Model control** | Named multi-provider/local connections, encrypted API credentials and masked authenticated configuration API. Native execution adapters, role/data policy, routing and durable financial budgets remain planned. |
+| **Model control** | Named multi-provider/local connections, encrypted API credentials and masked authenticated configuration API. Provider protocols are fixture-tested; production transport, role/data policy, routing and durable financial budgets remain planned. |
 | **Live defense** | Wazuh-backed approved response, reconciliation, expiry/undo and independent verification require implementation and lab testing. |
 
-> **Verification snapshot:** 570 automated tests passed against a temporary SQLite database on October 4, 2026, including 53 new model-connection checks plus reader/context and toolkit checks. This verifies repository behavior and contracts. Live SIEM, model-provider and defense demonstrations require separate evidence.
+> **Verification snapshot:** 670 automated tests passed against a temporary SQLite database on October 4, 2026, including 100 provider-protocol checks, 53 model-connection checks, and reader/context/toolkit checks. This verifies repository behavior and contracts. Live SIEM, model-provider and defense demonstrations require separate evidence.
 
 ## How it fits together
 
