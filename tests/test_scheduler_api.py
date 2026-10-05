@@ -12,8 +12,10 @@ from fastapi.testclient import TestClient
 
 from terminus.auth.models import User
 from terminus.core.ids import OrgId, UserId
+from terminus.model_gateway.contracts import ModelUsage
 from terminus.orgs.models import OrganizationRole
 from terminus.orchestration import OrchestrationStore
+from terminus.orchestration.specialists.models import ModelRef, SpecialistResult
 from terminus.orchestration.scheduler_store import SchedulerStore
 from terminus.server.deps import (
     get_current_org,
@@ -131,6 +133,34 @@ def test_list_paging_and_task_detail_include_persisted_children(api) -> None:
     assert payload["actions"][0]["action"] == "isolate"
 
 
+def test_task_detail_preserves_bounded_model_usage_counts(api) -> None:
+    client, store, _ = api
+    task = _task(store)
+    run = store.create_agent_run("org-a", task.task_id, model_name="reasoner")
+    store.transition_agent_run("org-a", run.run_id, "queued", "running")
+    result = SpecialistResult(
+        status="completed",
+        role="analyst",
+        model=ModelRef(
+            connection_id="connection-a",
+            model="reasoner",
+            usage=ModelUsage(input_tokens=685, output_tokens=83, total_tokens=768),
+        ),
+        execution_mode="tools_and_model",
+    )
+    store.transition_agent_run(
+        "org-a", run.run_id, "running", "completed",
+        result=result.model_dump(mode="json"),
+    )
+
+    payload = client.get(f"/orchestration/tasks/{task.task_id}").json()
+    usage = payload["runs"][0]["result"]["model"]["usage"]
+    assert usage["input_tokens"] == 685
+    assert usage["output_tokens"] == 83
+    assert usage["total_tokens"] == 768
+    assert usage["cached_input_tokens"] is None
+
+
 def test_cross_tenant_task_and_enqueue_are_hidden(api) -> None:
     client, store, _ = api
     task = _task(store)
@@ -227,10 +257,15 @@ def test_public_responses_scrub_free_text_credentials_and_hide_raw_errors(api) -
     )
     store.create_evidence(
         "org-a", task.task_id, "siem", datetime.now(UTC),
-        content={"message": "password=private-password-value", "api_key": "private-key-value"},
+        content={
+            "message": "password=private-password-value",
+            "api_key": "private-key-value",
+            "access_token": 123456,
+        },
     )
     response = client.get(f"/orchestration/tasks/{task.task_id}")
     assert response.status_code == 200
     for secret in ("opaque-private-value", "private-password-value", "private-key-value"):
         assert secret not in response.text
+    assert response.json()["evidence"][0]["content"]["access_token"] == "[redacted]"
     assert "Execution error; inspect protected diagnostics" in response.text

@@ -562,6 +562,48 @@ async def test_routing_denied_is_model_unavailable_gap(setup):
 
 
 @pytest.mark.asyncio
+async def test_unexpected_model_failure_preserves_evidence_without_retry(setup):
+    service_, lease, evidence, *_ = setup
+    stub = StubService(lambda tool, n: tool_result(tool, ids=(evidence.evidence_id,)))
+    calls = 0
+
+    class BrokenRouting:
+        async def route_fixture(self, *args, **kwargs):
+            nonlocal calls
+            calls += 1
+            raise RuntimeError("provider error containing a secret")
+
+    deps = deps_for(stub, routing=BrokenRouting(), client_for=lambda _: None)
+    result = parse(await make_specialist_handler(RoleSpec("triage", plan_of("a.b")), deps)(
+        job_context(service_.scheduler, lease)
+    ))
+    assert calls == 1
+    assert result.status == "partial"
+    assert result.evidence_ids == (evidence.evidence_id,)
+    assert result.findings == ()
+    assert result.model is None
+    assert result.gaps == (SpecialistGap(code="model_unavailable", detail="model route failed"),)
+    assert "secret" not in result.model_dump_json()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure", [JobLeaseLostError("lost"), asyncio.CancelledError()])
+async def test_model_failure_preserves_scheduler_control_exceptions(setup, failure):
+    service_, lease, evidence, *_ = setup
+    stub = StubService(lambda tool, n: tool_result(tool, ids=(evidence.evidence_id,)))
+
+    class BrokenRouting:
+        async def route_fixture(self, *args, **kwargs):
+            raise failure
+
+    deps = deps_for(stub, routing=BrokenRouting(), client_for=lambda _: None)
+    with pytest.raises(type(failure)):
+        await make_specialist_handler(RoleSpec("triage", plan_of("a.b")), deps)(
+            job_context(service_.scheduler, lease)
+        )
+
+
+@pytest.mark.asyncio
 async def test_no_transport_or_no_evidence_means_tools_only(setup):
     service_, lease, evidence, *_ = setup
     ev_stub = StubService(

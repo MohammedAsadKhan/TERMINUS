@@ -462,6 +462,19 @@ class CoordinationService:
         runs = self.records.list_agent_runs(
             task.org_id, task_id=task.task_id, limit=200
         )
+        latest_run = runs[-1] if runs else None  # records ordered by creation
+        if (
+            task.role not in {"main_orchestrator", "area_orchestrator"}
+            and latest_run is not None
+            and latest_run.status == "completed"
+            and isinstance(latest_run.result, dict)
+            and (
+                latest_run.result.get("status") in ("partial", "insufficient_telemetry", "error")
+                or latest_run.result.get("gaps")
+            )
+        ):
+            # Execution completion does not establish analysis coverage.
+            gaps.append("Specialist analysis is incomplete")
         evidence = self.records.list_evidence(
             task.org_id, task_id=task.task_id, limit=200
         )

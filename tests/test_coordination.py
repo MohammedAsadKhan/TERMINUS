@@ -24,6 +24,7 @@ from terminus.orchestration.coordination_models import (
     SpecialistDefinition,
 )
 from terminus.orchestration.scheduler import JobContext, SchedulerRuntime
+from terminus.orchestration.models import AgentRun
 from terminus.orchestration.scheduler_store import SchedulerLeaseError
 from terminus.orchestration.storage import (
     OrchestrationConflictError,
@@ -277,6 +278,54 @@ async def test_five_lazy_areas_and_unavailable_specialty_gaps(
     finally:
         await runtime.stop()
         await runner
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("analysis_status", "analysis_gaps"),
+    [
+        ("partial", [{"code": "tool_not_installed"}]),
+        ("insufficient_telemetry", []),
+        ("error", []),
+        ("completed", [{"code": "coverage_partial"}]),
+        ("completed", []),
+    ],
+)
+async def test_specialist_coverage_propagates_without_changing_execution_status(
+    service: CoordinationService, analysis_status: str, analysis_gaps: list[dict[str, str]]
+) -> None:
+    _ = service.start_incident("a", "incident-a", _request(areas=["alert_handling"]))
+    main = _claim(service, "main_orchestrator")
+    _ = service.scheduler.complete(main.lease, await service.handlers()["main_orchestrator"](main))
+    area = _claim(service, "area_orchestrator")
+    _ = service.scheduler.complete(area.lease, await service.handlers()["area_orchestrator"](area))
+    specialist = _claim(service, "triage")
+    historical = AgentRun.model_validate(
+        specialist.lease.run.model_dump()
+        | {
+            "run_id": "historical-partial-run",
+            "created_at": specialist.lease.run.created_at - timedelta(seconds=1),
+            "status": "completed",
+            "result": {"status": "partial", "gaps": [{"code": "tool_unavailable"}]},
+        }
+    )
+    service.records._insert(historical)
+    _ = service.scheduler.complete(
+        specialist.lease,
+        {"status": analysis_status, "gaps": cast("JsonValue", analysis_gaps)},
+    )
+    tree = service.get_incident_tree("a", "incident-a")
+    root = cast("list[dict[str, object]]", tree["roots"])[0]
+    branch = cast("list[dict[str, object]]", root["children"])[0]
+    leaf = cast("list[dict[str, object]]", branch["children"])[0]
+    expected = "completed" if analysis_status == "completed" and not analysis_gaps else "incomplete"
+    assert tree["aggregate_status"] == expected
+    for node in (root, branch, leaf):
+        assert node["status"] == "completed"
+        assert node["aggregate_status"] == expected
+    assert leaf["gaps"] == ([] if expected == "completed" else ["Specialist analysis is incomplete"])
+    assert tree["incident_closed"] is False
+    assert len(cast("list[object]", leaf["runs"])) == 2
 
 
 @pytest.mark.asyncio

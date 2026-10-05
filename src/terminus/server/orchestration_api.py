@@ -41,6 +41,21 @@ class EnqueueRequest(BaseModel):
 
 
 _SECRET_KEY = re.compile(r"(?:secret|token|password|credential|api[_-]?key|authorization)", re.IGNORECASE)
+_PUBLIC_USAGE_FIELDS = {
+    "input_tokens",
+    "output_tokens",
+    "total_tokens",
+    "cached_input_tokens",
+    "reasoning_tokens",
+}
+
+
+def _public_usage_count(key: object, value: JsonValue) -> bool:
+    """Allow bounded numeric usage metadata without weakening credential redaction."""
+    return (
+        key in _PUBLIC_USAGE_FIELDS
+        and (value is None or (type(value) is int and 0 <= value <= 1_000_000_000))
+    )
 
 
 def _redact(value: JsonValue) -> JsonValue:
@@ -48,7 +63,8 @@ def _redact(value: JsonValue) -> JsonValue:
     if isinstance(value, dict):
         return {
             key: (
-                "[redacted]" if _SECRET_KEY.search(str(key))
+                item if _public_usage_count(key, item)
+                else "[redacted]" if _SECRET_KEY.search(str(key))
                 else "Execution error; inspect protected diagnostics" if key == "error" and item
                 else _redact(item)
             )

@@ -48,7 +48,13 @@ interface ActivityTask {
 
 interface SchedulerJob {
   job_id?: string;
+  role?: string;
   status?: string;
+  attempt?: number;
+  max_attempts?: number;
+  worker_id?: string | null;
+  run_id?: string | null;
+  available_at?: string;
   run_after?: string;
   lease_expires_at?: string | null;
   recovery_reason?: string | null;
@@ -346,6 +352,35 @@ function RunResult({ run, evidence }: { run: AgentRun | null; evidence: Evidence
   </div>;
 }
 
+function SchedulerProgress({ job }: { job: SchedulerJob | null }) {
+  if (!job) return <Alert type="info" showIcon title="No scheduler job" description="This task has no durable scheduler assignment." />;
+  const worker = job.worker_id
+    ? <Id>{job.worker_id}</Id>
+    : ['completed', 'failed', 'cancelled'].includes(job.status || '') ? 'Lease released after execution' : 'Awaiting worker assignment';
+  return <section className="activity-subsection">
+    <div className="activity-section-heading"><div><h4>Scheduler assignment</h4></div><StateTag value={job.status} /></div>
+    <dl className="activity-facts compact">
+      <div><dt>Job</dt><dd>{job.job_id ? <Id>{job.job_id}</Id> : 'Unknown'}</dd></div>
+      <div><dt>Assigned role</dt><dd>{job.role?.replaceAll('_', ' ') || 'Unknown'}</dd></div>
+      <div><dt>Attempt</dt><dd>{job.attempt === undefined ? 'Unknown' : `${job.attempt} of ${job.max_attempts ?? '?'}`}</dd></div>
+      <div><dt>Worker</dt><dd>{worker}</dd></div>
+      <div><dt>Active run</dt><dd>{job.run_id ? <Id>{job.run_id}</Id> : 'None'}</dd></div>
+      <div><dt>Available</dt><dd>{date(job.available_at || job.run_after)}</dd></div>
+    </dl>
+    {job.recovery_reason && <p className="coverage-note">{displayStatus(job.recovery_reason)}</p>}
+  </section>;
+}
+
+function RunHistory({ runs, selected, onSelect }: { runs: AgentRun[]; selected: string | null; onSelect: (runId: string) => void }) {
+  if (runs.length < 2) return null;
+  return <section className="activity-subsection">
+    <h4>Run attempts</h4>
+    <div className="call-list">{runs.map((run, index) => <button type="button" className={`call-row${selected === run.run_id ? ' selected' : ''}`} key={run.run_id} onClick={() => onSelect(run.run_id)}>
+      <ClockCircleOutlined /><div><strong>Attempt {index + 1}</strong><small>{date(run.updated_at)}{run.error ? ' · failure recorded' : ''}</small></div><StateTag value={run.status} />
+    </button>)}</div>
+  </section>;
+}
+
 function ModelAttempt({ model, executionMode }: { model: ModelRef | null; executionMode: SpecialistResult['execution_mode'] }) {
   if (!model) return <div className="activity-subsection"><h4>Model provenance</h4><p className="muted">Tools-only execution; no model attempt was recorded.</p></div>;
   const usage = model.usage;
@@ -392,6 +427,7 @@ export default function AgentActivity() {
   const [incident, setIncident] = useState('');
   const [incidentDraft, setIncidentDraft] = useState('');
   const [selection, setSelection] = useState<{ orgId: string; taskId: string } | null>(null);
+  const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
   const selectedTaskId = selection?.orgId === orgId ? selection.taskId : null;
 
   useEffect(() => {
@@ -400,6 +436,7 @@ export default function AgentActivity() {
     setIncident('');
     setIncidentDraft('');
     setSelection(null);
+    setSelectedRunId(null);
   }, [orgId]);
 
   const tasks = useQuery({
@@ -441,8 +478,13 @@ export default function AgentActivity() {
     onError: error => message.error(error.message),
   });
 
-  const currentRun = detail.data?.runs.length ? detail.data.runs[detail.data.runs.length - 1] : null;
+  const currentRun = detail.data?.runs.find(run => run.run_id === selectedRunId)
+    || (detail.data?.runs.length ? detail.data.runs[detail.data.runs.length - 1] : null);
   const result = specialistResult(currentRun?.result);
+  const visibleEvidence = useMemo(() => {
+    const records = [...(detail.data?.evidence || []), ...(helpContext.data?.shared_evidence || [])];
+    return [...new Map(records.map(record => [record.evidence_id, record])).values()];
+  }, [detail.data?.evidence, helpContext.data?.shared_evidence]);
   const canOperate = membership?.role === 'admin' || membership?.role === 'member';
   const canCancel = !!detail.data?.scheduler_job && ACTIVE_STATES.has(detail.data.task.status);
   const waiting = tasks.isFetching || detail.isFetching || tree.isFetching || catalog.isFetching;
@@ -475,7 +517,7 @@ export default function AgentActivity() {
     {tasks.isPending ? <div className="panel"><Skeleton active paragraph={{ rows: 8 }} /></div> : tasks.data?.items.length ? <div className="activity-workbench">
       <section className="panel activity-queue" aria-labelledby="activity-queue-title">
         <div className="activity-section-heading"><div><span className="eyebrow">DURABLE QUEUE</span><h2 id="activity-queue-title">Agent tasks</h2></div><Tag>{page * PAGE_SIZE + 1}–{page * PAGE_SIZE + tasks.data.items.length}</Tag></div>
-        <div className="task-list">{tasks.data.items.map(item => <button key={item.task.task_id} className={`task-row${selectedTaskId === item.task.task_id ? ' selected' : ''}`} onClick={() => setSelection({ orgId, taskId: item.task.task_id })}>
+        <div className="task-list">{tasks.data.items.map(item => <button key={item.task.task_id} className={`task-row${selectedTaskId === item.task.task_id ? ' selected' : ''}`} onClick={() => { setSelection({ orgId, taskId: item.task.task_id }); setSelectedRunId(null); }}>
           <div className="task-row-top"><span>{item.task.role.replaceAll('_', ' ')}</span><StateTag value={item.task.status} /></div>
           <p>{objectiveText(item.task.objective)}</p>
           <div className="task-meta"><span>{item.task.area.replaceAll('_', ' ')}</span><Id>{item.task.incident_id}</Id><span>{date(item.task.updated_at)}</span></div>
@@ -493,7 +535,9 @@ export default function AgentActivity() {
             {canCancel && <Tooltip title={canOperate ? 'Request a bounded scheduler cancellation' : 'Operator role required'}><Button danger icon={<StopOutlined />} disabled={!canOperate} loading={cancel.isPending} onClick={() => cancel.mutate()}>Cancel task</Button></Tooltip>}
           </div>
           {detail.data.child_records_may_be_truncated && <Alert type="warning" showIcon title="Bounded detail view" description={`One or more record groups reached the ${detail.data.child_records_limit}-record display limit. Additional records may exist.`} />}
-          <RunResult run={currentRun} evidence={detail.data.evidence} />
+          <SchedulerProgress job={detail.data.scheduler_job} />
+          <RunHistory runs={detail.data.runs} selected={currentRun?.run_id || null} onSelect={setSelectedRunId} />
+          <RunResult run={currentRun} evidence={visibleEvidence} />
           <section className="activity-subsection">
             <h4>Evidence collected</h4>
             {detail.data.evidence.length ? <div className="evidence-list">{detail.data.evidence.map(record => <article key={record.evidence_id}><div><strong>{record.source}</strong><Id>{record.evidence_id}</Id></div><small>Source time {date(record.source_timestamp)} · collected {date(record.collected_at)}</small>{record.content_ref && <p>{record.content_ref}</p>}</article>)}</div> : <p className="muted">No evidence records are attached to this task.</p>}
@@ -509,7 +553,7 @@ export default function AgentActivity() {
 
     {selectedIncident && <section className="panel activity-tree" aria-labelledby="activity-tree-title">
       <div className="activity-section-heading"><div><span className="eyebrow">INCIDENT OWNERSHIP</span><h2 id="activity-tree-title">Task tree</h2></div>{tree.data && <StateTag value={tree.data.aggregate_status} />}</div>
-      {tree.isPending ? <Skeleton active paragraph={{ rows: 4 }} /> : tree.error ? <ErrorPanel error={tree.error} retry={() => void tree.refetch()} /> : tree.data?.roots.length ? <><ul>{tree.data.roots.map(root => <TreeBranch key={root.task_id} node={root} selected={selectedTaskId} onSelect={taskId => setSelection({ orgId, taskId })} />)}</ul>{!!tree.data.gaps?.length && <Alert type="warning" showIcon title="Incident coverage gaps" description={<ul>{tree.data.gaps.map(gap => <li key={gap}>{gap}</li>)}</ul>} />}</> : <EmptyPanel title="No coordination tree" description="The selected incident has no admitted coordination root." />}
+      {tree.isPending ? <Skeleton active paragraph={{ rows: 4 }} /> : tree.error ? <ErrorPanel error={tree.error} retry={() => void tree.refetch()} /> : tree.data?.roots.length ? <><ul>{tree.data.roots.map(root => <TreeBranch key={root.task_id} node={root} selected={selectedTaskId} onSelect={taskId => { setSelection({ orgId, taskId }); setSelectedRunId(null); }} />)}</ul>{!!tree.data.gaps?.length && <Alert type="warning" showIcon title="Incident coverage gaps" description={<ul>{tree.data.gaps.map(gap => <li key={gap}>{gap}</li>)}</ul>} />}</> : <EmptyPanel title="No coordination tree" description="The selected incident has no admitted coordination root." />}
     </section>}
 
     <ErrorPanel error={catalog.error} retry={() => void catalog.refetch()} />

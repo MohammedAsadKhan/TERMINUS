@@ -121,6 +121,8 @@
 .activity-subsection h4 { margin: 0 0 13px; font-size: 14px; }
 .call-list, .evidence-list { display: grid; gap: 8px; }
 .call-row { display: flex; align-items: center; gap: 11px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--raised); }
+.call-row:is(button) { width: 100%; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.call-row:is(button):hover, .call-row:is(button).selected { border-color: var(--accent); }
 .call-row > div { min-width: 0; flex: 1; display: grid; gap: 2px; }
 .call-row small { color: var(--subtle); }
 .finding { padding: 13px 14px; border-left: 3px solid var(--accent); background: color-mix(in srgb, var(--accent) 5%, var(--surface)); }

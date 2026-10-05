@@ -99,6 +99,52 @@ def test_reserve_computes_conservative_bound(env):
     assert res.window_key == WINDOW
 
 
+def test_free_model_zero_price_and_zero_usd_budget_still_enforce_token_limit(env):
+    _, store, _ = env
+    _ = store.put_price(
+        "org",
+        "admin",
+        "conn-1",
+        MODEL,
+        input_per_mtok_micro_usd=0,
+        output_per_mtok_micro_usd=0,
+        cached_input_per_mtok_micro_usd=0,
+        reasoning_per_mtok_micro_usd=0,
+        expected_version=1,
+    )
+    _ = store.put_budget(
+        "org",
+        "admin",
+        WINDOW,
+        limit_micro_usd=0,
+        limit_tokens=2000,
+        expected_version=1,
+    )
+
+    reservation = store.reserve("org", "member", req())
+    assert reservation.reserved_micro_usd == 0
+    assert reservation.reserved_tokens == 2000
+    with pytest.raises(BudgetExceededError):
+        _ = store.reserve("org", "member", req("second"))
+
+    settled = store.settle(
+        "org",
+        reservation.reservation_id,
+        UsageReport(
+            input_tokens=1000,
+            output_tokens=500,
+            cached_input_tokens=0,
+            reasoning_tokens=0,
+        ),
+    )
+    assert settled.state == "settled"
+    assert settled.actual_cost_micro_usd == 0
+    summary = store.usage_summary("org", "member")
+    assert summary.known_cost_micro_usd == 0
+    assert summary.unknown_cost_count == 0
+    assert summary.remaining_micro_usd == 0
+
+
 def test_explicit_input_bound_overrides_bytes(env):
     _, store, _ = env
     res = store.reserve("org", "admin", req(request_bytes=10_000, max_input_tokens=10))

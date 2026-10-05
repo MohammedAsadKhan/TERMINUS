@@ -1,5 +1,59 @@
 # Pre-lab implementation — October 4, 2026
 
+## October 5 active handoff: specialist workflow validation
+
+Claimed by - Mohammed | Agent - Codex orchestrator | Status - complete. Done by - Mohammed | Agent - Codex orchestrator and delegated agents.
+Parallel ownership: GPT-6.1 Sol reviews specialist execution/failure handling;
+GPT-5.6 Sol reviews model controls; GPT-5.6 Sol reviews real activity rendering.
+The orchestrator owns integration, local configuration, bounded live validation
+and this handoff. Implementation ownership is complete; the next checkpoint is local lab acceptance.
+
+Gemini `gemini-3.5-flash-lite` is the selected free-tier provider; its encrypted
+named connection has passed a live API smoke test. Temporary test UI/routes were
+removed. The next checkpoint must use actual coordinator/scheduler/specialist
+handlers, retain durable activity/evidence, report absent lab telemetry honestly,
+and keep operational evidence local unless explicitly classified. Local keys,
+database contents and evidence classifications are not source-control artifacts.
+
+Actual integration result: one synthetic SSH incident ran through the existing
+main coordinator, alert-handling area coordinator, dedicated scheduler runtime,
+triage handler and permissioned tool gateway. `incident.get` created canonical
+evidence. A trusted, one-run validation wrapper checked the exact seeded payload,
+tenant, incident and task before the administrator explicitly classified that
+synthetic evidence `approved_cloud`; no production auto-classification was added.
+Gemini returned one same-incident cited finding: 685 input + 83 output = 768 tokens.
+The durable reservation settled at the explicitly configured Free-tier rate.
+
+The specialist result was correctly `partial`: `alerts.search` and
+`collection.coverage` returned `connector_not_configured`. The first diagnostic
+attempt was denied before provider I/O because its 12,000-token cap was below the
+65,536-input-token conservative live reservation plus output bound. A 70,000-token
+UTC-day cap then admitted one serialized request. Eight exact core-role grants
+are configured locally for this connection and `approved_cloud` evidence only;
+future roles have no grants, and newly collected operational evidence remains
+`local_only`. Default deployment remains tools-only unless explicitly enabled.
+
+The fixture incident, grants, credential and ledger are local ignored SQLite
+data, not committed fixtures or credentials. Persistent activity can be inspected
+under `/console/agents` → Activity. This validates the triage path and delegation;
+the other seven specialists, real telemetry, collaboration against real incidents
+and installed response actions still require lab acceptance.
+
+Verified reporting changes: model token counters remain visible while credentials
+remain redacted; latest partial specialist analysis propagates incomplete coverage
+through area/main task trees. Unexpected model-routing failures retain collected
+evidence and produce explicit gaps. Activity shows durable job/run identities,
+released leases, run history and same-incident evidence citations.
+
+Validation: 93 focused backend tests, production frontend build and activity
+browser checks passed; combined model-settings/activity Chrome checks passed 7/7.
+Account-menu organizations are now a flat section; popup layering and viewport
+placement no longer block switching organizations. A broad isolated run passed 1,115 tests; three contract
+tests required repository-relative fixtures, and all 24 contract tests passed
+when rerun from the repository. Local configured-secret scanning passed; .env
+and SQLite storage remain ignored. No installed response or real SIEM acceptance
+is claimed.
+
 Claimed by Mohammed with the Codex orchestrator. This work addresses the Claude review and implements software that can be verified before real Wazuh telemetry exists.
 
 ## Owned work

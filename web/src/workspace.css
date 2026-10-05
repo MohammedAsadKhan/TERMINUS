@@ -38,6 +38,8 @@
 .profile-pill-user { font-weight: 550; }
 .theme-menu-option { display: flex; justify-content: space-between; align-items: center; gap: 22px; }
 .theme-menu-option .anticon { color: var(--accent); }
+.ant-dropdown,
+.ant-dropdown-menu-submenu-popup { z-index: 1200 !important; }
 .skip-link { position: fixed; left: 240px; top: -70px; padding: 10px 15px; z-index: 60; background: var(--surface); border: 1px solid var(--accent); border-radius: 4px; }
 .skip-link:focus { top: 10px; }
 .hud-main { background: var(--canvas); }

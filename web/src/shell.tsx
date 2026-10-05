@@ -206,17 +206,18 @@ export function ConsoleApp() {
                     {
                       key: 'switch',
                       label: 'Switch Organization',
-                      children: orgs.data?.map(o => ({
-                        key: o.org_id,
-                        label: (
-                          <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
-                            <span>{o.name}</span>
-                            {o.org_id === orgId && <CheckOutlined style={{ color: 'var(--accent)', fontSize: 11 }} />}
-                          </span>
-                        ),
-                        onClick: () => switchOrg(o.org_id),
-                      })),
+                      disabled: true,
                     },
+                    ...(orgs.data || []).map(o => ({
+                      key: o.org_id,
+                      label: (
+                        <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+                          <span>{o.name}</span>
+                          {o.org_id === orgId && <CheckOutlined style={{ color: 'var(--accent)', fontSize: 11 }} />}
+                        </span>
+                      ),
+                      onClick: () => switchOrg(o.org_id),
+                    })),
                     { key: 'new_org', label: 'Create organization', icon: <PlusOutlined />, onClick: () => setCreateOpen(true) },
                     { type: 'divider' },
                     { key: 'org_settings', label: 'Organization & Team', icon: <UserOutlined />, onClick: () => navigate('/organization') },

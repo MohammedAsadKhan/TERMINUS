@@ -20,20 +20,20 @@ const task = {
   started_at: now,
   completed_at: null,
 };
-const schedulerJob = { job_id: 'job-opaque-41', status: 'waiting', attempts: 1, recovery_reason: 'WAITING_SPECIALIST' };
+const schedulerJob = { job_id: 'job-opaque-41', role: 'network', status: 'waiting', attempt: 2, max_attempts: 3, worker_id: 'worker-blue-7', run_id: 'run-opaque-C2', available_at: now, recovery_reason: 'WAITING_SPECIALIST' };
 const specialistResult = {
   status: 'insufficient_telemetry',
   role: 'network',
   tool_calls: [{ tool_id: 'network.flows', status: 'unavailable', error_code: 'service_not_configured', evidence_count: 1 }],
   evidence_ids: ['ev-shared-9'],
-  findings: [],
+  findings: [{ claim: 'The endpoint contacted a lateral network peer.', evidence_ids: ['ev-shared-9'] }],
   gaps: [{ code: 'tool_unavailable', tool_id: 'network.flows', detail: 'Flow service is not configured.' }],
   model: {
     connection_id: 'conn-prod-opaque',
     model: 'security-reasoner',
     route_id: 'route-policy-3',
     reservation_id: 'reservation-opaque-8',
-    usage: null,
+    usage: { input_tokens: 685, output_tokens: 83, total_tokens: 768 },
     cost_known: false,
     cost_micro_usd: null,
   },
@@ -49,6 +49,10 @@ const run = {
   run_id: 'run-opaque-C2', agent_id: null, model_connection_id: 'conn-prod-opaque', model_name: 'security-reasoner',
   status: 'completed', created_at: now, updated_at: now, started_at: now, completed_at: now, result: specialistResult, error: null,
 };
+const failedRun = {
+  ...run, run_id: 'run-failed-B1', status: 'failed', result: null,
+  error: 'Execution error; inspect protected diagnostics',
+};
 const helpOwnership = {
   help_request_id: 'help-opaque-H6', incident_id: task.incident_id, state: 'incomplete', reason_code: 'insufficient_telemetry',
   requester_task_id: 'task-requester-Q1', requester_role: 'endpoint', requester_area: 'investigation', target_role: 'network', responsible_area: 'investigation',
@@ -60,8 +64,10 @@ function json(route: Route, value: unknown, status = 200) {
   return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(value) });
 }
 
-async function mockConsole(page: Page, role: 'admin' | 'member' | 'viewer' = 'member') {
+async function mockConsole(page: Page, role: 'admin' | 'member' | 'viewer' = 'member', completed = false) {
   let cancelled = false;
+  const visibleTask = () => ({ ...task, status: cancelled ? 'cancelled' : completed ? 'completed' : task.status });
+  const visibleJob = () => ({ ...schedulerJob, status: completed ? 'completed' : schedulerJob.status, worker_id: completed ? null : schedulerJob.worker_id });
   await page.addInitScript(() => localStorage.clear());
   await page.route('**/*', route => {
     const request = route.request();
@@ -73,9 +79,9 @@ async function mockConsole(page: Page, role: 'admin' | 'member' | 'viewer' = 'me
     if (url.pathname === '/system') return json(route, { version: 'test', storage: 'sqlite', transport: 'fixture', llm_mode: 'fixture', llm_model: 'fixture', live_response: false, workflow_execution: true, integrations: [] });
     if (url.pathname === '/assets') return json(route, []);
     if (url.pathname === '/agents') return json(route, [{ id: 'agent-1', name: 'Forensic investigator', role_description: 'Examines endpoint evidence', master_prompt: 'Use cited evidence.', status: 'active', incidents_processed: 3, created_at: now }]);
-    if (url.pathname === '/orchestration/tasks' && request.method() === 'GET') return json(route, { items: [{ task: { ...task, status: cancelled ? 'cancelled' : task.status }, scheduler_job: schedulerJob }], limit: 20, offset: 0 });
+    if (url.pathname === '/orchestration/tasks' && request.method() === 'GET') return json(route, { items: [{ task: visibleTask(), scheduler_job: visibleJob() }], limit: 20, offset: 0 });
     if (url.pathname === `/orchestration/tasks/${task.task_id}/cancel` && request.method() === 'POST') { cancelled = true; return json(route, { task: { ...task, status: 'cancelled' } }); }
-    if (url.pathname === `/orchestration/tasks/${task.task_id}`) return json(route, { task: { ...task, status: cancelled ? 'cancelled' : task.status }, scheduler_job: schedulerJob, runs: [run], evidence: [evidence], help_requests: [], actions: [], child_records_limit: 200, child_records_may_be_truncated: false });
+    if (url.pathname === `/orchestration/tasks/${task.task_id}`) return json(route, { task: visibleTask(), scheduler_job: visibleJob(), runs: [failedRun, run], evidence: [], help_requests: [], actions: [], child_records_limit: 200, child_records_may_be_truncated: false });
     if (url.pathname === `/orchestration/incidents/${task.incident_id}/tree`) return json(route, {
       org_id: 'org-blue', incident_id: task.incident_id, aggregate_status: 'incomplete', incident_closed: false, planned_areas: ['investigation'], gaps: ['Help result has gaps'],
       roots: [{ ...task, task_id: 'task-root-R1', parent_task_id: null, role: 'main_orchestrator', objective: 'Coordinate investigation.', status: 'completed', aggregate_status: 'incomplete', children: [{ ...task, task_id: 'task-help-area-B4', parent_task_id: 'task-root-R1', role: 'area_orchestrator', help_request_id: 'help-opaque-H6', aggregate_status: 'incomplete', help_ownership: [helpOwnership], children: [{ ...task, aggregate_status: 'incomplete', help_ownership: [] }] }] }],
@@ -92,7 +98,7 @@ async function mockConsole(page: Page, role: 'admin' | 'member' | 'viewer' = 'me
 }
 
 test('shows durable execution, analysis gaps, provenance, help context, and the planned catalog', async ({ page }) => {
-  await mockConsole(page);
+  await mockConsole(page, 'member', true);
   await page.goto('/console/agents');
 
   await expect(page.getByRole('heading', { name: 'Follow every admitted investigation.' })).toBeVisible();
@@ -101,8 +107,16 @@ test('shows durable execution, analysis gaps, provenance, help context, and the 
 
   await expect(page.getByRole('heading', { name: 'Execution and analysis' })).toBeVisible();
   await expect(page.getByText('Insufficient telemetry', { exact: true }).first()).toBeVisible();
-  await expect(page.getByText('No finding asserted')).toBeVisible();
-  await expect(page.getByText('Unknown — provider did not report')).toHaveCount(2);
+  await expect(page.getByText('The endpoint contacted a lateral network peer.')).toBeVisible();
+  await expect(page.getByText('Attempt 1')).toBeVisible();
+  await expect(page.getByText('Attempt 2')).toBeVisible();
+  await expect(page.getByText('2 of 3')).toBeVisible();
+  await expect(page.getByText('Lease released after execution')).toBeVisible();
+  await page.getByRole('button', { name: /Attempt 1/ }).click();
+  await expect(page.getByText('Run error')).toBeVisible();
+  await page.getByRole('button', { name: /Attempt 2/ }).click();
+  await expect(page.getByText('768 tokens')).toBeVisible();
+  await expect(page.getByText('Unknown — provider did not report')).toHaveCount(1);
   await expect(page.getByText('endpoint → network')).toBeVisible();
   await expect(page.getByText('ev-shared-9').first()).toBeVisible();
   await expect(page.getByText('Network Forensics')).toBeVisible();

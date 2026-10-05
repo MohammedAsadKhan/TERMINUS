@@ -213,7 +213,18 @@ async def _model_step(
             output_schema=FINDING_OUTPUT_SCHEMA,
         )
     except ModelRoutingDeniedError:
+        await ctx.checkpoint()
         gaps.append(_gap("model_unavailable", None, "routing denied"))
+        return [], None
+    except JobLeaseLostError:
+        raise
+    except Exception:
+        # Routing owns reservation settlement, including ambiguous failures.
+        # Preserve collected evidence without retrying a potentially paid call.
+        # Never copy provider errors (which may contain credentials) into results.
+        await ctx.checkpoint()
+        _LOGGER.warning("specialist model route failed")
+        gaps.append(_gap("model_unavailable", None, "model route failed"))
         return [], None
     response = routed.response
     ref = ModelRef(
