@@ -13,6 +13,7 @@ import asyncio
 import contextlib
 import ipaddress
 import json
+import logging
 import math
 import socket
 import ssl
@@ -57,6 +58,9 @@ class ModelTransportError(ValueError):
 
 class _ResponseTooLargeError(ModelTransportError):
     pass
+
+
+_logger = logging.getLogger(__name__)
 
 
 async def resolve_addresses(host: str) -> tuple[str, ...]:
@@ -168,10 +172,12 @@ class ProductionModelTransport:
             if self.connection.provider == "gemini"
             else OpenAICompatibleCodec(self.connection.provider)
         )
+        stage = "destination"
         try:
             async with asyncio.timeout(self.timeout_seconds):
                 permit.check()
                 endpoint, address = await _destination(self.connection, permit.call)
+                stage = "request_encoding"
                 body = json.dumps(
                     codec.encode(request),
                     ensure_ascii=True,
@@ -183,6 +189,7 @@ class ProductionModelTransport:
                 # Credentials are resolved after DNS and current ownership checks.
                 # They stay in this request's internal headers and never in JSON.
                 permit.check()
+                stage = "credential_resolution"
                 secret = self.connections.resolve_transport_credential(
                     self.connection, self.actor_user_id
                 )
@@ -201,6 +208,7 @@ class ProductionModelTransport:
                     headers[header] = (
                         value if header != "Authorization" else "Bearer " + value
                     )
+                stage = "http_exchange"
                 status, raw = await self._exchange(
                     endpoint, address, codec.path(request), headers, body, permit
                 )
@@ -217,6 +225,7 @@ class ProductionModelTransport:
                     return ModelResponse(
                         status="error", model=request.model, error_code=code
                     )
+                stage = "response_decoding"
                 payload = parse_json_object(
                     raw.decode("utf-8"), limit=self.response_limit
                 )
@@ -243,6 +252,26 @@ class ProductionModelTransport:
 
             if isinstance(exc, ModelAdmissionDeniedError):
                 raise
+            # Never log exception text, headers, bodies, credentials or URLs.
+            # These fixed parser reasons are generated locally, not by providers.
+            safe_reason = (
+                {
+                    "Invalid provider HTTP response": "invalid_http_response",
+                    "Invalid provider HTTP framing": "invalid_http_framing",
+                    "Provider trailers are unsupported": "unsupported_http_trailers",
+                    "Compressed provider responses are unsupported": "compressed_response",
+                    "Provider redirect denied": "redirect_denied",
+                }.get(str(exc), "unspecified")
+                if isinstance(exc, ModelTransportError)
+                else "unspecified"
+            )
+            _logger.warning(
+                "Model transport failed: stage=%s exception=%s reason=%s io_started=%s",
+                stage,
+                type(exc).__name__,
+                safe_reason,
+                permit.io_started,
+            )
             return ModelResponse(
                 status="error",
                 model=request.model,
@@ -338,12 +367,15 @@ class ProductionModelTransport:
             key = key.lower()
             if (
                 not separator
-                or key in fields
+                or (key in fields and key != b"vary")
                 or not key
                 or any(char <= 32 or char >= 127 for char in key)
             ):
                 raise ModelTransportError("Invalid provider HTTP response")
-            fields[key] = value.strip()
+            if key == b"vary" and key in fields:
+                fields[key] += b", " + value.strip()
+            else:
+                fields[key] = value.strip()
         if fields.get(b"content-encoding", b"identity").lower() != b"identity":
             raise ModelTransportError("Compressed provider responses are unsupported")
         # Redirects are terminal; never process Location or send a second request.

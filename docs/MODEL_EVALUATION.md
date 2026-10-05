@@ -1,6 +1,34 @@
 # Model evaluation and coverage — M06 (partial)
 
-Implemented October 4, 2026 by Mohammed with Claude Code (orchestrator) and two Claude Sonnet subagents. The initial implementation was contract-level evaluation. The October 4 pre-lab integration adds production transport, protected credential resolution and specialist handlers. No provider has been evaluated live in this checkout; M06 remains partial. See [current pre-lab status](PRELAB_IMPLEMENTATION.md).
+## October 5 Gemini live smoke test
+
+A temporary browser-triggered synthetic test also succeeded: `suspicious`,
+matching evidence citation, 157 input / 48 output tokens (205 total). Its browser
+control and local API endpoint were removed after validation; they are not part
+of the committed product. Production transport regression tests remain.
+
+Done by - Mohammed | Agent - Codex. One authorized synthetic SSH authentication
+triage request succeeded with `gemini-3.5-flash-lite` through the production
+transport, scheduler admission, explicit triage/data grant and budget ledger in
+an isolated temporary SQLite database. The response cited the supplied evidence;
+provider-reported usage was 155 input and 71 output tokens (226 total), and the
+reservation settled. Zero configured rates represented the selected project's
+verified free tier, not an independently verified billing invoice.
+
+The first attempts exposed an HTTP compatibility bug: Google's repeated `Vary`
+headers were rejected. Repeated `Vary` values are now accepted; duplicate framing
+headers remain rejected. Safe diagnostics log fixed stages, exception types and
+allowlisted parser reasons without exception text, credentials or payloads.
+Validation: 33 transport tests passed, including repeated-header compatibility
+and secret-safe diagnostics; Ruff checks passed.
+
+This smoke test does not establish full M06 case coverage or demo readiness. It
+does not change the app's role grants/budgets or enable specialist live execution.
+The app's connection remains unverified until its evaluation coverage is recorded
+through the normal evaluation path. Lab telemetry and response effects remain
+unverified. No endpoint action was performed.
+
+Implemented October 4, 2026 by Mohammed with Claude Code (orchestrator) and two Claude Sonnet subagents. The initial implementation was contract-level evaluation. The October 4 pre-lab integration adds production transport, protected credential resolution and specialist handlers. Gemini has passed a limited synthetic live smoke test; full M06 coverage remains partial. See [current pre-lab status](PRELAB_IMPLEMENTATION.md).
 
 ## Parts
 

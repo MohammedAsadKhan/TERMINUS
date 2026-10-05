@@ -293,6 +293,35 @@ async def test_response_chunk_body_is_bounded(setup):
 
 
 @pytest.mark.asyncio
+async def test_google_repeated_vary_headers_are_valid(setup):
+    reader = asyncio.StreamReader()
+    reader.feed_data(
+        b"HTTP/1.1 200 OK\r\nVary: Origin\r\nVary: X-Origin\r\n"
+        b"Vary: Referer\r\nContent-Length: 4\r\n\r\ntest"
+    )
+    reader.feed_eof()
+    assert await transport(setup)._read_response(reader) == (200, b"test")
+
+
+@pytest.mark.asyncio
+async def test_transport_diagnostics_do_not_log_exception_secrets(
+    setup, monkeypatch, caplog
+):
+    monkeypatch.setattr("terminus.model_gateway.live.resolve_addresses", private_dns)
+
+    async def exchange(self, endpoint, address, path, headers, body, permit):
+        raise OSError("api-key=never-log-this-secret")
+
+    monkeypatch.setattr(ProductionModelTransport, "_exchange", exchange)
+    result = await LiveModelExecutor(setup[0], budget_store(setup)).execute(
+        await prepare(setup), transport(setup), "admin"
+    )
+    assert result.response.error_code == "transport_unknown_usage"
+    assert "stage=http_exchange" in caplog.text
+    assert "never-log-this-secret" not in caplog.text
+
+
+@pytest.mark.asyncio
 async def test_credential_envelope_resolved_only_into_internal_headers(
     setup, monkeypatch
 ):
