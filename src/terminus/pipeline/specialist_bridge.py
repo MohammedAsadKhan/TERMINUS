@@ -9,6 +9,7 @@ run context; node configuration may only select a role.
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 from collections.abc import Collection, Mapping
@@ -16,11 +17,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, cast, final
 
-from pydantic import JsonValue
+from pydantic import JsonValue, ValidationError
 
 from terminus.orchestration.coordination import DEFAULT_CATALOG, MAX_INCIDENT_TASKS
 from terminus.orchestration.models import AgentRun, Task
 from terminus.orchestration.scheduler_store import SchedulerStore
+from terminus.orchestration.specialists.models import Finding, SpecialistResult
 from terminus.orchestration.storage import (
     OrchestrationConflictError,
     OrchestrationNotFoundError,
@@ -37,6 +39,7 @@ TERMINAL_TASK_STATUSES = frozenset({"completed", "failed", "cancelled"})
 
 BridgeState = Literal[
     "completed",
+    "partial",
     "waiting",
     "failed",
     "not_executed",
@@ -54,6 +57,8 @@ class BridgeOutcome:
     result: JsonValue = None
     evidence_ids: tuple[str, ...] = ()
     gap: str | None = None
+    findings: tuple[Finding, ...] = ()
+    evidence_citations: tuple[dict[str, JsonValue], ...] = ()
 
     def to_output(self) -> dict[str, JsonValue]:
         out: dict[str, JsonValue] = {
@@ -61,10 +66,10 @@ class BridgeOutcome:
             "role": self.role,
             "task_id": self.task_id,
             "run_id": self.run_id,
-            "executed": self.state == "completed",
-            "recorded_run": self.run_id is not None and self.state == "completed",
+            "executed": self.run_id is not None,
+            "recorded_run": self.run_id is not None,
         }
-        if self.state == "completed":
+        if self.result is not None:
             out["result"] = self.result
             out["evidence_ids"] = list(self.evidence_ids)
         if self.gap:
@@ -82,7 +87,9 @@ def resolve_role(config: Mapping[str, object] | None) -> str | None:
     agent_id: object = cfg.get("agent_id")
     if role is not None and not (isinstance(role, str) and role in CORE_ROLES):
         return None
-    if agent_id is not None and not (isinstance(agent_id, str) and agent_id in CORE_ROLES):
+    if agent_id is not None and not (
+        isinstance(agent_id, str) and agent_id in CORE_ROLES
+    ):
         return None
     if role is not None and agent_id is not None and role != agent_id:
         return None
@@ -111,7 +118,9 @@ def simulate(config: Mapping[str, object] | None) -> BridgeOutcome:
 
 @final
 class SpecialistBridge:
-    def __init__(self, db: Database, *, handler_roles: Collection[str] | None = None) -> None:
+    def __init__(
+        self, db: Database, *, handler_roles: Collection[str] | None = None
+    ) -> None:
         self.db: Database = db
         self.records: OrchestrationStore = OrchestrationStore(db)
         self.scheduler: SchedulerStore = SchedulerStore(db)
@@ -131,13 +140,22 @@ class SpecialistBridge:
         )
         return None if row is None else str(cast("object", row["status"]))
 
-    def _terminal_run(self, org_id: str, task_id: str) -> AgentRun | None:
-        runs = self.records.list_agent_runs(org_id, task_id=task_id, limit=50)
-        terminal = [r for r in runs if r.status in {"completed", "failed", "cancelled"}]
-        if not terminal:
+    def _terminal_run(self, org_id: str, task: Task) -> AgentRun | None:
+        # The scheduler's current attempt is authoritative. An older completed
+        # run must never override a newer failed or still-running attempt.
+        job = self.scheduler.get_job(org_id, task.task_id)
+        if (
+            job.org_id != org_id
+            or job.task_id != task.task_id
+            or job.incident_id != task.incident_id
+            or job.role != task.role
+        ):
+            raise OrchestrationConflictError(
+                "Scheduler job does not match admitted specialist task"
+            )
+        if job.status not in TERMINAL_TASK_STATUSES or job.run_id is None:
             return None
-        pool = [r for r in terminal if r.status == "completed"] or terminal
-        return max(pool, key=lambda r: (r.completed_at or r.updated_at, r.run_id))
+        return self.records.get_agent_run(org_id, job.run_id)
 
     def request(  # noqa: PLR0911 - ordered explicit outcomes
         self,
@@ -175,9 +193,19 @@ class SpecialistBridge:
             )
         except OrchestrationConflictError as exc:
             return BridgeOutcome(
-                "not_executed", role=role, gap=f"Specialist task admission conflict: {exc}"
+                "not_executed",
+                role=role,
+                gap=f"Specialist task admission conflict: {exc}",
             )
-        run = self._terminal_run(org_id, task.task_id)
+        try:
+            run = self._terminal_run(org_id, task)
+        except (OrchestrationNotFoundError, OrchestrationConflictError):
+            return BridgeOutcome(
+                "failed",
+                role=role,
+                task_id=task.task_id,
+                gap="Scheduler attempt is missing or does not match the admitted specialist task.",
+            )
         if run is None:
             if task.status in {"failed", "cancelled"}:
                 return BridgeOutcome(
@@ -192,7 +220,25 @@ class SpecialistBridge:
                 task_id=task.task_id,
                 gap="Specialist task is queued or running; no terminal run is recorded yet.",
             )
-        if run.status != "completed":
+        return self._recorded_outcome(org_id, incident_id, role, task, run)
+
+    def _recorded_outcome(
+        self, org_id: str, incident_id: str, role: str, task: Task, run: AgentRun
+    ) -> BridgeOutcome:
+        if (
+            run.org_id != org_id
+            or run.incident_id != incident_id
+            or run.task_id != task.task_id
+            or task.role != role
+            or task.incident_id != incident_id
+        ):
+            return BridgeOutcome(
+                "failed",
+                role=role,
+                task_id=task.task_id,
+                gap="Recorded specialist run does not match the workflow incident/task/role.",
+            )
+        if run.status != "completed" or task.status != "completed":
             return BridgeOutcome(
                 "failed",
                 role=role,
@@ -200,16 +246,76 @@ class SpecialistBridge:
                 run_id=run.run_id,
                 gap=f"Specialist run ended as {run.status}.",
             )
-        result = run.result
-        ids = result.get("evidence_ids") if isinstance(result, dict) else None
-        evidence = tuple(str(i) for i in ids) if isinstance(ids, list) else ()
+        return self._validated_result(org_id, incident_id, role, task, run)
+
+    def _validated_result(
+        self, org_id: str, incident_id: str, role: str, task: Task, run: AgentRun
+    ) -> BridgeOutcome:
+        try:
+            result = SpecialistResult.model_validate_json(json.dumps(run.result))
+            if result.role != role:
+                raise ValueError("result role does not match the admitted core role")
+            citations: list[dict[str, JsonValue]] = []
+            for evidence_id in dict.fromkeys(result.evidence_ids):
+                record = self.records.get_evidence(org_id, evidence_id)
+                if record.incident_id != incident_id:
+                    raise ValueError("cited evidence belongs to a different incident")
+                citations.append(
+                    {
+                        "evidence_id": record.evidence_id,
+                        "org_id": record.org_id,
+                        "incident_id": record.incident_id,
+                        "task_id": record.task_id,
+                        "run_id": run.run_id,
+                        "role": role,
+                        "source": record.source,
+                        "source_timestamp": record.source_timestamp.isoformat(),
+                        "collected_at": record.collected_at.isoformat(),
+                        "content_hash": record.content_hash,
+                        "content_ref": record.content_ref,
+                    }
+                )
+            allowed = set(result.evidence_ids)
+            if any(not set(f.evidence_ids) <= allowed for f in result.findings):
+                raise ValueError(
+                    "finding cites evidence absent from the recorded result"
+                )
+            if result.status == "completed" and (result.gaps or not allowed):
+                raise ValueError(
+                    "completed result must contain evidence and no telemetry gaps"
+                )
+        except (ValidationError, ValueError, OrchestrationNotFoundError) as exc:
+            _LOGGER.warning(
+                "Invalid specialist result for run %s (%s)",
+                run.run_id,
+                type(exc).__name__,
+            )
+            return BridgeOutcome(
+                "failed",
+                role=role,
+                task_id=task.task_id,
+                run_id=run.run_id,
+                gap="Recorded specialist result failed schema, role, or evidence validation.",
+            )
+        state: BridgeState = (
+            "completed"
+            if result.status == "completed"
+            else "partial"
+            if result.status == "partial"
+            else "failed"
+        )
         return BridgeOutcome(
-            "completed",
+            state,
             role=role,
             task_id=task.task_id,
             run_id=run.run_id,
-            result=result,
-            evidence_ids=evidence,
+            result=run.result,
+            evidence_ids=result.evidence_ids,
+            findings=result.findings if state in {"completed", "partial"} else (),
+            evidence_citations=tuple(citations),
+            gap=None
+            if state == "completed"
+            else f"Specialist result is {result.status}; default workflow continuation is blocked.",
         )
 
     def _admit(
@@ -262,7 +368,9 @@ def specialist_bridge_from_environ(
         return None
     roles = declared & CORE_ROLES.keys()
     if declared - roles:
-        _LOGGER.warning("Ignoring unknown specialist roles: %s", sorted(declared - roles))
+        _LOGGER.warning(
+            "Ignoring unknown specialist roles: %s", sorted(declared - roles)
+        )
     if not roles:
         return None
     scheduler_db = env.get(DATABASE_ENV, "").strip()

@@ -44,6 +44,7 @@ from tests.test_investigation_read_service import setup as read_setup  # noqa: F
 from tests.test_scheduler_runtime import _admit, _runtime, _status, _stop
 from tests.test_scheduler_runtime import store as sched_store  # noqa: F401
 from tests.test_specialist_runtime import job_context, parse
+from tests.test_specialist_bridge import _report
 
 
 @pytest.fixture
@@ -85,7 +86,11 @@ def _finish_all(bridge: SpecialistBridge, role: str = "endpoint", count: int = 1
     for _ in range(count):
         lease = store.claim_next("owner", "worker", [role], lease_seconds=300)
         assert lease is not None
-        store.complete(lease, {"status": "completed", "role": role, "evidence_ids": ["ev-1"]})
+        evidence = bridge.records.create_evidence(
+            lease.task.org_id, lease.task.task_id, "fixture.logs", datetime.now(UTC),
+            content={"event": "fixture"},
+        )
+        store.complete(lease, {"status": "completed", "role": role, "evidence_ids": [evidence.evidence_id]})
 
 
 async def _cycle(engine: WorkflowEngine, claim_repo=None) -> dict[str, int]:
@@ -155,7 +160,7 @@ async def test_unconfigured_keeps_exact_legacy_path(db, monkeypatch):
     engine = WorkflowEngine(db=db, specialist_bridge=specialist_bridge_from_environ(db, {}))
     deployment = SimpleNamespace(agent=SimpleNamespace(llm=object()), ticket_store=object())
     ctx = await engine.execute_workflow(
-        workflow=_workflow(), alert=_alert(), org_id="a", deployment=deployment
+        workflow=_workflow(), alert=_alert(), base_report=_report(_alert()), org_id="a", deployment=deployment
     )
     assert ctx.node_outputs["ai"]["legacy_unrecorded"] is True
     assert db.fetchone("SELECT COUNT(*) AS c FROM orchestration_tasks")["c"] == 0
@@ -167,7 +172,7 @@ async def test_role_without_deployed_handler_is_not_executed_not_waiting(db):
     bridge = specialist_bridge_from_environ(db, {ROLES_ENV: "network"})
     engine = WorkflowEngine(db=db, specialist_bridge=bridge)
     ctx = await engine.execute_workflow(
-        workflow=_workflow("endpoint"), alert=_alert(), org_id="a", incident_id="inc-a"
+        workflow=_workflow("endpoint"), alert=_alert(), base_report=_report(_alert()), org_id="a", incident_id="inc-a"
     )
     assert ctx.node_statuses["ai"] == "NOT_EXECUTED"
     assert ctx.status != "WAITING_SPECIALIST"
@@ -186,7 +191,7 @@ def test_status_enums_include_waiting_specialist():
 async def test_waiting_run_is_listed_and_not_marked_completed(db):
     engine = WorkflowEngine(db=db, specialist_bridge=SpecialistBridge(db))
     ctx = await engine.execute_workflow(
-        workflow=_workflow(), alert=_alert(), org_id="a", incident_id="inc-a"
+        workflow=_workflow(), alert=_alert(), base_report=_report(_alert()), org_id="a", incident_id="inc-a"
     )
     row = engine.run_repo.list_runs_for_org("a")[0]
     assert row["status"] == WorkflowRunStatus.WAITING_SPECIALIST
@@ -207,7 +212,7 @@ async def test_sweeper_resumes_only_after_task_is_terminal_and_is_idempotent(db)
     claims = SqliteAlertClaimRepository(db)
     claims.claim_alert("a", "al")
     ctx = await engine.execute_workflow(
-        workflow=_workflow(), alert=_alert(), org_id="a", incident_id="inc-a"
+        workflow=_workflow(), alert=_alert(), base_report=_report(_alert()), org_id="a", incident_id="inc-a"
     )
     assert ctx.status == "WAITING_SPECIALIST"
 
@@ -231,7 +236,7 @@ async def test_sweeper_resumes_only_after_task_is_terminal_and_is_idempotent(db)
 async def test_concurrent_resume_claim_is_exclusive(db):
     engine = WorkflowEngine(db=db, specialist_bridge=SpecialistBridge(db))
     ctx = await engine.execute_workflow(
-        workflow=_workflow(), alert=_alert(), org_id="a", incident_id="inc-a"
+        workflow=_workflow(), alert=_alert(), base_report=_report(_alert()), org_id="a", incident_id="inc-a"
     )
     assert engine.run_repo.claim_waiting_specialist_run("a", ctx.run_id) is True
     assert engine.run_repo.claim_waiting_specialist_run("a", ctx.run_id) is False
@@ -243,7 +248,7 @@ async def test_failed_specialist_task_also_resumes_without_fabricating(db):
     bridge = SpecialistBridge(db)
     engine = WorkflowEngine(db=db, specialist_bridge=bridge)
     ctx = await engine.execute_workflow(
-        workflow=_workflow(), alert=_alert(), org_id="a", incident_id="inc-a"
+        workflow=_workflow(), alert=_alert(), base_report=_report(_alert()), org_id="a", incident_id="inc-a"
     )
     store = bridge.scheduler
     assert store.acquire_coordinator("owner", lease_seconds=300)
@@ -262,7 +267,7 @@ async def test_resume_is_tenant_safe(db):
     bridge = SpecialistBridge(db)
     engine = WorkflowEngine(db=db, specialist_bridge=bridge)
     waiting = await engine.execute_workflow(
-        workflow=_workflow(), alert=_alert(), org_id="a", incident_id="inc-a"
+        workflow=_workflow(), alert=_alert(), base_report=_report(_alert()), org_id="a", incident_id="inc-a"
     )
     # Another tenant has a finished task under the very same workflow key.
     foreign = bridge.request(
@@ -294,7 +299,7 @@ async def test_resume_pass_is_bounded_and_drains_over_passes(db):
     total = MAX_SPECIALIST_RESUMES_PER_PASS + 3
     for i in range(total):
         ctx = await engine.execute_workflow(
-            workflow=_workflow(), alert=_alert(f"al-{i}"), org_id="a", incident_id="inc-a"
+            workflow=_workflow(), alert=_alert(f"al-{i}"), base_report=_report(_alert(f"al-{i}")), org_id="a", incident_id="inc-a"
         )
         assert ctx.status == "WAITING_SPECIALIST"
     _finish_all(bridge, count=total)
@@ -311,7 +316,7 @@ async def test_unready_runs_rotate_so_they_cannot_starve_ready_ones(db):
     engine = WorkflowEngine(db=db, specialist_bridge=bridge)
     ctxs = [
         await engine.execute_workflow(
-            workflow=_workflow(), alert=_alert(f"al-{i}"), org_id="a", incident_id="inc-a"
+            workflow=_workflow(), alert=_alert(f"al-{i}"), base_report=_report(_alert(f"al-{i}")), org_id="a", incident_id="inc-a"
         )
         for i in range(3)
     ]

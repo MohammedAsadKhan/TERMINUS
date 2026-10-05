@@ -25,6 +25,8 @@ from terminus.server.copilot import copilot_router, global_copilot_router
 from terminus.server.deps import get_org_store, get_pipeline_runner, get_reports_store
 from terminus.server.graph import graph_router
 from terminus.server.model_connections_api import router as model_connections_router
+from terminus.server.model_settings_api import router as model_settings_router
+from terminus.server.specialist_catalog_api import router as specialist_catalog_router
 from terminus.server.orchestration_api import router as orchestration_router
 from terminus.server.routers import (
     agent_router,
@@ -171,6 +173,8 @@ def create_app() -> FastAPI:
     app.include_router(orchestration_router)
     app.include_router(coordination_router)
     app.include_router(model_connections_router)
+    app.include_router(model_settings_router)
+    app.include_router(specialist_catalog_router)
     app.include_router(allowlist_router)
     app.include_router(report_router)
     app.include_router(decoy_router)

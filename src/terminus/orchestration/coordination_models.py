@@ -30,6 +30,10 @@ CoreRole = Literal[
 EvidenceKind = Annotated[str, Field(pattern=r"^[a-z][a-z0-9_.:-]{0,63}$")]
 
 
+class CoordinationLimitError(ValueError):
+    """Delegation exceeds a deterministic task, help, or catalog bound."""
+
+
 class CoordinationContract(BaseModel):
     model_config: ClassVar[ConfigDict] = ConfigDict(
         extra="forbid", strict=True, frozen=True, allow_inf_nan=False

@@ -172,7 +172,7 @@ def test_start_is_durable_idempotent_and_tenant_scoped(api) -> None:
     assert store.list_tasks("org-b") == []
 
 
-def test_assign_help_is_idempotent_and_hides_foreign_records(api) -> None:
+def test_legacy_assign_rejects_unstructured_and_hides_foreign_records(api) -> None:
     from terminus.orchestration.coordination_models import AreaObjective
 
     client, store = api
@@ -187,9 +187,8 @@ def test_assign_help_is_idempotent_and_hides_foreign_records(api) -> None:
     path = f"/orchestration/help-requests/{help_request.help_request_id}/assign"
     first = client.post(path, headers=_headers())
     second = client.post(path, headers=_headers())
-    assert first.status_code == second.status_code == 202
-    assert first.json()["task_id"] == second.json()["task_id"]
-    assert store.get_help_request("org-a", help_request.help_request_id).status == "assigned"
+    assert first.status_code == second.status_code == 400
+    assert store.get_help_request("org-a", help_request.help_request_id).status == "open"
     foreign_task = store.create_incident_task("org-b", "incident-b", "investigation", "network", "Inspect")
     foreign = store.create_help_request("org-b", foreign_task.task_id, "network", "Private incident")
     assert client.post(f"/orchestration/help-requests/{foreign.help_request_id}/assign",
@@ -227,8 +226,7 @@ def test_tree_reports_persisted_states_and_redacts_nested_data(api) -> None:
     assert "supersecret" in store.get_task("org-a", task_id).objective
 
 
-def test_reconcile_requires_completed_delegated_specialist_and_hides_foreign_help(api) -> None:
-    from terminus.orchestration.coordination import _key
+def test_reconcile_leaves_unstructured_help_open_and_hides_foreign_help(api) -> None:
     from terminus.orchestration.coordination_models import AreaObjective
 
     client, store = api
@@ -241,22 +239,13 @@ def test_reconcile_requires_completed_delegated_specialist_and_hides_foreign_hel
                                       parent_task_id=area.task_id)
     help_request = store.create_help_request("org-a", task.task_id, "network", "Inspect password=supersecret")
     prefix = f"/orchestration/help-requests/{help_request.help_request_id}"
-    delegated = client.post(f"{prefix}/assign", headers=_headers()).json()
+    assert client.post(f"{prefix}/assign", headers=_headers()).status_code == 400
     response = client.post(f"{prefix}/reconcile", headers=_headers())
     assert response.status_code == 200
-    assert response.json()["status"] == "assigned"
+    assert response.json()["status"] == "open"
     assert "supersecret" not in response.text
-    child = store.create_incident_task("org-a", "incident-a", "investigation", "network", "Inspect",
-                                       parent_task_id=delegated["task_id"],
-                                       idempotency_key=_key(delegated["task_id"], "network"))
-    store.transition_task("org-a", child.task_id, "queued", "running")
-    assert client.post(f"{prefix}/reconcile", headers=_headers()).json()["status"] == "assigned"
-    store.transition_task("org-a", child.task_id, "running", "completed")
-    # Reading the tree leaves bookkeeping untouched even after child completion.
     assert client.get("/orchestration/incidents/incident-a/tree", headers=_headers()).status_code == 200
-    assert store.get_help_request("org-a", help_request.help_request_id).status == "assigned"
-    assert client.post(f"{prefix}/reconcile", headers=_headers()).json()["status"] == "resolved"
-    assert client.post(f"{prefix}/reconcile", headers=_headers()).json()["status"] == "resolved"
+    assert store.get_help_request("org-a", help_request.help_request_id).status == "open"
     foreign_task = store.create_incident_task("org-b", "incident-b", "investigation", "network", "Inspect")
     foreign = store.create_help_request("org-b", foreign_task.task_id, "network", "Private incident")
     assert client.post(f"/orchestration/help-requests/{foreign.help_request_id}/reconcile",

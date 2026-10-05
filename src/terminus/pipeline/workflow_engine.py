@@ -32,7 +32,11 @@ from terminus.models import (
 )
 from terminus.pipeline.deployment import PipelineDeployment
 from terminus.pipeline.nodes.schemas import NodeType
-from terminus.pipeline.specialist_bridge import SpecialistBridge, simulate
+from terminus.pipeline.specialist_bridge import (
+    BridgeOutcome,
+    SpecialistBridge,
+    simulate,
+)
 from terminus.pipeline.triggers import trigger_matches
 from terminus.privacy.redactor import SecretRedactor
 from terminus.storage.db import Database
@@ -43,6 +47,7 @@ from terminus.storage.repositories import (
 )
 
 logger = logging.getLogger("terminus.pipeline.workflow_engine")
+FAILED_NODE_STATUSES = frozenset({"FAILED", "BLOCKED", "NOT_EXECUTED", "UNRESOLVED_AGENT"})
 
 DEFAULT_TIMEOUT_SECS = {
     NodeType.TRIGGER_WAZUH.value: 5,
@@ -62,7 +67,7 @@ class WorkflowExecutionContext:
     workflow_id: str
     org_id: str
     alert: SiemAlert
-    report: InvestigationReport
+    report: InvestigationReport | None
     status: str = "RUNNING"  # RUNNING, WAITING_APPROVAL, WAITING_SPECIALIST, COMPLETED, FAILED, INTERRUPTED
     outcome: str = "HANDLED"  # HANDLED, WAITING_APPROVAL, FAILED_BEFORE_SIDE_EFFECTS, FAILED_AFTER_SIDE_EFFECTS, INTERRUPTED
     side_effects_executed: bool = False
@@ -118,7 +123,16 @@ class WorkflowEngine:
             org_id_val = str(org_id or kwargs.get("org_id") or "default")
             report_val = base_report
 
-        if report_val is None:
+        if self.specialist_bridge is not None and not dry_run:
+            if report_val is not None and (
+                report_val.alert_id != alert.id or report_val.evidence.alert.id != alert.id
+                or report_val.policy.alert_id != alert.id
+                or report_val.incident_id not in (None, kwargs.get("incident_id"))
+            ):
+                report_val = None
+            if report_val is None:
+                report_val = self._canonical_report(org_id_val, kwargs.get("incident_id"), alert)
+        elif report_val is None:
             report_val = InvestigationReport(
                 alert_id=alert.id,
                 policy=PolicyResult(alert_id=alert.id, tier=Tier.TRIAGE, should_investigate=True, reason="Execution report"),
@@ -151,7 +165,7 @@ class WorkflowEngine:
                     alert_id=alert.id,
                     definition_snapshot=workflow,
                     alert=alert,
-                    base_report=base_report,
+                    base_report=report_val or {},
                     incident_id=ctx.incident_id,
                 )
             except Exception as e:
@@ -159,7 +173,10 @@ class WorkflowEngine:
                 ctx.errors.append(f"Persistence error on start: {e}")
 
         # Traverse DAG
-        await self._traverse(workflow, ctx, deployment)
+        if ctx.report is None:
+            self._report_unavailable(workflow, ctx)
+        else:
+            await self._traverse(workflow, ctx, deployment)
 
         # Finalize run state & persist (D7)
         self._finalize_run_status(ctx)
@@ -196,7 +213,7 @@ class WorkflowEngine:
 
         report_raw = run.get("base_report_json")
         report_dict = report_raw if isinstance(report_raw, dict) else json.loads(report_raw or "{}")
-        report = InvestigationReport.from_dict(report_dict)
+        report = InvestigationReport.from_dict(report_dict) if report_dict else None
 
         edge_raw = run.get("edge_states_json")
         edge_states = edge_raw if isinstance(edge_raw, dict) else json.loads(edge_raw or "{}")
@@ -216,8 +233,14 @@ class WorkflowEngine:
             edge_states=edge_states,
             errors=errors,
             dry_run=False,
-            incident_id=run.get("incident_id") or report.incident_id,
+            incident_id=run.get("incident_id") or (report.incident_id if report else None),
         )
+
+        if ctx.report is None:
+            self._report_unavailable(workflow, ctx)
+            self._finalize_run_status(ctx)
+            self._persist_final_run(workflow, ctx)
+            return ctx
 
         # Restore past node outputs and statuses
         past_nodes = self.run_repo.get_node_runs(str(org_id), run_id)
@@ -264,6 +287,67 @@ class WorkflowEngine:
         await self._persist_incident_report(ctx, deployment)
 
         return ctx
+
+    def _canonical_report(
+        self, org_id: str, incident_id: str | None, alert: SiemAlert
+    ) -> InvestigationReport | None:
+        """Use an existing tenant/incident/alert assessment, never infer severity."""
+        if not incident_id:
+            return None
+        database = self.db or self.run_repo.db
+        row = database.fetchone(
+            "SELECT * FROM incidents WHERE org_id=? AND ticket_id=? AND alert_id=?",
+            (org_id, incident_id, alert.id),
+        )
+        if not row:
+            return None
+        try:
+            serialized = json.loads(row.get("report_json") or "{}")
+            if serialized != {}:
+                report = InvestigationReport.from_dict(serialized)
+                if (
+                    report.alert_id != alert.id or report.evidence.alert.id != alert.id
+                    or report.policy.alert_id != alert.id
+                    or report.incident_id not in (None, incident_id)
+                ):
+                    return None
+            else:
+                verdict = Verdict.model_validate({
+                    "severity": row["severity"], "confidence": row["confidence"],
+                    "summary": row["summary"],
+                    "recommended_actions": json.loads(row["recommended_actions"] or "[]"),
+                })
+                report = InvestigationReport(
+                    alert_id=alert.id,
+                    policy=PolicyResult(alert_id=alert.id, tier=Tier.TRIAGE, should_investigate=True,
+                                        reason=f"Canonical incident assessment: {incident_id}"),
+                    verdict=verdict,
+                    evidence=Evidence(alert=alert, agent_name=row.get("agent_name") or alert.agent_name,
+                                      threat_intel=row.get("threat_intel") or "",
+                                      context_notes=row.get("context_notes") or ""),
+                )
+            if not report.verdict.summary.strip():
+                return None
+            note = f"Assessment source: canonical incident {incident_id} for alert {alert.id}. Existing severity/confidence/actions preserved; specialist coverage is recorded separately."
+            return dataclasses.replace(
+                report, incident_id=incident_id,
+                evidence=dataclasses.replace(report.evidence,
+                                             context_notes=f"{report.evidence.context_notes}\n\n{note}".strip()),
+            )
+        except (ValueError, KeyError, TypeError):
+            logger.warning("Canonical incident %s has no valid assessment", incident_id)
+            return None
+
+    def _report_unavailable(self, workflow: Workflow, ctx: WorkflowExecutionContext) -> None:
+        ctx.errors.append("Report unavailable: specialist execution requires a valid supplied assessment or a canonical assessment matching the organization, incident, and alert.")
+        for node in workflow.nodes:
+            status = "NOT_EXECUTED" if node.type == NodeType.AGENT_LLM.value else "SKIPPED"
+            ctx.node_statuses[node.id] = status
+            ctx.executed_nodes.append(node.id)
+            ctx.node_outputs[node.id] = {"executed": False, "gap": "report_unavailable"}
+            if not ctx.dry_run:
+                self._record_node_run(node, status, ctx.node_outputs[node.id], ctx)
+        ctx.edge_states = dict.fromkeys(ctx.edge_states, "DEAD")
 
     async def _traverse(
         self,
@@ -335,7 +419,7 @@ class WorkflowEngine:
             # Resolve outgoing edges for completed node (D8, D10)
             for out_e in outgoing_edges.get(node_id, []):
                 handle = out_e.source_handle or "default"
-                if node_status == "BLOCKED" or node_status == "FAILED":
+                if node_status in FAILED_NODE_STATUSES:
                     # On error / block: only 'on_error' edges are LIVE (D10)
                     ctx.edge_states[out_e.id] = "LIVE" if handle == "on_error" else "DEAD"
                 else:
@@ -371,6 +455,9 @@ class WorkflowEngine:
         ntype = node.type
         cfg = node.config or {}
         timeout_sec = DEFAULT_TIMEOUT_SECS.get(ntype, 15)
+
+        if ctx.report is None:
+            return "NOT_EXECUTED", {"gap": "report_unavailable", "executed": False}, "on_error", False
 
         try:
             # 1. trigger_wazuh (D1, D2)
@@ -453,14 +540,16 @@ class WorkflowEngine:
                     config=cfg,
                 )
                 spec_out = outcome.to_output()
+                self._merge_specialist_report(ctx, outcome)
                 if outcome.state == "completed":
                     return "SUCCESS", spec_out, "default", False
                 if outcome.state == "waiting":
                     return "WAITING_SPECIALIST", spec_out, "default", True
-                if outcome.state in ("failed", "unresolved_agent"):
+                if outcome.state in ("failed", "partial", "unresolved_agent"):
                     ctx.errors.append(f"Specialist node {node.id}: {outcome.gap}")
-                    return ("FAILED" if outcome.state == "failed" else "UNRESOLVED_AGENT"), spec_out, "on_error", False
-                return "NOT_EXECUTED", spec_out, "default", False
+                    return ("UNRESOLVED_AGENT" if outcome.state == "unresolved_agent" else "FAILED"), spec_out, "on_error", False
+                ctx.errors.append(f"Specialist node {node.id}: {outcome.gap}")
+                return "NOT_EXECUTED", spec_out, "on_error", False
 
             # 5. tool_slack (D1, D4)
             if ntype == NodeType.TOOL_SLACK.value:
@@ -575,6 +664,42 @@ class WorkflowEngine:
             ctx.errors.append(f"Node {node.id} error: {e}")
             return "FAILED", {"error": str(e)}, "on_error", False
 
+    @staticmethod
+    def _merge_specialist_report(ctx: WorkflowExecutionContext, outcome: BridgeOutcome) -> None:
+        """Persist validated claims/citations without inventing severity or actions.
+
+        SpecialistResult is an evidence contract, not a severity assessment.
+        Existing severity/confidence/actions are preserved; incomplete analysis
+        takes the error route so default action gates cannot consume it.
+        """
+        if outcome.state == "waiting" or ctx.report is None:
+            return
+        header = f"Specialist {outcome.role or 'unresolved'}"
+        if outcome.run_id:
+            header += f" run {outcome.run_id}"
+        lines = [f"{header}: {outcome.state}."]
+        lines.extend(f"{finding.claim} [evidence: {', '.join(finding.evidence_ids)}]" for finding in outcome.findings)
+        if outcome.state == "completed" and not outcome.findings:
+            lines.append("No findings reported; this does not establish that the incident is benign or healthy.")
+        if outcome.gap:
+            lines.append(outcome.gap)
+        if isinstance(outcome.result, dict):
+            gaps = outcome.result.get("gaps")
+            if isinstance(gaps, list):
+                lines.extend(f"Telemetry gap: {gap.get('code')}: {gap.get('detail', '')}" for gap in gaps if isinstance(gap, dict))
+        note = "\n".join(lines)
+        citations = list(ctx.report.evidence_citations)
+        for citation in outcome.evidence_citations:
+            if citation not in citations:
+                citations.append(citation)
+        ctx.report = dataclasses.replace(
+            ctx.report,
+            incident_id=ctx.incident_id,
+            verdict=ctx.report.verdict.model_copy(update={"summary": f"{ctx.report.verdict.summary}\n\n{note}"}),
+            evidence=dataclasses.replace(ctx.report.evidence, context_notes=f"{ctx.report.evidence.context_notes}\n\n{note}".strip()),
+            evidence_citations=citations,
+        )
+
     def _record_node_run(
         self,
         node: WorkflowNode,
@@ -597,7 +722,7 @@ class WorkflowEngine:
                 outputs=output,
                 started_at=now_iso,
                 completed_at=now_iso,
-                error_message=ctx.errors[-1] if status in ("FAILED", "BLOCKED") and ctx.errors else None,
+                error_message=ctx.errors[-1] if status in FAILED_NODE_STATUSES and ctx.errors else None,
             )
             # Update run heartbeat
             self.run_repo.update_heartbeat(ctx.org_id, ctx.run_id)
@@ -612,7 +737,7 @@ class WorkflowEngine:
         elif any(st == "WAITING_SPECIALIST" for st in ctx.node_statuses.values()):
             ctx.status = "WAITING_SPECIALIST"
             ctx.outcome = "WAITING_SPECIALIST"
-        elif ctx.errors or any(st in ("FAILED", "BLOCKED") for st in ctx.node_statuses.values()):
+        elif ctx.errors or any(st in FAILED_NODE_STATUSES for st in ctx.node_statuses.values()):
             ctx.status = "FAILED"
             if ctx.side_effects_executed:
                 ctx.outcome = "FAILED_AFTER_SIDE_EFFECTS"
@@ -624,14 +749,15 @@ class WorkflowEngine:
 
     async def _persist_incident_report(self, ctx: WorkflowExecutionContext, deployment: PipelineDeployment | None) -> None:
         update = getattr(deployment.ticket_store, "update_ticket_report", None) if deployment and getattr(type(deployment.ticket_store), "update_ticket_report", None) else None
-        if ctx.incident_id and update:
+        if ctx.incident_id and update and ctx.report is not None:
             await update(ctx.incident_id, OrgId(ctx.org_id), ctx.report)
 
     def _persist_final_run(self, workflow: Workflow, ctx: WorkflowExecutionContext) -> None:
         """Persists final run summary and broadcasts SSE update (D7, D20, D21)."""
         now_iso = datetime.now(UTC).isoformat()
         try:
-            self.run_repo.update_run_report(ctx.org_id, ctx.run_id, ctx.report, ctx.incident_id)
+            if ctx.report is not None:
+                self.run_repo.update_run_report(ctx.org_id, ctx.run_id, ctx.report, ctx.incident_id)
             self.run_repo.update_run(
                 org_id=ctx.org_id,
                 run_id=ctx.run_id,

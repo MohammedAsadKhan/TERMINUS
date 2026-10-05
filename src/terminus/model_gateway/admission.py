@@ -1,4 +1,6 @@
-"""Trusted, revocable model preflight; fixture execution only until M04/M05."""
+"""Trusted, revocable model preflight and single-use execution gates."""
+
+# pyright: reportImportCycles=false, reportPrivateUsage=false
 
 from __future__ import annotations
 
@@ -18,6 +20,11 @@ from terminus.model_gateway.contracts import (
     bounded_json,
 )
 from terminus.model_gateway.fixture_client import FixtureModelClient
+from terminus.model_gateway.ledger import window_key_for
+from terminus.model_gateway.live import (
+    ProductionModelTransport,
+    _LivePermit,
+)
 from terminus.model_gateway.models import ModelConnectionView
 from terminus.model_gateway.policy import ModelPolicy, ModelPolicyStore
 from terminus.model_gateway.safety import (
@@ -81,7 +88,7 @@ def _digest(value: object) -> str:
 
 
 class ModelAdmissionService:
-    """No raw model prompts, credential access, production transport or routing."""
+    """Canonical evidence assembly and revocable fixture/production execution."""
 
     def __init__(
         self,
@@ -112,6 +119,15 @@ class ModelAdmissionService:
             _ = conn.execute("""CREATE TRIGGER IF NOT EXISTS model_admission_audit_no_delete
                 BEFORE DELETE ON model_admission_audit BEGIN
                 SELECT RAISE(ABORT, 'model admission audit is immutable'); END""")
+            _ = conn.execute("""CREATE TABLE IF NOT EXISTS model_live_attempts (
+                reservation_id TEXT PRIMARY KEY, admission_id TEXT UNIQUE NOT NULL,
+                org_id TEXT NOT NULL, request_digest TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )""")
+            for operation in ("UPDATE", "DELETE"):
+                _ = conn.execute(f"""CREATE TRIGGER IF NOT EXISTS model_live_attempts_no_{operation.lower()}
+                    BEFORE {operation} ON model_live_attempts BEGIN
+                    SELECT RAISE(ABORT, 'model live intent is immutable'); END""")
 
     def _task(self, lease: JobLease, actor: str) -> Task:
         lease = JobLease.model_validate(lease.model_dump())
@@ -424,6 +440,130 @@ class ModelAdmissionService:
                     else "fixture_denied",
                 )
             raise ModelAdmissionDeniedError("Model fixture attempt denied") from None
+        finally:
+            if pending is not None and not pending.done():
+                _ = pending.cancel()
+                _ = await asyncio.gather(pending, return_exceptions=True)
+
+    async def respond_live(  # noqa: C901
+        self,
+        call: PreparedModelCall,
+        client: ProductionModelTransport,
+        *,
+        reservation_id: str,
+    ) -> ModelResponse:
+        """Single-use private payload and financial intent, monitored to completion.
+
+        The production transport calls ``check`` after DNS/TLS, immediately before
+        writing the credential-bearing request. Both periodic and final checks
+        cover lease ownership, membership, evidence, connection, grant and budget.
+        """
+        binding = self._bindings.get(call.admission_id)
+        if binding is None:
+            raise ModelAdmissionDeniedError("Model admission is unavailable")
+        pending: asyncio.Task[ModelResponse] | None = None
+        permit: _LivePermit | None = None
+        try:
+            if (
+                type(client) is not ProductionModelTransport
+                or client.connections is not self.connections
+                or client.actor_user_id != binding.actor
+                or client.connection != binding.connection
+            ):
+                raise ModelAdmissionDeniedError(
+                    "Live destination differs from admission"
+                )
+            await self.authorize(call)
+            budget_snapshot = self.scheduler.db.fetchone(
+                "SELECT b.version FROM model_budgets b JOIN model_reservations r ON b.org_id=r.org_id AND b.window_key=r.window_key WHERE r.org_id=? AND r.reservation_id=?",
+                (call.org_id, reservation_id),
+            )
+            if budget_snapshot is None:
+                raise ModelAdmissionDeniedError("Model financial intent is unavailable")
+
+            def check() -> None:
+                with self.scheduler.db.transaction():
+                    self._authorize(binding, call)
+                    row = self.scheduler.db.fetchone(
+                        "SELECT r.*, b.version AS budget_version, b.limit_micro_usd, b.limit_tokens FROM model_reservations r JOIN model_budgets b ON b.org_id=r.org_id AND b.window_key=r.window_key WHERE r.org_id=? AND r.reservation_id=?",
+                        (call.org_id, reservation_id),
+                    )
+                    if row is None or (
+                        row["state"] != "reserved"
+                        or row["incident_id"] != call.incident_id
+                        or row["task_id"] != call.task_id
+                        or row["run_id"] != call.run_id
+                        or row["connection_id"] != call.connection_id
+                        or row["connection_version"] != call.connection_version
+                        or row["model"] != call.request.model
+                        or row["budget_version"] != budget_snapshot["version"]
+                        or row["window_key"] != window_key_for(self.scheduler.clock())
+                        or row["reserved_tokens"]
+                        < len(call.request.model_dump_json().encode())
+                        + call.request.max_output_tokens
+                    ):
+                        raise ModelAdmissionDeniedError(
+                            "Model financial intent changed"
+                        )
+                    exposure = self.scheduler.db.fetchone(
+                        """SELECT
+                            COALESCE(SUM(CASE WHEN state IN ('reserved','ambiguous') THEN reserved_micro_usd
+                                WHEN state IN ('settled','reconciled') THEN COALESCE(actual_cost_micro_usd,reserved_micro_usd)
+                                ELSE 0 END),0) AS usd,
+                            COALESCE(SUM(CASE WHEN state IN ('reserved','ambiguous') THEN reserved_tokens
+                                WHEN state IN ('settled','reconciled') THEN COALESCE(actual_tokens,reserved_tokens)
+                                ELSE 0 END),0) AS tokens
+                            FROM model_reservations WHERE org_id=? AND window_key=?""",
+                        (call.org_id, row["window_key"]),
+                    )
+                    if (
+                        exposure is None
+                        or exposure["usd"] > row["limit_micro_usd"]
+                        or (
+                            row["limit_tokens"] is not None
+                            and exposure["tokens"] > row["limit_tokens"]
+                        )
+                    ):
+                        raise ModelAdmissionDeniedError("Current model budget exceeded")
+
+            with self.scheduler.db.transaction():
+                check()
+                # Claim both identities before I/O. A reservation cannot fund a
+                # second preparation, even if its public metadata is identical.
+                _ = self.scheduler.db.execute(
+                    "INSERT INTO model_live_attempts VALUES(?,?,?,?,?)",
+                    (
+                        reservation_id,
+                        call.admission_id,
+                        call.org_id,
+                        call.request_digest,
+                        self.scheduler.clock().isoformat(),
+                    ),
+                )
+                self._audit(call, "live_intent_before_io")
+                _ = self._bindings.pop(call.admission_id)
+            permit = _LivePermit(binding.call.model_copy(deep=True), check)
+            pending = asyncio.create_task(client._execute(permit))  # noqa: SLF001 - private transport capability is held by admission only
+            while not pending.done():
+                done, _ = await asyncio.wait({pending}, timeout=0.05)
+                if not done:
+                    check()
+            result = await pending
+            with self.scheduler.db.transaction():
+                check()
+                self._audit(call, "live_finished")
+            return result
+        except asyncio.CancelledError:
+            self._audit(binding.call, "live_cancelled_unknown")
+            raise
+        except Exception:
+            self._audit(
+                binding.call,
+                "live_denied_unknown"
+                if permit is not None and permit.io_started
+                else "live_denied",
+            )
+            raise ModelAdmissionDeniedError("Model live attempt denied") from None
         finally:
             if pending is not None and not pending.done():
                 _ = pending.cancel()

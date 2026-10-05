@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { App, Alert, Avatar, Button, Dropdown, Form, Input, Modal, Spin, Tag } from 'antd';
-import { ApartmentOutlined, ArrowRightOutlined, CheckOutlined, CloudOutlined, CodeOutlined, DashboardOutlined, DatabaseOutlined, DesktopOutlined, DownOutlined, FileTextOutlined, GlobalOutlined, LogoutOutlined, MenuOutlined, MessageOutlined, PlusOutlined, SafetyCertificateOutlined, SettingOutlined, ThunderboltOutlined, UserOutlined } from '@ant-design/icons';
+import { ApartmentOutlined, ArrowRightOutlined, CheckOutlined, CloudOutlined, DashboardOutlined, DesktopOutlined, DockerOutlined, GithubOutlined, DownOutlined, FileTextOutlined, GlobalOutlined, LogoutOutlined, MenuOutlined, MessageOutlined, PlusOutlined, SafetyCertificateOutlined, SettingOutlined, ThunderboltOutlined, UserOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { api, body } from './api';
@@ -11,6 +11,14 @@ import { ErrorPanel, Loading } from './components';
 import { CopilotPage, CopilotProvider } from './copilot-ui';
 import type { Organization, OrgDetail, SystemInfo, User } from './types';
 import terminusLogo from './assets/terminus-logo.png';
+
+
+function VirtualMachineIcon() {
+  return <svg className="vm-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M8 3h12v10H8zM4 7H2v12h14v-2M8 17h12M14 13v4" />
+    <path d="m12 6 4 2-4 2V6Z" />
+  </svg>;
+}
 
 const Operations = lazy(() => import('./views/workbench'));
 const Reports = lazy(() => import('./views/reports'));
@@ -125,20 +133,20 @@ export function ConsoleApp() {
 
   const currentPath = '/' + location.pathname.split('/')[1];
   const activePath = currentPath === '/assets' ? location.pathname : currentPath;
-  const assetIcons = [<CodeOutlined />, <DatabaseOutlined />, <CloudOutlined />, <DesktopOutlined />, <GlobalOutlined />, <DesktopOutlined />];
+  const assetIcons = [<GithubOutlined />, <DockerOutlined />, <CloudOutlined />, <VirtualMachineIcon />, <GlobalOutlined />, <DesktopOutlined />];
   const navigation = [
-    { label: 'OPERATIONS', items: [
+    { label: 'Operations', items: [
       { key: '/', label: 'Overview', icon: <DashboardOutlined /> },
       { key: '/incidents', label: 'Incidents', icon: <SafetyCertificateOutlined /> },
       { key: '/copilot', label: 'Copilot', icon: <MessageOutlined /> },
       { key: '/reports', label: 'Reports', icon: <FileTextOutlined /> },
     ] },
-    { label: 'ASSETS', items: ASSET_KINDS.map((category, index) => ({ key: `/assets/${category.kind}`, label: category.label, icon: assetIcons[index], count: assets.data ? assets.data.filter(asset => asset.kind === category.kind).length : undefined })) },
-    { label: 'AUTOMATION', items: [
+    { label: 'Assets', items: ASSET_KINDS.map((category, index) => ({ key: `/assets/${category.kind}`, label: category.label, icon: assetIcons[index], count: assets.data ? assets.data.filter(asset => asset.kind === category.kind).length : undefined })) },
+    { label: 'Automation', items: [
       { key: '/agents', label: 'Agents', icon: <ThunderboltOutlined /> },
       { key: '/workflows', label: 'Workflows', icon: <ApartmentOutlined /> },
     ] },
-    { label: 'WORKSPACE', items: [
+    { label: 'Workspace', items: [
       { key: '/organization', label: 'Organization', icon: <UserOutlined /> },
       { key: '/settings', label: 'Settings', icon: <SettingOutlined /> },
     ] },
@@ -159,7 +167,7 @@ export function ConsoleApp() {
           <nav className="sidebar-nav" aria-label="Main navigation">
             {navigation.map(group => <div className="nav-group" key={group.label}>
               <div className="nav-group-label">{group.label}</div>
-              {group.items.map(item => <button key={item.key} type="button" className={`nav-item ${activePath === item.key ? 'active' : ''}`} aria-current={activePath === item.key ? 'page' : undefined} onClick={() => { navigate(item.key); setNavOpen(false); }}>{item.icon}<span>{item.label}</span>{'count' in item && <span className="asset-nav-count">{item.count ?? '—'}</span>}</button>)}
+              {group.items.map(item => <button key={item.key} type="button" className={`nav-item ${activePath === item.key ? 'active' : ''}`} aria-current={activePath === item.key ? 'page' : undefined} onClick={() => { navigate(item.key); setNavOpen(false); }}><span className="nav-icon" aria-hidden="true">{item.icon}</span><span>{item.label}</span>{'count' in item && <span className="asset-nav-count">{item.count ?? '—'}</span>}</button>)}
             </div>)}
           </nav>
           <div className="sidebar-bottom"><span className="sidebar-product">TERMINUS <span>AI SOC</span></span><small>Investigate. Decide. Respond.</small></div>

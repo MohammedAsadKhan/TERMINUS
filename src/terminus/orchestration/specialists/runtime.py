@@ -66,6 +66,19 @@ IncidentTimeResolver = Callable[[str, str], datetime | None]
 
 
 @dataclass(frozen=True)
+class SharedHelpContext:
+    """Server-derived evidence contract for one admitted delegated task."""
+
+    help_request_id: str
+    objective: str
+    expected_evidence_kinds: tuple[str, ...]
+    shared_evidence_ids: tuple[str, ...]
+
+
+HelpContextResolver = Callable[[str, str], SharedHelpContext | None]
+
+
+@dataclass(frozen=True)
 class PlannedCall:
     """One fixed step: a catalog tool id and a builder for its trusted query."""
 
@@ -88,6 +101,7 @@ class SpecialistDeps:
     routing: ModelRoutingService | None = None
     client_for: ClientFactory | None = None
     incident_time_for: IncidentTimeResolver | None = None
+    help_context_for: HelpContextResolver | None = None
 
 
 def _gap(code: GapCode, tool_id: str | None = None, detail: str = "") -> SpecialistGap:
@@ -203,11 +217,30 @@ async def _model_step(
         return [], None
     response = routed.response
     ref = ModelRef(
-        connection_id=routed.selected.connection_id, model=routed.selected.model
+        connection_id=routed.selected.connection_id,
+        model=routed.selected.model,
+        route_id=routed.route_id,
+        reservation_id=routed.selected.reservation_id,
+        usage=(
+            response.usage
+            if any(
+                value is not None
+                for value in (
+                    response.usage.input_tokens,
+                    response.usage.output_tokens,
+                    response.usage.total_tokens,
+                    response.usage.cached_input_tokens,
+                    response.usage.reasoning_tokens,
+                )
+            )
+            else None
+        ),
+        cost_known=routed.selected.cost_known,
+        cost_micro_usd=routed.selected.cost_micro_usd,
     )
     if response.status != "ok" or response.output is None:
         gaps.append(_gap("model_unavailable", None, f"model status {response.status}"))
-        return [], None
+        return [], ref
     try:
         parsed = ModelFindings.model_validate_json(json.dumps(response.output))
     except (ValidationError, ValueError):
@@ -226,7 +259,9 @@ def make_specialist_handler(  # noqa: C901, PLR0915
 ) -> JobHandler:
     """Build the scheduler handler; the returned value is plain JSON."""
 
-    async def handler(ctx: JobContext) -> JsonValue:  # noqa: C901, PLR0915
+    async def handler(  # noqa: C901, PLR0912, PLR0915 - ordered guarded execution
+        ctx: JobContext,
+    ) -> JsonValue:
         calls: list[ToolCallRecord] = []
         evidence: list[str] = []
         gaps: list[SpecialistGap] = []
@@ -244,6 +279,17 @@ def make_specialist_handler(  # noqa: C901, PLR0915
         await ctx.checkpoint()
         org_id = ctx.task.org_id  # only trusted source of tenancy
         service = deps.read_service_for(org_id)
+        if deps.help_context_for is not None:
+            try:
+                help_context = deps.help_context_for(org_id, ctx.task.task_id)
+            except Exception:
+                _LOGGER.warning("specialist help context lookup failed", exc_info=True)
+                gaps.append(
+                    _gap("help_context_unavailable", None, "help context denied")
+                )
+                help_context = None
+            if help_context is not None:
+                evidence.extend(help_context.shared_evidence_ids)
         plan = spec.plan
         if len(plan) > MAX_TOOL_CALLS:
             plan = plan[:MAX_TOOL_CALLS]

@@ -14,6 +14,8 @@
 
 <sub>Defensive security operations</sub>
 
+[Current implementation and lab handoff](docs/PRELAB_IMPLEMENTATION.md)
+
 </div>
 
 ---

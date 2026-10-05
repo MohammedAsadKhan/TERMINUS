@@ -5,7 +5,7 @@ model). Every attempt is independently admitted; no path substitutes scripted
 findings, and fallback never widens a grant. Every attempt also needs financial
 admission: an org-wide reservation is committed before any provider I/O and is
 settled, left ambiguous, or released only when I/O provably never started.
-Fixture execution only until production transport lands.
+Fixture execution and explicitly configured gated production transports.
 """
 
 from __future__ import annotations
@@ -31,6 +31,7 @@ from terminus.model_gateway.ledger import (
     ReservationRequest,
     UsageReport,
 )
+from terminus.model_gateway.live import ProductionModelTransport
 from terminus.model_gateway.models import ModelConnectionView, Provider
 from terminus.orchestration.scheduler_models import JobLease
 from terminus.toolkit.catalog import CORE_ROLES
@@ -76,7 +77,9 @@ FALLBACK_ERRORS: Final[frozenset[str]] = frozenset(
 )
 MAX_ATTEMPTS: Final = 3
 
-ClientFactory = Callable[[ModelConnectionView], FixtureModelClient | None]
+ClientFactory = Callable[
+    [ModelConnectionView], FixtureModelClient | ProductionModelTransport | None
+]
 
 
 class ModelRoutingDeniedError(ValueError):
@@ -395,6 +398,9 @@ class ModelRoutingService:
                         model=candidate.model,
                         request_bytes=len(call.request.model_dump_json().encode()),
                         max_output_tokens=call.request.max_output_tokens,
+                        max_input_tokens=65536
+                        if type(client) is ProductionModelTransport
+                        else None,
                     ),
                 )
             except (ValueError, LookupError):
@@ -431,7 +437,11 @@ class ModelRoutingService:
                 self._ledger_safely(self.budgets.release, ctx.org_id, rid)
                 raise
             try:
-                response = await self.admission.respond_fixture(call, client)
+                response = (
+                    await self.admission.respond_live(call, client, reservation_id=rid)
+                    if type(client) is ProductionModelTransport
+                    else await self.admission.respond_fixture(call, client)
+                )
             except asyncio.CancelledError:
                 self._ledger_safely(self.budgets.mark_ambiguous, ctx.org_id, rid)
                 self._log(

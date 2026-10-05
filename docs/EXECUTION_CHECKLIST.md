@@ -55,7 +55,9 @@ Add one row per claimed task. Re-read the current shared version before claiming
 | M05 | Mohammed | Claude Code orchestrator with Claude Sonnet subagents | 2026-10-04 | verified | [Budgets and ledger](MODEL_BUDGETS.md); 831 isolated tests pass | Production transport, settings API/UI, stale-recovery runner remain pending |
 | M06 | Mohammed | Claude Code orchestrator with Claude Sonnet subagents | 2026-10-04 | in progress | [Evaluation and coverage](MODEL_EVALUATION.md); 877 isolated tests pass | Contract-only: no live model verified (no transport, credentials or O05 handlers); `demo_ready` false. Task stays open for live evaluation |
 | O05 | Mohammed | Claude Code orchestrator with Claude Sonnet subagents | 2026-10-04 | in progress | [Specialists](SPECIALISTS.md); 959 isolated tests pass (three runs) | Fixture-level only: no lab evidence, no live model transport; uninstalled tools reported as gaps. Task stays open; production bridge wiring remains |
-| O06 | Mohammed | Claude Code orchestrator with Claude Sonnet subagents | 2026-10-04 | in progress | [Collaboration](COORDINATION.md), [wiring](SPECIALISTS.md); 988 isolated tests pass (two runs) | Fixture-level, no lab evidence. Task stays open: legacy `assign_help` bypasses new rules; O05 specialists not yet using `get_help_context`; no UI |
+| O06 | Mohammed | Claude Code orchestrator with Claude Sonnet subagents | 2026-10-04 | in progress | [Collaboration](COORDINATION.md), [wiring](SPECIALISTS.md); 988 isolated tests pass (two runs) | Pre-lab integration closes the legacy admission bypass and connects shared evidence/peer results plus activity UI. Task remains open for useful collaboration against live lab telemetry. See PRELAB-20261004. |
+
+| PRELAB-20261004 | Mohammed | Codex orchestrator, GPT-6.1 Sol workflow/transport agents and GPT-5.6 Sol collaboration/UI agents | 2026-10-04 | verified | Review fixes, collaboration integration, safe model transport, activity/settings UI and fixture response lifecycle | Done by - Mohammed; backend 1,112 isolated tests, browser 7/7, production build, focused Ruff/type and diff checks pass. Real provider/lab defense remains gated; see [checkpoint](PRELAB_IMPLEMENTATION.md). |
 
 ## Phase 0 Scope and contracts
 
@@ -170,3 +172,9 @@ Update this register when a choice is made, including date, rationale and affect
 October 4 scope update: Mohammed included the Application & API Security Analyst (`application_api`, `applications_data`) in the default core catalog. Done by - Mohammed | Agent - Codex | Change - coordination catalog and PRD/MVP role requirements | Verified - 47 coordination/API/CLI tests passed using temporary SQLite databases; targeted lint passed. Real specialist implementation and lab verification remain unchecked under O05.
 
 October 4 future-scope update: Mohammed approved the 60-specialty defensive roadmap for display only in 1.0. Full catalog and activation gates are recorded in FUTURE_SCOPE.md; actual display and backend-boundary verification remain unchecked under U01a.
+
+## Pre-lab integration verification — October 4
+
+- [x] PRELAB-20261004 Review fixes, structured collaboration integration, controlled production model transport, model settings/activity console, and private response/recovery fixture foundation. Done by - Mohammed | Agent - Codex orchestrator, GPT-6.1 Sol backend/response and GPT-5.6 Sol collaboration/UI agents | Date - 2026-10-04 | Change - [implementation checkpoint](PRELAB_IMPLEMENTATION.md), [response lifecycle](RESPONSE_LIFECYCLE.md) | Verified - 1,112 isolated backend tests, 7/7 browser fixture checks, production TypeScript/Vite build, focused Ruff/type checks and diff check. No paid provider or live defense verified.
+
+M06, O05/O06 lab acceptance, A03-A05 installed response acceptance and AWS requirements retain their existing unchecked release gates. Next: configure named OpenAI credentials/policy/prices/budget, validate the provider, build the local lab, then verify actual telemetry and response. Future specialties remain unavailable in 1.0.

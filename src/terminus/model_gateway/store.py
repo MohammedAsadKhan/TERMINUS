@@ -133,6 +133,45 @@ class ModelConnectionStore:
                 "Stored credential is unavailable"
             ) from exc
 
+    def resolve_transport_credential(
+        self, connection: ModelConnectionView, actor_user_id: str
+    ) -> SecretStr | None:
+        """Internal transport boundary: authenticate the exact registered snapshot.
+
+        This method is never exposed by a HTTP route or included in model args.
+        The AES envelope remains tenant/connection bound and failures are sanitized.
+        """
+        with self.db.transaction() as conn:
+            self._authorize(conn, connection.org_id, actor_user_id, write=False)
+            member = conn.execute(
+                "SELECT role FROM memberships WHERE org_id=? AND user_id=?",
+                (connection.org_id, actor_user_id),
+            ).fetchone()
+            if member is None or member["role"] not in {"admin", "member"}:
+                raise ConnectionDeniedError("Model transport credential access denied")
+            row = conn.execute(
+                "SELECT * FROM model_connections WHERE org_id=? AND connection_id=?",
+                (connection.org_id, connection.connection_id),
+            ).fetchone()
+            if row is None or not connection.enabled or self._view(row) != connection:
+                raise ConnectionUnavailableError("Model connection changed")
+            token = row["credential_ciphertext"]
+            if token is None:
+                if connection.provider == "local":
+                    return None
+                raise ConnectionUnavailableError("Model credential is unavailable")
+            if self._cipher is None:
+                raise ConnectionUnavailableError("Model credential is unavailable")
+            try:
+                return self._cipher.decrypt(
+                    str(token),
+                    self._binding(connection.org_id, connection.connection_id),
+                )
+            except Exception:
+                raise ConnectionUnavailableError(
+                    "Model credential is unavailable"
+                ) from None
+
     @staticmethod
     def _validate_create_request(
         request: ModelConnectionCreate,

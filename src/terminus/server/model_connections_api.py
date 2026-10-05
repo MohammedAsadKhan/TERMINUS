@@ -39,7 +39,7 @@ from terminus.server.deps import get_current_org, get_current_user, require_admi
 from terminus.storage.db import Database
 
 
-class _RedactedValidationRoute(APIRoute):
+class RedactedValidationRoute(APIRoute):
     """Keep attacker-controlled request values out of validation responses."""
 
     @override
@@ -63,7 +63,7 @@ class _RedactedValidationRoute(APIRoute):
 router = APIRouter(
     prefix="/model-connections",
     tags=["model-connections"],
-    route_class=_RedactedValidationRoute,
+    route_class=RedactedValidationRoute,
 )
 
 

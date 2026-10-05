@@ -4,19 +4,24 @@
 .asset-inventory-toolbar .ant-input-search { max-width: 300px; }
 :root { font-family: 'Segoe UI', system-ui, sans-serif; font-variant-numeric: tabular-nums; }
 .workspace-layout { height: 100dvh; width: 100%; }
-.workspace-layout .console-sidebar { width: 224px; flex: 0 0 224px; background: #171c32; color: #c5c9d8; border-right: 1px solid #252b42; }
+.workspace-layout .console-sidebar { width: 248px; flex: 0 0 248px; background: #101e34; color: #c5d2e5; border-right: 1px solid #233650; }
 .workspace-layout .sidebar-brand { padding: 29px 23px 25px; }
 .workspace-layout .brand-logo-img { height: 25px; max-width: 178px; }
-.workspace-layout .sidebar-workspace { margin: 0 16px; padding: 17px 10px 18px; border-color: #2a3047; }
+.workspace-layout .sidebar-workspace { margin: 0 16px 8px; padding: 14px; border: 1px solid #2a405d; border-radius: 10px; background: #162841; }
 .sidebar-workspace-label { display: block; margin-bottom: 7px; font-size: 11px; color: #8e96b0; }
-.sidebar-workspace strong { display: block; font-size: 13px; font-weight: 600; color: #edf0fa; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sidebar-workspace strong { display: block; font-size: 13px; line-height: 1.55; font-weight: 600; color: #edf3ff; white-space: normal; text-wrap: pretty; }
 .workspace-layout .sidebar-nav { padding: 8px 13px; }
 .workspace-layout .nav-group { margin: 8px 0 12px; }
-.workspace-layout .nav-group-label { color: #79829e; font-size: 10px; font-weight: 600; letter-spacing: .08em; padding: 0 12px 10px; }
-.workspace-layout .nav-item { color: #b6bdd0; height: 40px; padding: 0 12px; gap: 12px; margin-bottom: 3px; border-radius: 5px; font-weight: 500; font-size: 13px; }
+.workspace-layout .nav-group-label { color: #829cbf; font-size: 11px; font-weight: 600; letter-spacing: .03em; padding: 6px 12px 8px; }
+.workspace-layout .nav-item { color: #bacbe2; height: 42px; padding: 0 12px; gap: 11px; margin-bottom: 3px; border-radius: 8px; font-weight: 500; font-size: 13px; transition: background .18s, color .18s; }
+.nav-icon { width: 24px; height: 24px; display: grid; place-items: center; flex: 0 0 24px; }
+.vm-nav-icon { width: 20px; height: 20px; color: #91a9c9; }
 .workspace-layout .nav-item .anticon { color: #8e97b3; font-size: 16px; }
-.workspace-layout .nav-item:hover { background: #222941; color: #fff; }
-.workspace-layout .nav-item.active { background: #243755; color: #c3daff; border-color: transparent; }
+.workspace-layout .nav-item:hover { background: #1b314e; color: #fff; }
+.workspace-layout .nav-item:focus-visible { outline: 2px solid #83b9ff; outline-offset: 2px; }
+.workspace-layout .nav-item.active { background: #234870; color: #edf6ff; border-color: #37638c; box-shadow: inset 3px 0 #79b8ff; }
+.workspace-layout .nav-item.active .vm-nav-icon { color: #8cbaff; }
+.workspace-layout .nav-item.active .asset-nav-count { background: #335c87; color: #e2efff; }
 .workspace-layout .nav-item.active .anticon { color: #8cbaff; }
 .workspace-layout .sidebar-bottom { border-top: 1px solid #2a3047; padding: 19px 23px 22px; }
 .sidebar-product { display: block; font-size: 11px; font-weight: 650; letter-spacing: .06em; color: #c5cada; }

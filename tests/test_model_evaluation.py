@@ -378,8 +378,8 @@ async def test_demo_ready_false_without_demo_model_or_cases(setup):
 
 
 @pytest.mark.asyncio
-async def test_caller_supplied_genuine_live_transport_is_the_only_live_path(setup):
-    """A test double declaring the live protocol; the repo ships no such transport."""
+async def test_self_declared_live_transport_cannot_fabricate_live_coverage(setup):
+    """A boolean marker cannot bypass admission or manufacture live evidence."""
     local = setup[3]
     calls = []
 
@@ -392,7 +392,7 @@ async def test_caller_supplied_genuine_live_transport_is_the_only_live_path(setu
                 status="ok", model="fixture-model", output={"verdict": "benign"}
             )
 
-    assert valid_live_transport(GenuineLive())
+    assert not valid_live_transport(GenuineLive())
     service = make(setup)
     records = await service.run(
         "org", "admin", provider(setup), live_transports=lambda c: GenuineLive()
@@ -402,8 +402,8 @@ async def test_caller_supplied_genuine_live_transport_is_the_only_live_path(setu
         for r in records
         if r.track == "live" and r.connection_id == local.connection_id
     )
-    assert (live.state, live.fixture_only) == ("live_verified", False)
-    assert len(calls) == 1
+    assert live.state == "transport_unavailable"
+    assert calls == []
     # Hosted without a configured credential can never be live.
     hosted_live = next(
         r
@@ -413,8 +413,8 @@ async def test_caller_supplied_genuine_live_transport_is_the_only_live_path(setu
     assert hosted_live.state == "credentials_missing"
     ref = RouteRef(connection_id=local.connection_id, model="fixture-model")
     summary = service.coverage_summary("org", "admin", demo_model=ref)
-    assert summary.live_verified_count == 1
-    assert summary.demo_ready is True
+    assert summary.live_verified_count == 0
+    assert summary.demo_ready is False
     # Contract passes are separate and never counted as live.
     assert summary.contract_verified_count == 1
     # A later non-live run supersedes it: coverage follows the latest record.

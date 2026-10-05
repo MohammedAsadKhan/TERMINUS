@@ -1,5 +1,7 @@
 # Terminus first release scope
 
+Implementation checkpoint: [October 4 pre-lab integration](PRELAB_IMPLEMENTATION.md). Software fixtures and console configuration do not satisfy live provider, telemetry, response or AWS acceptance criteria. Release scope remains unchanged.
+
 Planning baseline: October 3, 2026. Product authority: [PRD](PRD.md). Work tracking: [execution checklist](EXECUTION_CHECKLIST.md). Provisional readiness target: November 10, pending presentation confirmation.
 
 ## Release promise

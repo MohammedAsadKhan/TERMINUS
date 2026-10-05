@@ -18,6 +18,7 @@ from terminus.orchestration.coordination import (
     CoordinationRoleError,
     CoordinationService,
 )
+from terminus.orchestration.collaboration import CollaborationRejectedError
 from terminus.orchestration.coordination_models import (
     IncidentObjective,
     SpecialistDefinition,
@@ -324,7 +325,7 @@ async def test_single_worker_executes_specialist_and_preserves_real_evidence(
 
 
 @pytest.mark.asyncio
-async def test_help_routes_through_area_and_requires_completed_child(
+async def test_legacy_help_rows_cannot_bypass_structured_admission(
     service: CoordinationService,
 ) -> None:
     service.start_incident("a", "incident-a", _request(areas=["alert_handling"]))
@@ -340,25 +341,20 @@ async def test_help_routes_through_area_and_requires_completed_child(
     request = service.records.create_help_request(
         "a", triage.task_id, "network", "Review fixture network event"
     )
-    delegated = service.assign_help("a", request.help_request_id)
-    assert delegated.area == "investigation"
-    assert delegated.role == "area_orchestrator"
-    assert not any(task.role == "network" for task in _tasks(service))
-    assert service.assign_help("a", request.help_request_id) == delegated
-    assert service.reconcile_help("a", request.help_request_id).status == "assigned"
-    area_help = _claim(service, "area_orchestrator")
-    service.scheduler.complete(
-        area_help.lease, await service.handlers()["area_orchestrator"](area_help)
+    with pytest.raises(CollaborationRejectedError) as exc:
+        service.assign_help("a", request.help_request_id)
+    assert exc.value.code == "unstructured_request"
+    assert service.records.get_help_request("a", request.help_request_id).status == "open"
+    assert not any(
+        (task.idempotency_key or "").startswith("coord:help:")
+        for task in _tasks(service)
     )
-    assert service.reconcile_help("a", request.help_request_id).status == "assigned"
-    network = _claim(service, "network")
-    service.scheduler.complete(network.lease, {"finding": "Fixture reviewed"})
-    assert service.reconcile_help("a", request.help_request_id).status == "resolved"
     unknown = service.records.create_help_request(
         "a", triage.task_id, "malware", "Needs unavailable role"
     )
-    with pytest.raises(CoordinationRoleError):
+    with pytest.raises(CollaborationRejectedError) as exc:
         service.assign_help("a", unknown.help_request_id)
+    assert exc.value.code == "unstructured_request"
     assert (
         service.records.get_help_request("a", unknown.help_request_id).status == "open"
     )
@@ -396,7 +392,7 @@ async def test_bounds_and_missing_delegation_are_honest(
 
 
 @pytest.mark.asyncio
-async def test_help_bound_is_per_incident_even_after_repeated_assignment(
+async def test_unstructured_help_never_consumes_scheduler_help_capacity(
     service: CoordinationService,
 ) -> None:
     service.start_incident("a", "incident-a", _request(areas=["alert_handling"]))
@@ -413,15 +409,11 @@ async def test_help_bound_is_per_incident_even_after_repeated_assignment(
         request = service.records.create_help_request(
             "a", triage.task_id, "network", f"Question {i}"
         )
-        assigned = service.assign_help("a", request.help_request_id)
-        assert service.assign_help("a", request.help_request_id) == assigned
-    request = service.records.create_help_request(
-        "a", triage.task_id, "network", "One too many"
-    )
-    with pytest.raises(CoordinationLimitError):
-        service.assign_help("a", request.help_request_id)
-    assert (
-        service.records.get_help_request("a", request.help_request_id).status == "open"
+        with pytest.raises(CollaborationRejectedError):
+            service.assign_help("a", request.help_request_id)
+    assert not any(
+        (task.idempotency_key or "").startswith("coord:help:")
+        for task in _tasks(service)
     )
 
 

@@ -11,6 +11,8 @@ from typing import Annotated, ClassVar, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from terminus.model_gateway.contracts import ModelUsage
+
 MAX_RESULT_BYTES = 32 * 1024
 _EVIDENCE_ID = Annotated[str, Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$")]
 GapCode = Literal[
@@ -25,6 +27,7 @@ GapCode = Literal[
     "uncited_finding_dropped",
     "role_mismatch",
     "query_unavailable",
+    "help_context_unavailable",
     "result_truncated",
 ]
 
@@ -56,6 +59,19 @@ class ToolCallRecord(_Contract):
 class ModelRef(_Contract):
     connection_id: str = Field(min_length=1, max_length=200)
     model: str = Field(min_length=1, max_length=128)
+    route_id: str | None = Field(default=None, min_length=1, max_length=200)
+    reservation_id: str | None = Field(default=None, min_length=1, max_length=200)
+    usage: ModelUsage | None = None
+    cost_known: bool | None = None
+    cost_micro_usd: int | None = Field(default=None, ge=0)
+
+    @model_validator(mode="after")
+    def consistent_cost(self) -> ModelRef:
+        if self.cost_known is True and self.cost_micro_usd is None:
+            raise ValueError("Known model cost requires a value")
+        if self.cost_micro_usd is not None and self.cost_known is not True:
+            raise ValueError("Unknown model cost cannot carry a value")
+        return self
 
 
 class SpecialistResult(_Contract):

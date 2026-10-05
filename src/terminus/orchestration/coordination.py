@@ -7,15 +7,19 @@ models and never closes incidents or waits for children inside a worker.
 
 from __future__ import annotations
 
-import hashlib
 from collections.abc import Mapping, Sequence
 from typing import cast
 
 from pydantic import JsonValue
 
-from terminus.orchestration.collaboration import CollaborationService
+from terminus.orchestration.collaboration import (
+    CollaborationService,
+    help_task_key,
+    task_key,
+)
 from terminus.orchestration.coordination_models import (
     AreaObjective,
+    CoordinationLimitError,
     HelpRequestSpec,
     IncidentObjective,
     MainObjective,
@@ -47,21 +51,16 @@ DEFAULT_CATALOG = (
 )
 
 
-class CoordinationLimitError(ValueError):
-    """Delegation exceeds the bounded incident or catalog capacity."""
-
-
 class CoordinationRoleError(ValueError):
     """The requested specialty is not enabled in the explicit catalog."""
 
 
 def _key(*parts: str) -> str:
-    digest = hashlib.sha256("\0".join(parts).encode()).hexdigest()
-    return f"coord:{digest}"
+    return task_key(*parts)
 
 
 def _help_key(root_id: str, help_id: str) -> str:
-    return "coord:help:" + _key(root_id, "help", help_id)[6:]
+    return help_task_key(root_id, help_id)
 
 
 class CoordinationService:
@@ -85,6 +84,15 @@ class CoordinationService:
         self.scheduler = SchedulerStore(db)
         self.catalog = {spec.role: spec.area for spec in specs}
         self.collaboration = CollaborationService(self)
+
+    def require_incident(self, org_id: str, incident_id: str) -> None:
+        self._incident(org_id, incident_id)
+
+    def root_task(self, org_id: str, incident_id: str) -> Task | None:
+        return self._root(org_id, incident_id)
+
+    def existing_task(self, org_id: str, key: str) -> Task | None:
+        return self._existing(org_id, key)
 
     def _incident(self, org_id: str, incident_id: str) -> None:
         if not self.db.fetchone(
@@ -300,7 +308,13 @@ class CoordinationService:
         create the distinct specialty child. Assignment is not resolution.
         """
         with self.db.transaction():
-            request = self.records.get_help_request(org_id, help_request_id)
+            _ = self.collaboration.require_assignment(org_id, help_request_id)
+            return self.assign_admitted_help(org_id, help_request_id)
+
+    def assign_admitted_help(self, org_id: str, help_request_id: str) -> Task:
+        """Trusted scheduler step after CollaborationService admission."""
+        with self.db.transaction():
+            request = self.collaboration.require_assignment(org_id, help_request_id)
             self._incident(org_id, request.incident_id)
             root = self._root(org_id, request.incident_id)
             if root is None:
@@ -370,6 +384,11 @@ class CoordinationService:
                     else None
                 )
                 if child and child.status == "completed":
+                    result = self.collaboration.persist_result(
+                        org_id, help_request_id, child
+                    )
+                    if result is None:
+                        return request
                     return self.records.transition_help_request(
                         org_id, help_request_id, "assigned", "resolved"
                     )
@@ -394,7 +413,9 @@ class CoordinationService:
             return "incomplete"
         return "completed"
 
-    def _node(self, task: Task, depth: int = 0) -> dict[str, object]:
+    def _node(  # noqa: C901 - lifecycle gaps are accumulated in one bounded view
+        self, task: Task, depth: int = 0
+    ) -> dict[str, object]:
         if depth > 3:
             raise CoordinationLimitError("coordinator tree depth exceeded")
         rows = self.db.fetchall(
@@ -447,8 +468,14 @@ class CoordinationService:
         help_requests = self.records.list_help_requests(
             task.org_id, task_id=task.task_id, limit=200
         )
+        ownership = [
+            self.collaboration.ownership(task.org_id, record.help_request_id)
+            for record in help_requests
+        ]
         if any(request.status in {"open", "assigned"} for request in help_requests):
             gaps.append("Unresolved help request")
+        if any(item["state"] == "incomplete" for item in ownership):
+            gaps.append("Help result has gaps")
         if any(len(records) == 200 for records in (runs, evidence, help_requests)):
             gaps.append("Record page limit reached; additional records may exist")
         node.update(
@@ -456,10 +483,7 @@ class CoordinationService:
             runs=[run.model_dump(mode="json") for run in runs],
             evidence=[record.model_dump(mode="json") for record in evidence],
             help_requests=[record.model_dump(mode="json") for record in help_requests],
-            help_ownership=[
-                self.collaboration.ownership(task.org_id, record.help_request_id)
-                for record in help_requests
-            ],
+            help_ownership=ownership,
             gaps=gaps,
             delegation_only=task.role in {"main_orchestrator", "area_orchestrator"},
             aggregate_status=self._aggregate(task, children, gaps),

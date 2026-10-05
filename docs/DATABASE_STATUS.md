@@ -51,3 +51,7 @@ For hosting, set `TERMINUS_DEPLOYMENT_MODE=hosted`, a stable `TERMINUS_LICENSE_S
 ## Model permission storage (M03, October 4)
 
 The policy store adds organization-scoped versioned grants and hash-bound evidence classifications with immutable mutation audits. Model admission adds an immutable metadata-only audit; prepared execution bindings are deliberately process-local, so restart requires fresh admission. Additive SQLite schema setup remains transactional. Neither credentials nor raw model prompts are stored in these audits. See [model policy](MODEL_POLICY.md) for fixture-only boundaries and pending M04/M05 integration.
+
+## Current pre-lab integration checkpoint
+
+The named model gateway persists single-use live attempt intents and audit records before external I/O, alongside existing policy/routing/budget data. The internal response fixture package adds versioned policies, immutable proposals/decisions, unique dispatch intents, events and owned simulated resources. These are additive SQLite records; they do not switch storage to PostgreSQL or establish live response capability. New console settings/activity APIs use current authenticated organization scope. See [the checkpoint](PRELAB_IMPLEMENTATION.md) and [response foundation](RESPONSE_LIFECYCLE.md). Earlier entries above describe their implementation milestones.

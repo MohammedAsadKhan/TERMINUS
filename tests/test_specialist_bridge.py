@@ -48,6 +48,13 @@ def _complete(bridge: SpecialistBridge, org: str, task_id: str, result: object) 
     store.complete(lease, result)  # type: ignore[arg-type]
 
 
+def _evidence(bridge: SpecialistBridge, org: str, task_id: str):
+    return bridge.records.create_evidence(
+        org, task_id, "endpoint.logs", datetime.now(UTC),
+        content={"event": "suspicious process recorded"},
+    )
+
+
 def test_waits_then_returns_recorded_result_unmodified(db: Database) -> None:
     bridge = SpecialistBridge(db, handler_roles={"endpoint"})
     first = _request(bridge)
@@ -56,13 +63,14 @@ def test_waits_then_returns_recorded_result_unmodified(db: Database) -> None:
     assert first.run_id is None
     assert "verdict" not in first.to_output()
 
-    recorded = {"status": "completed", "role": "endpoint", "evidence_ids": ["ev-1", "ev-2"], "findings": []}
+    ids = [_evidence(bridge, "a", first.task_id).evidence_id for _ in range(2)]
+    recorded = {"status": "completed", "role": "endpoint", "evidence_ids": ids, "findings": []}
     _complete(bridge, "a", first.task_id, recorded)
     done = _request(bridge)
     assert done.state == "completed"
     assert done.task_id == first.task_id
     assert done.result == recorded
-    assert done.evidence_ids == ("ev-1", "ev-2")
+    assert done.evidence_ids == tuple(ids)
     out = done.to_output()
     assert out["recorded_run"] is True
     assert out["run_id"]
@@ -158,7 +166,18 @@ def _workflow(cfg: dict) -> Workflow:
 
 
 def _alert() -> SiemAlert:
-    return SiemAlert(id="al", rule_id=1, level=12, description="d", location="l", agent_name="h")
+    return SiemAlert(id="alert-a", rule_id=1, level=12, description="d", location="l", agent_name="h")
+
+
+def _report(alert):
+    from terminus.models import Confidence, Evidence, InvestigationReport, PolicyResult, Severity, Tier, Verdict
+
+    return InvestigationReport(
+        alert_id=alert.id,
+        policy=PolicyResult(alert_id=alert.id, tier=Tier.TRIAGE, should_investigate=True, reason="r"),
+        verdict=Verdict(severity=Severity.LOW, confidence=Confidence.LOW, summary="legacy", recommended_actions=[]),
+        evidence=Evidence(alert=alert, agent_name=alert.agent_name, threat_intel="", context_notes=""),
+    )
 
 
 @pytest.mark.anyio
@@ -244,13 +263,14 @@ async def test_waiting_run_is_not_completed_and_resumes_with_recorded_result(db:
     assert still.status == "WAITING_SPECIALIST"
 
     task = bridge.records.list_tasks("a", incident_id="inc-a")[0]
-    recorded = {"status": "completed", "role": "endpoint", "evidence_ids": ["ev-9"]}
+    evidence = _evidence(bridge, "a", task.task_id)
+    recorded = {"status": "completed", "role": "endpoint", "evidence_ids": [evidence.evidence_id]}
     _complete(bridge, "a", task.task_id, recorded)
     done = await engine.resume_run(ctx.run_id, "a")
     assert done is not None
     assert done.node_statuses["ai"] == "SUCCESS"
     assert done.node_outputs["ai"]["result"] == recorded
-    assert done.node_outputs["ai"]["evidence_ids"] == ["ev-9"]
+    assert done.node_outputs["ai"]["evidence_ids"] == [evidence.evidence_id]
     assert done.status == "COMPLETED"
     assert len(bridge.records.list_tasks("a", incident_id="inc-a")) == 1
 

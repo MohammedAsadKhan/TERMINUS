@@ -6,10 +6,9 @@ Every (connection, model, case) pair gets one immutable record per track:
   budget path with a recorded provider-shaped fixture response encoded for that
   provider's codec. A pass is ``contract_verified`` and is never countable as
   live evidence.
-* ``live`` track: ``live_verified`` is reachable only when the caller supplies a
-  genuine ``LiveModelTransport`` (not a ``FixtureModelClient``). Nothing in the
-  repository provides one and credentials are never resolved here, so by default
-  the live track records ``credentials_missing`` or ``transport_unavailable``.
+* ``live`` track: ``live_verified`` requires the concrete gated production
+  transport. Self-declared booleans do not provide live evidence. By default
+  live execution is unavailable until deployment explicitly configures it.
 
 Records are append-only and secret-free: no prompts, evidence text, endpoints or
 credentials are stored, failure reasons are short sanitized codes, and unknown
@@ -34,16 +33,14 @@ from typing import (
     Literal,
     Protocol,
     cast,
-    runtime_checkable,
 )
 from uuid import uuid4
 
 import httpx2
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
-from terminus.model_gateway.contracts import ModelRequest, ModelResponse
 from terminus.model_gateway.fixture_client import FixtureModelClient
-from terminus.model_gateway.ledger import ReservationRequest, UsageReport
+from terminus.model_gateway.live import LiveModelExecutor, ProductionModelTransport
 from terminus.model_gateway.models import ModelConnectionView
 from terminus.model_gateway.routing import (
     ADMITTED_CAPABILITIES,
@@ -102,13 +99,7 @@ class EvaluationCaseLike(Protocol):
     def reference_output(self) -> dict[str, JsonValue]: ...
 
 
-@runtime_checkable
-class LiveModelTransport(Protocol):
-    """A genuine, non-fixture provider transport. Nothing in the repo implements it."""
-
-    is_live_transport: bool
-
-    async def respond(self, request: ModelRequest) -> ModelResponse: ...
+LiveModelTransport = ProductionModelTransport
 
 
 @dataclass(frozen=True)
@@ -288,13 +279,8 @@ def _default_cases() -> tuple[EvaluationCaseLike, ...]:
 
 
 def valid_live_transport(candidate: object) -> bool:
-    """True only for a genuine non-fixture object that declares itself live."""
-    return (
-        isinstance(candidate, LiveModelTransport)
-        and not isinstance(candidate, FixtureModelClient)
-        and getattr(candidate, "fixture_only", False) is not True
-        and candidate.is_live_transport is True
-    )
+    """Only the concrete, gated production implementation can supply live evidence."""
+    return type(candidate) is ProductionModelTransport
 
 
 @dataclass
@@ -642,6 +628,8 @@ class ModelEvaluationService:
     ) -> _Outcome:
         admission = self.routing.admission
         budgets = self.routing.budgets
+        if task.lease.org_id != org_id:
+            return _Outcome("policy_denied", ("live_tenant_mismatch",))
         try:
             call = await admission.prepare(
                 task.lease,
@@ -651,56 +639,26 @@ class ModelEvaluationService:
                 task.evidence_ids,
                 output_schema=case.output_schema,
             )
-            reservation = budgets.reserve(
-                org_id,
-                actor,
-                ReservationRequest(
-                    idempotency_key=f"eval-live:{uuid4()}",
-                    incident_id=call.incident_id,
-                    task_id=call.task_id,
-                    run_id=call.run_id,
-                    connection_id=connection.connection_id,
-                    connection_version=connection.version,
-                    model=model,
-                    request_bytes=len(call.request.model_dump_json().encode()),
-                    max_output_tokens=call.request.max_output_tokens,
-                ),
-            )
         except (ValueError, LookupError):
             return _Outcome(
                 "policy_denied", ("live_admission_denied",), fixture_only=False
             )
-        rid = reservation.reservation_id
         try:
-            await admission.authorize(call)
-            response = await transport.respond(call.request)
+            result = await LiveModelExecutor(admission, budgets).execute(
+                call, transport, actor
+            )
         except asyncio.CancelledError:
-            _ = budgets.mark_ambiguous(org_id, rid)
             raise
         except Exception as exc:
-            _ = budgets.mark_ambiguous(org_id, rid)
             return _Outcome(
-                "transport_unavailable",
+                "policy_denied"
+                if isinstance(exc, ValueError)
+                else "transport_unavailable",
                 (f"live_call_failed:{type(exc).__name__}",),
                 fixture_only=False,
-                reservation_id=rid,
             )
-        usage = response.usage
-        try:
-            settled = budgets.settle(
-                org_id,
-                rid,
-                UsageReport(
-                    input_tokens=usage.input_tokens,
-                    output_tokens=usage.output_tokens,
-                    cached_input_tokens=usage.cached_input_tokens,
-                    reasoning_tokens=usage.reasoning_tokens,
-                )
-                if response.status != "error"
-                else UsageReport(),
-            )
-        except Exception:
-            settled = budgets.mark_ambiguous(org_id, rid, reason_code="settle_failed")
+        response, settled = result.response, result.reservation
+        rid = settled.reservation_id
         cost = (
             settled.actual_cost_micro_usd
             if settled.state in ("settled", "reconciled")

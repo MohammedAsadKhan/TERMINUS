@@ -1,5 +1,7 @@
 # Terminus product requirements
 
+Implementation checkpoint: [October 4 pre-lab integration](PRELAB_IMPLEMENTATION.md). Software fixtures and console configuration do not satisfy live provider, telemetry, response or AWS acceptance criteria. Release scope remains unchanged.
+
 Version: planning baseline 1.0, October 3, 2026. Product manager: Mohammed. Team: COSC 3370 Team LARP. Source baseline: `ec0a078`. This document defines future behavior; it is not a statement that the requirements are implemented.
 
 ## 1. Purpose and release outcome

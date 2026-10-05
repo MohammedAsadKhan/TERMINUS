@@ -14,7 +14,7 @@ export function EmptyPanel({ title, description, action }: { title: string; desc
 }
 const severityColors: Record<string, string> = { critical: 'red', high: 'orange', medium: 'gold', low: 'blue' };
 export function Severity({ value }: { value: string }) { return <Tag className="severity" color={severityColors[value] || 'default'}>{value.toUpperCase()}</Tag>; }
-export function Status({ value }: { value: string }) { return <Tag color={value === 'RESOLVED' || value === 'active' ? 'green' : value === 'INVESTIGATING' ? 'blue' : 'default'}>{value.replaceAll('_', ' ')}</Tag>; }
+export function Status({ value }: { value: string }) { return <Tag color={value === 'RESOLVED' || value === 'active' ? 'green' : value === 'INVESTIGATING' ? 'blue' : value === 'WAITING_SPECIALIST' ? 'gold' : 'default'}>{value.replaceAll('_', ' ')}</Tag>; }
 export function date(value?: string) { if (!value) return 'Not recorded'; const d = new Date(value); return Number.isNaN(d.valueOf()) ? 'Invalid timestamp' : d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }); }
 export function Stat({ label, value, note, accent }: { label: string; value: ReactNode; note: string; accent?: string }) {
   return <div className={`stat-card ${accent || ''}`}><span>{label}</span><strong>{value}</strong><small>{note}</small><i aria-hidden="true" /></div>;

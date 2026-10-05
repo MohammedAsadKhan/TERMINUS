@@ -44,6 +44,7 @@ import { api, body } from '../api';
 import { useSession } from '../context';
 import { Code, date, ErrorPanel, Loading, PageTitle } from '../components';
 import { IngestModal } from './ingest-modal';
+import ModelSettings from './model-settings';
 import type { Membership } from '../types';
 
 export default function Settings({ section = 'settings' }: { section?: 'organization' | 'settings' }) {
@@ -52,7 +53,7 @@ export default function Settings({ section = 'settings' }: { section?: 'organiza
   const { message, modal } = App.useApp();
   const [ingest, setIngest] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState('ai');
+  const [activeTab, setActiveTab] = useState('model');
   const [form] = Form.useForm();
   const [configForm] = Form.useForm();
 
@@ -331,7 +332,7 @@ export default function Settings({ section = 'settings' }: { section?: 'organiza
         eyebrow="GOVERN / SETTINGS"
         title="Platform Configuration &amp; API Keys"
         description="Manage AI engine providers, API keys, SIEM connectors, threat intelligence feeds, and autonomous containment guardrails."
-        actions={
+        actions={activeTab === 'model' ? undefined :
           <Space>
             <Button
               icon={<ReloadOutlined spin={configQuery.isFetching} />}
@@ -352,9 +353,9 @@ export default function Settings({ section = 'settings' }: { section?: 'organiza
         }
       />
 
-      {configQuery.isPending ? (
+      {canWrite && configQuery.isPending ? (
         <Loading />
-      ) : configQuery.error ? (
+      ) : canWrite && configQuery.error ? (
         <ErrorPanel error={configQuery.error} retry={() => void configQuery.refetch()} />
       ) : (
         <Form
@@ -363,12 +364,18 @@ export default function Settings({ section = 'settings' }: { section?: 'organiza
           onFinish={values => saveConfig.mutate(values)}
           requiredMark={false}
           className="settings-form"
+          component={activeTab === 'model' ? false : 'form'}
         >
           <Tabs
             activeKey={activeTab}
             onChange={setActiveTab}
             className="settings-tabs"
             items={[
+              {
+                key: 'model',
+                label: <span><ApiOutlined /> Model gateway</span>,
+                children: <ModelSettings key={orgId} />,
+              },
               // ─── TAB 1: AI & LLM ENGINE ──────────────────────────────────
               {
                 key: 'ai',

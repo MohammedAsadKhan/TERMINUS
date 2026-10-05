@@ -8,8 +8,10 @@ Configuration is explicit and read lazily on the first leased task:
 
 If either is missing the handler raises ``SpecialistDeploymentError`` so the run
 fails with a clear message (non-retryable, so it does not consume retries); it
-never fabricates a result. No model transport is
-configured, so runs are ``tools_only``.
+never fabricates a result. Model transport remains disabled unless
+``TERMINUS_SPECIALIST_LIVE_MODELS`` is explicitly ``true``. Enabled runs use
+registered connections, durable role policy, the shared budget ledger, and the
+configured credential cipher.
 
 Connector credentials: the repository has no production wiring for per-org Wazuh
 manager/indexer credentials, so none is invented here. By default an
@@ -30,12 +32,15 @@ from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
 from typing import cast
 
-from pydantic import JsonValue
+from pydantic import JsonValue, TypeAdapter
 
+from terminus.model_gateway.models import ModelConnectionView
+from terminus.model_gateway.routing import ClientFactory, ModelRoutingService
+from terminus.orchestration.coordination import CoordinationService
 from terminus.orchestration.scheduler import JobContext, JobHandler
 from terminus.orchestration.scheduler_store import SchedulerStore
 from terminus.orchestration.specialists.factory import build_specialist_handlers
-from terminus.orchestration.specialists.runtime import SpecialistDeps
+from terminus.orchestration.specialists.runtime import SharedHelpContext, SpecialistDeps
 from terminus.storage.db import Database
 from terminus.toolkit.context import ToolReadPolicyStore
 from terminus.toolkit.readers import InvestigationReadService
@@ -43,6 +48,8 @@ from terminus.toolkit.wazuh_readers import WazuhIndexerReader, WazuhManagerReade
 
 DATABASE_ENV = "TERMINUS_SPECIALIST_DATABASE"
 ACTOR_ENV = "TERMINUS_SPECIALIST_ACTOR_USER_ID"
+LIVE_MODELS_ENV = "TERMINUS_SPECIALIST_LIVE_MODELS"
+MODEL_CREDENTIALS_ENV = "TERMINUS_MODEL_CREDENTIALS_KEY"
 
 ConnectorFactory = Callable[
     [str], tuple[WazuhManagerReader | None, WazuhIndexerReader | None]
@@ -51,6 +58,7 @@ ConnectorFactory = Callable[
 _LOCK = threading.Lock()
 _STATE: dict[str, object] = {}
 _CONNECTORS: list[ConnectorFactory] = []
+_STRING_LIST = TypeAdapter(list[str])
 
 
 class SpecialistDeploymentError(RuntimeError):
@@ -76,7 +84,7 @@ def reset_deployment() -> None:
         _STATE.clear()
 
 
-def build_deployment_deps(
+def build_deployment_deps(  # noqa: C901, PLR0915 - explicit composition root
     environ: Mapping[str, str], *, clock: Callable[[], datetime] | None = None
 ) -> SpecialistDeps:
     """Validate explicit configuration and build the shared specialist deps."""
@@ -92,6 +100,7 @@ def build_deployment_deps(
     db = Database(path)
     scheduler = SchedulerStore(db) if clock is None else SchedulerStore(db, clock=clock)
     policies = ToolReadPolicyStore(db)
+    coordination = CoordinationService(db)
     services: dict[str, InvestigationReadService] = {}
     guard = threading.Lock()
 
@@ -123,10 +132,87 @@ def build_deployment_deps(
             return None
         return stamp if stamp.tzinfo is not None else stamp.replace(tzinfo=UTC)
 
+    def help_context_for(org_id: str, task_id: str) -> SharedHelpContext | None:
+        from terminus.orchestration.storage import OrchestrationNotFoundError
+
+        try:
+            payload = coordination.get_help_context(org_id, task_id)
+        except OrchestrationNotFoundError:
+            return None
+        try:
+            evidence = _STRING_LIST.validate_python(payload.get("shared_evidence_ids"))
+            expected = _STRING_LIST.validate_python(
+                payload.get("expected_evidence_kinds")
+            )
+        except ValueError:
+            raise SpecialistDeploymentError(
+                "Invalid durable help evidence contract"
+            ) from None
+        help_id = payload.get("help_request_id")
+        objective = payload.get("objective")
+        if not isinstance(help_id, str) or not isinstance(objective, str):
+            raise SpecialistDeploymentError("Invalid durable help request contract")
+        return SharedHelpContext(
+            help_request_id=help_id,
+            objective=objective,
+            expected_evidence_kinds=tuple(expected),
+            shared_evidence_ids=tuple(evidence),
+        )
+
+    routing: ModelRoutingService | None = None
+    client_for: ClientFactory | None = None
+    live_setting = environ.get(LIVE_MODELS_ENV, "").strip().casefold()
+    if live_setting not in {"", "false", "true"}:
+        raise SpecialistDeploymentError(
+            f"{LIVE_MODELS_ENV} must be true or false"
+        )
+    if live_setting == "true":
+        from terminus.model_gateway.admission import ModelAdmissionService
+        from terminus.model_gateway.ledger import ModelBudgetStore
+        from terminus.model_gateway.live import (
+            ProductionModelTransport,
+            resolve_addresses,
+        )
+        from terminus.model_gateway.policy import ModelPolicyStore
+        from terminus.model_gateway.safety import EndpointVerifier
+        from terminus.model_gateway.secrets import CredentialCipher
+        from terminus.model_gateway.store import ModelConnectionStore
+
+        key = environ.get(MODEL_CREDENTIALS_ENV, "").strip()
+        if not key:
+            raise SpecialistDeploymentError(
+                f"Live specialist models require {MODEL_CREDENTIALS_ENV}"
+            )
+        try:
+            connections = ModelConnectionStore(
+                db, CredentialCipher.from_key(key)
+            )
+        except Exception:
+            raise SpecialistDeploymentError(
+                "Live specialist model credential storage is unavailable"
+            ) from None
+        admission = ModelAdmissionService(
+            scheduler,
+            ModelPolicyStore(db),
+            connections,
+            EndpointVerifier(resolve_addresses),
+        )
+        routing = ModelRoutingService(admission, ModelBudgetStore(db, clock=clock))
+
+        def live_client_for(
+            connection: ModelConnectionView,
+        ) -> ProductionModelTransport:
+            return ProductionModelTransport(connection, connections, actor)
+
+        client_for = live_client_for
+
     return SpecialistDeps(
         read_service_for=read_service_for,
         actor_user_id=actor,
+        routing=routing,
+        client_for=client_for,
         incident_time_for=incident_time_for,
+        help_context_for=help_context_for,
     )
 
 

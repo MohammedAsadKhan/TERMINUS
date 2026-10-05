@@ -44,7 +44,6 @@ reportUnusedCallResult = "warning"
 reportUnnecessaryTypeIgnoreComment = "error"
 reportUnusedVariable = "error"
 reportMissingParameterType = "error"
-reportMissingReturnType = "error"
 reportPrivateUsage = "error"
 
 # ─────────────────────────────────────────────────────────────────

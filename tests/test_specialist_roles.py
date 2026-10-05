@@ -262,3 +262,27 @@ def test_resolver_fails_closed_for_unknown_org(read_setup):
     assert service.manager is None
     assert service.indexer is None
     assert deps.read_service_for("org") is service
+
+
+def test_live_model_transport_requires_explicit_opt_in_and_cipher(read_setup):
+    from terminus.model_gateway.secrets import CredentialCipher
+
+    _, _, scheduler, _ = read_setup
+    base = {deploy.DATABASE_ENV: scheduler.db.db_path, deploy.ACTOR_ENV: "member"}
+    disabled = deploy.build_deployment_deps(base, clock=scheduler.clock)
+    assert disabled.routing is None
+    assert disabled.client_for is None
+    with pytest.raises(deploy.SpecialistDeploymentError, match="CREDENTIALS_KEY"):
+        deploy.build_deployment_deps(
+            {**base, deploy.LIVE_MODELS_ENV: "true"}, clock=scheduler.clock
+        )
+    enabled = deploy.build_deployment_deps(
+        {
+            **base,
+            deploy.LIVE_MODELS_ENV: "true",
+            deploy.MODEL_CREDENTIALS_ENV: CredentialCipher.generate_key().get_secret_value(),
+        },
+        clock=scheduler.clock,
+    )
+    assert enabled.routing is not None
+    assert enabled.client_for is not None

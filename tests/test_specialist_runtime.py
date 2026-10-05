@@ -26,6 +26,7 @@ from terminus.orchestration.specialists.prompts import (
 from terminus.orchestration.specialists.runtime import (
     PlannedCall,
     RoleSpec,
+    SharedHelpContext,
     SpecialistDeps,
     make_specialist_handler,
 )
@@ -237,6 +238,34 @@ async def test_empty_telemetry_is_insufficient_not_clean(read_setup):
 
 
 @pytest.mark.asyncio
+async def test_delegated_run_consumes_only_server_derived_shared_evidence(read_setup):
+    make, _, scheduler, _ = read_setup
+    service, lease = make()
+    shared_id = "shared-evidence-1"
+    seen: list[tuple[str, str]] = []
+
+    def help_context(org_id: str, task_id: str) -> SharedHelpContext:
+        seen.append((org_id, task_id))
+        return SharedHelpContext(
+            help_request_id="help-1",
+            objective="Review shared evidence",
+            expected_evidence_kinds=("flow_summary",),
+            shared_evidence_ids=(shared_id,),
+        )
+
+    stub = StubService(lambda tool, n: tool_result(tool))
+    result = parse(
+        await make_specialist_handler(
+            RoleSpec("triage", plan_of("alerts.search")),
+            deps_for(stub, help_context_for=help_context),
+        )(job_context(scheduler, lease))
+    )
+    assert seen == [("org", lease.task_id)]
+    assert result.evidence_ids == (shared_id,)
+    assert result.status == "completed"
+
+
+@pytest.mark.asyncio
 async def test_partial_coverage_becomes_gap(read_setup):
     make, _, scheduler, _ = read_setup
     service, lease = make(index_items=[event(size=40000)])
@@ -419,14 +448,18 @@ def model_reply(content):
     }
 
 
-def model_deps(setup, stub, content=None, transport=True):
+def model_deps(setup, stub, content=None, transport=True, status=200):
     service_, lease, evidence, local, hosted, *_ = setup
     routing = ModelRoutingService(service_, budget_store(setup))
     calls: list[object] = []
 
     def wire(req):
         calls.append(req)
-        return httpx2.Response(200, json=model_reply(content))
+        return (
+            httpx2.Response(200, json=model_reply(content))
+            if status == 200
+            else httpx2.Response(status, text="provider unavailable")
+        )
 
     client_for = (
         factory(local, hosted, local_cb=wire, hosted_cb=wire)
@@ -463,9 +496,36 @@ async def test_model_findings_require_cited_run_evidence(setup):
     assert result.execution_mode == "tools_and_model"
     assert result.model is not None
     assert result.model.model == "fixture-model"
+    assert result.model.route_id
+    assert result.model.reservation_id
+    assert result.model.cost_known is False
+    assert result.model.cost_micro_usd is None
+    assert result.model.usage is None
     assert [f.claim for f in result.findings] == ["Cited failure observed"]
     assert [g.code for g in result.gaps] == ["uncited_finding_dropped"]
     assert result.status == "partial"
+
+
+@pytest.mark.asyncio
+async def test_failed_model_attempt_retains_provenance_and_unknown_usage(setup):
+    service_, lease, evidence, *_ = setup
+    stub = StubService(lambda tool, n: tool_result(tool, ids=(evidence.evidence_id,)))
+    deps, calls = model_deps(setup, stub, status=503)
+    result = parse(
+        await make_specialist_handler(
+            RoleSpec("triage", plan_of("a.b")), deps
+        )(job_context(service_.scheduler, lease))
+    )
+    assert calls
+    assert result.status == "partial"
+    assert result.execution_mode == "tools_and_model"
+    assert result.model is not None
+    assert result.model.route_id
+    assert result.model.reservation_id
+    assert result.model.usage is None
+    assert result.model.cost_known is False
+    assert result.model.cost_micro_usd is None
+    assert [gap.code for gap in result.gaps] == ["model_unavailable"]
 
 
 @pytest.mark.asyncio

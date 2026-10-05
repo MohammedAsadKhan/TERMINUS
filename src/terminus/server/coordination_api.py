@@ -77,7 +77,18 @@ def reconcile_help(
     service: Annotated[CoordinationService, Depends(get_coordination_service)],
 ) -> dict[str, Any]:
     try:
-        return _record(service.reconcile_help(str(org_id), help_request_id))
+        request = service.reconcile_help(str(org_id), help_request_id)
+        return cast(
+            dict[str, Any],
+            _redact(
+                {
+                    **_record(request),
+                    "ownership": service.collaboration.ownership(
+                        str(org_id), help_request_id
+                    ),
+                }
+            ),
+        )
     except Exception as exc:
         raise _handle_store_error(exc) from exc
 

@@ -24,6 +24,7 @@ from terminus.orchestration.coordination_models import (
     IncidentObjective,
 )
 from terminus.orchestration.models import Task
+from terminus.orchestration.specialists.models import SpecialistGap, SpecialistResult
 from terminus.orchestration.storage import OrchestrationNotFoundError
 from terminus.storage.db import Database
 from tests.test_coordination import _claim, _tasks
@@ -249,6 +250,76 @@ async def test_failed_peer_is_rejected_never_resolved(service) -> None:
     own = service.collaboration.ownership("a", view["help_request_id"])
     assert own["state"] == "rejected"
     assert own["reason_code"] == "peer_failed"
+
+
+@pytest.mark.asyncio
+async def test_completed_peer_result_is_persisted_on_help_record(service) -> None:
+    triage = await _ready(service)
+    evidence_id = _evidence(service, triage.task_id)
+    view = service.request_help(
+        "a", triage.task_id, _spec(shared_evidence_ids=[evidence_id])
+    )
+    await _run_help_area(service, view["delegated_task_id"])
+    peer = _peer(service, view["delegated_task_id"])
+    while (ctx := _claim(service, "network")).task.task_id != peer.task_id:
+        service.scheduler.complete(
+            ctx.lease,
+            SpecialistResult(
+                status="insufficient_telemetry",
+                role="network",
+                gaps=(),
+            ).model_dump(mode="json"),
+        )
+    result = SpecialistResult(
+        status="partial",
+        role="network",
+        evidence_ids=(evidence_id,),
+        gaps=(
+            SpecialistGap(
+                code="coverage_partial",
+                detail="requested flow summary unavailable",
+            ),
+        ),
+    )
+    service.scheduler.complete(ctx.lease, result.model_dump(mode="json"))
+    assert service.reconcile_help("a", view["help_request_id"]).status == "resolved"
+    ownership = service.collaboration.ownership("a", view["help_request_id"])
+    assert ownership["state"] == "incomplete"
+    assert ownership["reason_code"] == "peer_result_partial"
+    assert ownership["result"] == result.model_dump(mode="json")
+    tree = service.get_incident_tree("a", "incident-a")
+
+    def walk(node: Any) -> Iterator[Any]:
+        yield node
+        for child in node["children"]:
+            yield from walk(child)
+
+    requester = next(
+        node for node in walk(tree["roots"][0]) if node["task_id"] == triage.task_id
+    )
+    assert "Help result has gaps" in requester["gaps"]
+    reopened = CoordinationService(Database(service.db.db_path))
+    try:
+        restored = reopened.collaboration.ownership("a", view["help_request_id"])
+        assert restored["result"] == result.model_dump(mode="json")
+        assert restored["state"] == "incomplete"
+    finally:
+        reopened.db.close()
+
+
+@pytest.mark.asyncio
+async def test_completed_peer_without_bounded_result_stays_incomplete(service) -> None:
+    triage = await _ready(service)
+    view = service.request_help("a", triage.task_id, _spec())
+    await _run_help_area(service, view["delegated_task_id"])
+    peer = _peer(service, view["delegated_task_id"])
+    while (ctx := _claim(service, "network")).task.task_id != peer.task_id:
+        service.scheduler.complete(ctx.lease, {"legacy": True})
+    service.scheduler.complete(ctx.lease, {"legacy": True})
+    assert service.reconcile_help("a", view["help_request_id"]).status == "assigned"
+    ownership = service.collaboration.ownership("a", view["help_request_id"])
+    assert ownership["state"] == "incomplete"
+    assert ownership["reason_code"] == "peer_result_missing"
 
 
 @pytest.mark.asyncio
