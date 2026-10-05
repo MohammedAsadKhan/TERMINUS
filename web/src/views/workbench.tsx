@@ -28,6 +28,8 @@ import { date, ErrorPanel } from '../components';
 import { ChatText, CopilotPanel } from '../copilot-ui';
 import { NetworkCanvas, type NetworkEvent, type NetworkSelection } from '../network-canvas';
 import { ThreatVelocityChart, AttackSurfaceMatrix } from './overview-charts';
+import { IngestModal } from './ingest-modal';
+import { createTestAlert, randomTestTopic } from '../test-alerts';
 import type { AgentAction, Incident } from '../types';
 
 type Action = { action_type: 'start_investigation' | 'close_ticket' | 'reopen_ticket'; resolution_category?: string; resolution_notes?: string };
@@ -76,8 +78,9 @@ function ActionRow({ item, onClick }: { item: AgentAction; onClick?: () => void 
   };
 
   const getStatusBadge = () => {
-    const s = (item.status || 'COMPLETED').toUpperCase();
-    if (s === 'COMPLETED' || s === 'SUCCESS' || s === 'APPROVED') return <Tag color="success" icon={<CheckCircleOutlined />}>SUCCESS</Tag>;
+    const s = (item.status || 'UNKNOWN').toUpperCase();
+    if (s === 'COMPLETED' || s === 'SUCCESS') return <Tag color="success" icon={<CheckCircleOutlined />}>{s}</Tag>;
+    if (s === 'APPROVED') return <Tag color="processing" icon={<CheckCircleOutlined />}>APPROVED</Tag>;
     if (s === 'BLOCKED') return <Tag color="error" icon={<StopOutlined />}>BLOCKED</Tag>;
     if (s === 'WAITING_APPROVAL' || s === 'PENDING') return <Tag color="warning" icon={<ClockCircleOutlined />}>APPROVAL REQ</Tag>;
     if (s === 'SUPPRESSED') return <Tag color="default">SUPPRESSED</Tag>;
@@ -357,7 +360,7 @@ function IncidentPanel({ id, onClose }: { id: string; onClose: () => void }) {
             )}
           </div>
           <Modal title="Resolve Incident" open={resolveOpen} onCancel={() => setResolveOpen(false)} onOk={() => action.mutate({ action_type: 'close_ticket', resolution_category: category, resolution_notes: notes.trim() })} okText="Save Resolution" confirmLoading={action.isPending}>
-            <p className="work-note">Record the verified investigation outcome. This changes incident status to RESOLVED and archives active alerts.</p>
+            <p className="work-note">Record your investigation outcome and notes. This changes the incident status to RESOLVED; it does not verify a response action.</p>
             <label className="work-label" htmlFor="resolution-category">Resolution Classification</label>
             <Select id="resolution-category" className="work-full" value={category} onChange={setCategory} options={Object.entries(categoryNames).map(([value, label]) => ({ value, label }))} />
             <label className="work-label" htmlFor="resolution-notes">Analyst Post-Mortem Notes</label>
@@ -372,6 +375,8 @@ function IncidentPanel({ id, onClose }: { id: string; onClose: () => void }) {
 
 export default function Workbench({ incidentView = false }: { incidentView?: boolean }) {
   const { orgId } = useSession();
+  const query = useQueryClient();
+  const { message } = App.useApp();
   const { ticketId } = useParams();
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
@@ -381,6 +386,20 @@ export default function Workbench({ incidentView = false }: { incidentView?: boo
   const [layout, setLayout] = useState<ViewLayout>('unified');
   const [selectedEntity, setSelectedEntity] = useState<NetworkSelection | null>(null);
   const [overviewTab, setOverviewTab] = useState<'queue' | 'actions'>('queue');
+  const [ingestOpen, setIngestOpen] = useState(false);
+  const randomAlert = useMutation({
+    mutationFn: async () => {
+      const alert = createTestAlert(randomTestTopic());
+      await api('/wazuh', orgId, body('POST', alert));
+      return alert.rule.description;
+    },
+    onSuccess: description => {
+      void query.invalidateQueries({ queryKey: ['incidents', orgId] });
+      void query.invalidateQueries({ queryKey: ['investigation-network-stable', orgId] });
+      message.success(`${description} submitted`);
+    },
+    onError: error => message.error(error.message),
+  });
 
   // Stable 30s background refetch without millisecond URL shifts (prevents canvas flickering)
   const incidents = useQuery({ queryKey: ['incidents', orgId], queryFn: () => api<Incident[]>('/incidents', orgId), refetchInterval: 30000 });
@@ -433,9 +452,11 @@ export default function Workbench({ incidentView = false }: { incidentView?: boo
         <div className="work-page-header">
           <div>
             <h1>Security Operations Overview</h1>
-            <p>Real-time threat velocity, impacted attack surface, and priority incident queue.</p>
+            <p>Recorded incident trends, affected assets, and priority queue. Sample alerts are labeled in the submission dialog.</p>
           </div>
           <div className="work-head-actions">
+            <Button type="primary" onClick={() => setIngestOpen(true)}>Choose test alert</Button>
+            <Button onClick={() => randomAlert.mutate()} loading={randomAlert.isPending} title="Adds a synthetic alert now. Configured notification channels may receive it.">Add random test alert</Button>
             <div className="work-stat-pills">
               <span className="work-stat-pill"><span className="work-dot active" />{active.length} Active Incidents</span>
               <span className="work-stat-pill critical"><FireOutlined /> {critical.length} Critical</span>
@@ -444,6 +465,7 @@ export default function Workbench({ incidentView = false }: { incidentView?: boo
             <Button icon={<ReloadOutlined />} onClick={() => void incidents.refetch()} loading={incidents.isFetching}>Refresh</Button>
           </div>
         </div>
+        {randomAlert.error && <Alert type="error" showIcon title={randomAlert.error.message} />}
 
         <div className="work-overview-split">
           {/* LEFT COLUMN: 2 Visualizers at the Header + Priority Incident Queue & Actions Log */}
@@ -490,7 +512,8 @@ export default function Workbench({ incidentView = false }: { incidentView?: boo
           </div>
         </div>
 
-        <p className="work-footer-note">Telemetry grounded in {all.length} measured incident{all.length === 1 ? '' : 's'}. Live polling active.</p>
+        <p className="work-footer-note">Showing {all.length} recorded incident{all.length === 1 ? '' : 's'}. The console refreshes its records every 30 seconds.</p>
+        <IngestModal open={ingestOpen} close={() => setIngestOpen(false)} />
       </div>
     );
   }
@@ -612,7 +635,7 @@ export default function Workbench({ incidentView = false }: { incidentView?: boo
         <section className="work-col-queue" aria-label="Incident Logs">
           <div className="work-queue-heading">
             <strong>{visible.length} incident{visible.length === 1 ? '' : 's'} {selectedEntity ? `matching ${selectedEntity.label}` : ''}</strong>
-            <span>{incidents.isFetching ? 'Syncing…' : 'Live synchronized'}</span>
+            <span>{incidents.isFetching ? 'Refreshing records…' : 'Stored records · refreshes every 30 seconds'}</span>
           </div>
           <div className="work-column-head">
             <span>Incident Rule / Host</span>
@@ -654,6 +677,7 @@ export default function Workbench({ incidentView = false }: { incidentView?: boo
           )}
         </section>
       </div>
+      <IngestModal open={ingestOpen} close={() => setIngestOpen(false)} />
     </div>
   );
 }

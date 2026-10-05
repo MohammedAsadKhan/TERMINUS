@@ -177,8 +177,10 @@ def create_app() -> FastAPI:
     app.include_router(specialist_catalog_router)
     app.include_router(allowlist_router)
     app.include_router(report_router)
-    app.include_router(decoy_router)
-    app.include_router(bank_router)
+    # Synthetic decoys are a local demonstration surface, not a hosted API.
+    if get_settings().deployment_mode == "local":
+        app.include_router(decoy_router)
+        app.include_router(bank_router)
     app.include_router(streaming_router)
     app.include_router(copilot_router)
     app.include_router(global_copilot_router)

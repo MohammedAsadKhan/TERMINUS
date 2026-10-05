@@ -58,6 +58,7 @@ Add one row per claimed task. Re-read the current shared version before claiming
 | O06 | Mohammed | Claude Code orchestrator with Claude Sonnet subagents | 2026-10-04 | in progress | [Collaboration](COORDINATION.md), [wiring](SPECIALISTS.md); 988 isolated tests pass (two runs) | Pre-lab integration closes the legacy admission bypass and connects shared evidence/peer results plus activity UI. Task remains open for useful collaboration against live lab telemetry. See PRELAB-20261004. |
 
 | PRELAB-20261004 | Mohammed | Codex orchestrator, GPT-6.1 Sol workflow/transport agents and GPT-5.6 Sol collaboration/UI agents | 2026-10-04 | verified | Review fixes, collaboration integration, safe model transport, activity/settings UI and fixture response lifecycle | Done by - Mohammed; backend 1,112 isolated tests, browser 7/7, production build, focused Ruff/type and diff checks pass. Real provider/lab defense remains gated; see [checkpoint](PRELAB_IMPLEMENTATION.md). |
+| Q00 | Misha Stegall | Codex and audit subagents | 2026-10-05 | in progress | [Local exploration](QA_LOCAL_EXPLORATION.md), [QA findings and verification](QA_FINDINGS_2026-10-05.md) | First hands-on evidence log is pending; Q01-Q03 retain their live scenario dependencies. Share this local claim with the team before overlapping work. |
 
 ## Phase 0 Scope and contracts
 
@@ -141,6 +142,7 @@ Add one row per claimed task. Re-read the current shared version before claiming
 
 ## Phase 6 Release gates and packaging
 
+- [ ] Q00 Prepare a safe local synthetic exploration path and record a first QA baseline. Owner: Misha Stegall. Scope: explain the console flow, label recorded/approved states accurately, prevent unauthenticated demo routes from selecting another tenant, and run focused local regressions. This does not satisfy live Wazuh, model, response or Q01-Q03 acceptance.
 - [ ] Q01 Test duplicate alerts/tasks, denied/expired approval, cross-tenant access, provider timeout, missing connector, malformed output, budget exhaustion and task cancellation. Owner: QA. Depends: A07,B06. Exit: negative-case results linked; no duplicated consequential action.
 - [ ] Q02 Test restart during investigation and around response dispatch; reconcile uncertain outcomes and recover durable work. Owner: QA/backend lead. Depends: O02,A07,B06. Exit: no accepted work silently lost; no blind response replay.
 - [ ] Q03 Run three consecutive reset rehearsals for each mandatory scenario locally and on AWS. Owner: QA + Mohammed. Depends: C05,Q01,Q02. Exit: six successful runs per environment; timings/evidence recorded, all blockers resolved.

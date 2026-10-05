@@ -28,14 +28,8 @@ bank_router = APIRouter(prefix="/bank", tags=["Banking Honeypot & Retail Decoy"]
 
 
 def _get_target_org_id(request: Request, org_service: OrganizationService) -> OrgId:
-    """Retrieve target org ID from header or fallback to default bootstrapped org."""
-    header_org = request.headers.get("X-Org-ID")
-    if header_org:
-        return OrgId(header_org)
-    all_orgs = org_service.org_store.list_all()
-    if all_orgs:
-        return all_orgs[0].org_id
-    return OrgId("org-default")
+    """Keep unauthenticated synthetic bank events in the local demo tenant."""
+    return OrgId("org-terminus-demo")
 
 
 def _get_request_timestamp(request: Request) -> str:

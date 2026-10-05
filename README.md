@@ -16,6 +16,8 @@
 
 [Current implementation and lab handoff](docs/PRELAB_IMPLEMENTATION.md)
 
+[Misha's QA walkthrough and evidence log](docs/QA_LOCAL_EXPLORATION.md)
+
 </div>
 
 ---
@@ -38,12 +40,12 @@ The repository includes the operations console, incident and identity persistenc
 | **Asset inventory** | Organization-scoped repositories, containers, clouds, VMs, domains and devices. Registration does not establish monitoring or protection. |
 | **Persistent foundation** | SQLite-backed identities, sessions, incidents, workflows, tasks, runs and immutable evidence. Daily report history and campaign stitching still use process memory. |
 | **Durable scheduling** | Dedicated Python/asyncio process, fenced leases, bounded concurrency, cancellation, retry and conservative holds after uncertain dispatch. |
-| **Coordination** | Main orchestrator, lazy area coordinators and eight core role definitions. Real specialist execution handlers are pending. |
+| **Coordination** | Main orchestrator, lazy area coordinators and eight core roles. Specialist handlers and collaboration have pre-lab fixture coverage; useful execution against lab telemetry remains unverified. |
 | **Defensive toolkit** | **60 specialties · 18 families · 93 tools · 48 connector candidates.** Contracts plus an internal read-only registry/gateway, durable invocation quota/audit and fenced evidence writer. Five bounded investigation readers are available through explicit internal installation; live lab and specialist integration remain pending. |
-| **Model control** | Named multi-provider/local connections, encrypted API credentials and masked authenticated configuration API. Provider protocols are fixture-tested; production transport, role/data policy, routing and durable financial budgets remain planned. |
+| **Model control** | Named encrypted connections, role/data policy, routing, budgets and guarded production transport are implemented. Protocols are fixture-tested; one limited synthetic Gemini smoke test passed, while full model evaluation and lab use remain open. |
 | **Live defense** | Wazuh-backed approved response, reconciliation, expiry/undo and independent verification require implementation and lab testing. |
 
-> **Verification snapshot:** 670 automated tests passed against a temporary SQLite database on October 4, 2026, including 100 provider-protocol checks, 53 model-connection checks, and reader/context/toolkit checks. This verifies repository behavior and contracts. Live SIEM, model-provider and defense demonstrations require separate evidence.
+> **Verification snapshot:** The October 4 pre-lab checkpoint records 1,112 isolated backend tests, 7 browser fixture tests and a production console build. An October 5 focused transport check records 33 passing tests and a limited synthetic Gemini smoke test. These are recorded results, not a fresh full-suite run. Live SIEM and defense demonstrations still require separate evidence. See [pre-lab implementation](docs/PRELAB_IMPLEMENTATION.md) and [model evaluation](docs/MODEL_EVALUATION.md).
 
 ## How it fits together
 
@@ -103,6 +105,8 @@ uv run --frozen uvicorn terminus.server.app:create_app --factory --host 127.0.0.
 
 Open **http://127.0.0.1:8000/console/**. The prebuilt console is tracked, so an initial launch needs no frontend build.
 
+The **QA walkthroughs** item in the console sidebar opens Misha Stegall's guided checks for synthetic alert ingestion, incident evidence, specialist activity, workflows, and connector settings. The Overview has both a one-click random synthetic alert and a topic dropdown. Use the [QA evidence guide](docs/QA_LOCAL_EXPLORATION.md) to record expected and observed results. Local startup, build, and fixture checks have passed; live Wazuh, model, notification, and response connections still require end-to-end verification.
+
 Local mode supports the first-run demo login: `admin@terminus.local` / `Password123!`. Existing credentials are not reset at startup. Hosted mode creates no demo account.
 
 ### Windows evaluation
@@ -114,6 +118,8 @@ Local mode supports the first-run demo login: `admin@terminus.local` / `Password
 The setup executable configures the project; it does not bundle the full service. The simulation submits demonstration events, rather than executing ransomware or proving real defense. Existing provider-connected paths may make model calls when configured.
 
 [Evaluation walkthrough](docs/GRADING_GUIDE.md) · [Build instructions](docs/BUILD.md)
+
+For a first hands-on check with clearly labeled synthetic data, follow the [local QA exploration guide](docs/QA_LOCAL_EXPLORATION.md). It distinguishes an incident appearing in the console from verified specialist execution or defense.
 
 ### Configuration and storage
 

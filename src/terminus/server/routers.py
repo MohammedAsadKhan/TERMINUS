@@ -970,12 +970,7 @@ async def get_decoy_vault_secrets(
 
     from terminus.core.ids import AgentId, RuleId
 
-    org_id_header = request.headers.get("X-Org-ID")
-    target_org_id = OrgId(org_id_header) if org_id_header else OrgId("org-default")
-    if not org_id_header:
-        all_orgs = org_service.org_store.list_all()
-        if all_orgs:
-            target_org_id = all_orgs[0].org_id
+    target_org_id = OrgId("org-terminus-demo")
 
     client_ip = request.client.host if request.client else "unknown-client"
     alert = SiemAlert(
@@ -1016,12 +1011,7 @@ async def get_decoy_customer_pii(
 
     from terminus.core.ids import AgentId, RuleId
 
-    org_id_header = request.headers.get("X-Org-ID")
-    target_org_id = OrgId(org_id_header) if org_id_header else OrgId("org-default")
-    if not org_id_header:
-        all_orgs = org_service.org_store.list_all()
-        if all_orgs:
-            target_org_id = all_orgs[0].org_id
+    target_org_id = OrgId("org-terminus-demo")
 
     client_ip = request.client.host if request.client else "unknown-client"
     alert = SiemAlert(

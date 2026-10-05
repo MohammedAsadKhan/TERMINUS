@@ -1,0 +1,17 @@
+.qa-page { max-width: 1180px; margin: 0 auto; padding: 24px; overflow-y: auto; height: 100%; }
+.qa-header { margin-bottom: 22px; }
+.qa-header h1 { margin: 0 0 8px; font-size: 28px; }
+.qa-header p { max-width: 760px; color: var(--subtle); }
+.qa-note, .qa-card, .qa-topics { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); padding: 18px; }
+.qa-note { margin-bottom: 18px; }
+.qa-note p { margin: 8px 0 0; color: var(--subtle); }
+.qa-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; margin-bottom: 18px; }
+.qa-card { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
+.qa-card h2 { margin: 0; }
+.qa-card p { margin: 0; color: var(--subtle); }
+.qa-card .ant-btn { margin-top: auto; }
+.qa-evidence { font-size: 12px; color: var(--subtle); }
+.qa-topic-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.qa-topics { margin-bottom: 18px; }
+.qa-topics p { color: var(--subtle); }
+@media (max-width: 600px) { .qa-page { padding: 16px; } }

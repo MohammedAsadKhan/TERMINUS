@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { App, Alert, Avatar, Button, Dropdown, Form, Input, Modal, Spin, Tag } from 'antd';
-import { ApartmentOutlined, ArrowRightOutlined, CheckOutlined, CloudOutlined, DashboardOutlined, DesktopOutlined, DockerOutlined, GithubOutlined, DownOutlined, FileTextOutlined, GlobalOutlined, LogoutOutlined, MenuOutlined, MessageOutlined, PlusOutlined, SafetyCertificateOutlined, SettingOutlined, ThunderboltOutlined, UserOutlined } from '@ant-design/icons';
+import { ApartmentOutlined, ArrowRightOutlined, CheckOutlined, CloudOutlined, DashboardOutlined, DesktopOutlined, DockerOutlined, GithubOutlined, DownOutlined, FileTextOutlined, GlobalOutlined, LogoutOutlined, MenuOutlined, MessageOutlined, PlusOutlined, SafetyCertificateOutlined, SettingOutlined, ThunderboltOutlined, UserOutlined, ExperimentOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { api, body } from './api';
@@ -26,6 +26,7 @@ const Agents = lazy(() => import('./views/agents'));
 const Workflows = lazy(() => import('./views/workflows'));
 const Settings = lazy(() => import('./views/settings'));
 const Assets = lazy(() => import('./views/assets'));
+const QaWalkthroughs = lazy(() => import('./views/qa-walkthroughs'));
 
 function Brand() {
   return (
@@ -147,6 +148,7 @@ export function ConsoleApp() {
       { key: '/workflows', label: 'Workflows', icon: <ApartmentOutlined /> },
     ] },
     { label: 'Workspace', items: [
+      { key: '/qa', label: 'QA walkthroughs', icon: <ExperimentOutlined /> },
       { key: '/organization', label: 'Organization', icon: <UserOutlined /> },
       { key: '/settings', label: 'Settings', icon: <SettingOutlined /> },
     ] },
@@ -269,6 +271,7 @@ export function ConsoleApp() {
                 <Route path="/workflows" element={<Workflows />} />
                 <Route path="/integrations" element={<Navigate to="/settings" replace />} />
                 <Route path="/organization" element={<Settings section="organization" />} />
+                <Route path="/qa" element={<QaWalkthroughs />} />
                 <Route path="/settings" element={<Settings section="settings" />} />
                 <Route path="/assets" element={<Navigate to="/assets/repository" replace />} />
                 <Route path="/assets/:kind" element={<Assets />} />

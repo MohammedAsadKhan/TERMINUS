@@ -251,7 +251,6 @@ test('discards an unsaved tenant draft when the organization changes', async ({ 
   await expect(page.getByLabel('Daily limit in micro-USD')).toHaveValue('1000000');
   await page.getByLabel('Daily limit in micro-USD').fill('7777777');
   await page.getByRole('button', { name: 'Account and organization menu' }).click();
-  await page.getByRole('menuitem', { name: 'Switch Organization' }).hover();
   const betaOrganization = page.getByRole('menuitem', { name: 'Beta SOC' });
   await expect(betaOrganization).toBeVisible();
   await betaOrganization.click();
