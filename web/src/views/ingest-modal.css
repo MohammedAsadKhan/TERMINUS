@@ -1,0 +1,15 @@
+.test-alert-topic-select {
+  display: block;
+  width: 100%;
+  min-height: 38px;
+  padding: 8px 12px;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.test-alert-topic-select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.test-alert-modal .field-label { color: var(--ink); }
+.test-alert-modal .field-label span { color: var(--subtle); }
+.test-alert-modal .ant-input { color: var(--ink); }

@@ -136,6 +136,9 @@ export function ConsoleApp() {
   const activePath = currentPath === '/assets' ? location.pathname : currentPath;
   const assetIcons = [<GithubOutlined />, <DockerOutlined />, <CloudOutlined />, <VirtualMachineIcon />, <GlobalOutlined />, <DesktopOutlined />];
   const navigation = [
+    { label: 'Start here', items: [
+      { key: '/qa', label: 'QA walkthroughs', icon: <ExperimentOutlined /> },
+    ] },
     { label: 'Operations', items: [
       { key: '/', label: 'Overview', icon: <DashboardOutlined /> },
       { key: '/incidents', label: 'Incidents', icon: <SafetyCertificateOutlined /> },
@@ -148,7 +151,6 @@ export function ConsoleApp() {
       { key: '/workflows', label: 'Workflows', icon: <ApartmentOutlined /> },
     ] },
     { label: 'Workspace', items: [
-      { key: '/qa', label: 'QA walkthroughs', icon: <ExperimentOutlined /> },
       { key: '/organization', label: 'Organization', icon: <UserOutlined /> },
       { key: '/settings', label: 'Settings', icon: <SettingOutlined /> },
     ] },

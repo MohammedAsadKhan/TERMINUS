@@ -34,9 +34,10 @@ test('submits a random synthetic alert or a selected topic with distinct evidenc
   expect(submitted[0].data.srcip).toMatch(/^198\.51\.100\./);
 
   await page.getByRole('button', { name: 'Choose test alert' }).click();
-  await page.getByLabel('Test topic').click();
-  await page.getByText('Unusual outbound data transfer · Network / Evidence', { exact: true }).last().click();
+  await page.getByLabel('Test topic').selectOption('exfiltration');
+  await expect(page.getByLabel('Test topic')).toHaveValue('exfiltration');
   await expect(page.getByText(/Prepared: \[SYNTHETIC\] Unusual outbound data transfer/)).toBeVisible();
+  await expect(page.getByLabel('Alert JSON')).toHaveValue(/\[SYNTHETIC\] Unusual outbound data transfer/);
   await page.getByRole('button', { name: 'Submit alert', exact: true }).click();
   await expect.poll(() => submitted.length).toBe(2);
   expect(submitted[1].rule.description).toBe('[SYNTHETIC] Unusual outbound data transfer');
@@ -44,6 +45,8 @@ test('submits a random synthetic alert or a selected topic with distinct evidenc
   expect(submitted[1].id).not.toBe(submitted[0].id);
 
   await page.getByRole('button', { name: 'QA walkthroughs' }).click();
+  const qaNavigation = page.getByRole('navigation', { name: 'Main navigation' });
+  await expect(qaNavigation.getByRole('button').first()).toHaveText(/QA walkthroughs/);
   await expect(page.getByRole('heading', { name: 'Test walkthroughs' })).toBeVisible();
   await expect(page.getByRole('heading', { name: '5. Connector checks' })).toBeVisible();
   await page.getByRole('link', { name: 'Open Incidents' }).click();
