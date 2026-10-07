@@ -7,7 +7,7 @@ set "PYTHONPATH=%~dp0src;%PYTHONPATH%"
 set "TERMINUS_REPO_SCAN_ENABLED=true"
 
 echo ===============================================================================
-echo   TERMINUS - AUTONOMOUS AI SOC & SOAR PLATFORM SERVICE
+echo   TERMINUS - AUTONOMOUS AI SOC AND SOAR PLATFORM SERVICE
 echo ===============================================================================
 echo   [+] Mode: Standalone Background Service (Clean / Unconfigured)
 echo   [+] Service Host: 0.0.0.0

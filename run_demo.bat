@@ -1,15 +1,15 @@
 @echo off
 setlocal enabledelayedexpansion
-title TERMINUS - Presentation & Live Demo Runner
+title TERMINUS - Presentation and Live Demo Runner
 cd /d "%~dp0"
 
 set "PYTHONPATH=%~dp0src;%PYTHONPATH%"
 set "TERMINUS_REPO_SCAN_ENABLED=true"
 
 echo ===============================================================================
-echo   TERMINUS - PRESENTATION DEMO & LIVE ADVERSARY STREAM RUNNER
+echo   TERMINUS - PRESENTATION DEMO AND LIVE ADVERSARY STREAM RUNNER
 echo ===============================================================================
-echo   [+] Mode: Full Interactive Presentation Demo (Traffic, Alerts & Guardrails)
+echo   [+] Mode: Full Interactive Presentation Demo (Traffic, Alerts and Guardrails)
 echo   [+] Target Service: http://127.0.0.1:8000
 echo   [+] Web Console: http://127.0.0.1:8000/console/
 echo ===============================================================================
@@ -29,11 +29,11 @@ if %ERRORLEVEL% NEQ 0 (
     echo [*] Terminus backend is not active. Starting backend service in background window...
     where uv >nul 2>nul
     if !ERRORLEVEL! EQU 0 (
-        start "TERMINUS Server Daemon (Port 8000)" cmd /k "title TERMINUS Server Daemon && cd /d "%~dp0" && set TERMINUS_REPO_SCAN_ENABLED=true && uv run --frozen uvicorn terminus.server.app:create_app --factory --host 0.0.0.0 --port 8000"
+        start "TERMINUS Server Daemon (Port 8000)" cmd /k "title TERMINUS Server Daemon && cd /d ""%~dp0"" && set TERMINUS_REPO_SCAN_ENABLED=true && uv run --frozen uvicorn terminus.server.app:create_app --factory --host 0.0.0.0 --port 8000"
     ) else if exist "%~dp0.venv\Scripts\python.exe" (
-        start "TERMINUS Server Daemon (Port 8000)" cmd /k "title TERMINUS Server Daemon && cd /d "%~dp0" && set TERMINUS_REPO_SCAN_ENABLED=true && "%~dp0.venv\Scripts\python.exe" -m uvicorn terminus.server.app:create_app --factory --host 0.0.0.0 --port 8000"
+        start "TERMINUS Server Daemon (Port 8000)" cmd /k "title TERMINUS Server Daemon && cd /d ""%~dp0"" && set TERMINUS_REPO_SCAN_ENABLED=true && ""%~dp0.venv\Scripts\python.exe"" -m uvicorn terminus.server.app:create_app --factory --host 0.0.0.0 --port 8000"
     ) else (
-        start "TERMINUS Server Daemon (Port 8000)" cmd /k "title TERMINUS Server Daemon && cd /d "%~dp0" && set TERMINUS_REPO_SCAN_ENABLED=true && python -m uvicorn terminus.server.app:create_app --factory --host 0.0.0.0 --port 8000"
+        start "TERMINUS Server Daemon (Port 8000)" cmd /k "title TERMINUS Server Daemon && cd /d ""%~dp0"" && set TERMINUS_REPO_SCAN_ENABLED=true && python -m uvicorn terminus.server.app:create_app --factory --host 0.0.0.0 --port 8000"
     )
     echo [*] Waiting for Terminus service to initialize...
     timeout /t 3 /nobreak >nul

@@ -129,7 +129,7 @@ def clear_alert_databases(db_path: str = "terminus.db") -> None:
             try:
                 cur.execute(f"DELETE FROM {table}")
                 cleared_count += cur.rowcount if cur.rowcount > 0 else 0
-            except sqlite3.OperationalError:
+            except Exception:
                 pass
         conn.commit()
         conn.close()
@@ -232,17 +232,27 @@ async def run_simulation(base_url: str = "http://127.0.0.1:8000", duration_secon
     clear_alert_databases()
     print(f"{BOLD}{CYAN}Connecting to Terminus Autonomous SOC Service at {base_url}...{RESET}")
 
-    # 1. Health check
-    code, health_resp = await req_async(base_url, "GET", "/health")
-    if code != 200:
-        # Also check /bank/api/demo/status for bank demo instance
+    # 1. Health check with retry loop (up to 15 seconds)
+    health_ok = False
+    for attempt in range(1, 16):
+        code, health_resp = await req_async(base_url, "GET", "/health")
+        if code == 200:
+            health_ok = True
+            break
         bcode, _ = await req_async(base_url, "GET", "/bank/api/demo/status")
-        if bcode != 200:
-            print(f"{RED}[!] Server health check failed (status {code}): {health_resp}{RESET}")
-            print(f"{YELLOW}[!] Please start the Terminus service first using 'run_service.bat'{RESET}")
-            return
+        if bcode == 200:
+            health_ok = True
+            break
+        if attempt == 1:
+            print(f"{YELLOW}[*] Waiting for Terminus backend service to become ready...{RESET}")
+        await asyncio.sleep(1.0)
 
-    # 2. Authenticate: try standard admin first, then demo presenter
+    if not health_ok:
+        print(f"{RED}[!] Server health check failed: unable to connect to {base_url}{RESET}")
+        print(f"{YELLOW}[!] Please start the Terminus service first using 'run_service.bat'{RESET}")
+        return
+
+    # 2. Authenticate: try standard admin first, then demo presenter, with auto-register fallback
     headers: dict[str, str] = {
         "X-Terminus-Request": "1",
     }
@@ -250,6 +260,8 @@ async def run_simulation(base_url: str = "http://127.0.0.1:8000", duration_secon
     login_credentials = [
         ("admin@terminus.local", "Password123!"),
         ("presenter@terminus.example", "DemoOnlyPassword123!"),
+        ("admin@acme-corp.com", "Password123!"),
+        ("admin@acme.corp", "Password123!"),
     ]
 
     session_token = None
@@ -265,16 +277,53 @@ async def run_simulation(base_url: str = "http://127.0.0.1:8000", duration_secon
             user_email = email
             break
 
+    # If login failed, register admin@terminus.local and log in
     if not session_token:
-        print(f"{RED}[!] Login failed for all demo credentials.{RESET}")
+        print(f"{CYAN}[*] Bootstrapping demo administrator account (admin@terminus.local)...{RESET}")
+        await req_async(
+            base_url,
+            "POST",
+            "/auth/register",
+            {
+                "email": "admin@terminus.local",
+                "password": "Password123!",
+                "display_name": "Terminus Administrator",
+            },
+        )
+        code, login_data = await req_async(
+            base_url,
+            "POST",
+            "/auth/login",
+            {"email": "admin@terminus.local", "password": "Password123!"},
+        )
+        if code == 200 and isinstance(login_data, dict) and "session_token" in login_data:
+            session_token = login_data["session_token"]
+            user_email = "admin@terminus.local"
+
+    if not session_token:
+        print(f"{RED}[!] Login failed: unable to authenticate with {base_url}{RESET}")
         return
 
     headers["Authorization"] = f"Bearer {session_token}"
     headers["X-Session-Token"] = session_token
 
-    # 3. Retrieve user organizations
+    # 3. Retrieve or create user organization
     code, orgs = await req_async(base_url, "GET", "/orgs", headers=headers)
-    org_id = orgs[0]["org_id"] if orgs and isinstance(orgs, list) else "org-default"
+    org_id = "org-terminus-demo"
+    if orgs and isinstance(orgs, list) and len(orgs) > 0:
+        org_id = orgs[0].get("org_id") or "org-terminus-demo"
+    else:
+        # Create default demo organization if needed
+        create_code, new_org = await req_async(
+            base_url,
+            "POST",
+            "/orgs",
+            {"name": "Terminus Security Operations Demo"},
+            headers=headers,
+        )
+        if create_code in (200, 201) and isinstance(new_org, dict):
+            org_id = new_org.get("org_id") or "org-terminus-demo"
+
     headers["X-Org-Id"] = org_id
 
     # 4. Register initial active connection heartbeat
