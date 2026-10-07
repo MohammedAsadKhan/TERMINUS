@@ -39,6 +39,7 @@ from terminus.pipeline.specialist_bridge import (
 )
 from terminus.pipeline.triggers import trigger_matches
 from terminus.privacy.redactor import SecretRedactor
+from terminus.storage.assets import SqliteAssetRepository
 from terminus.storage.db import Database
 from terminus.storage.repositories import (
     SqliteAllowlistRepository,
@@ -93,6 +94,7 @@ class WorkflowEngine:
         run_repo: SqliteWorkflowRunRepository | None = None,
         approval_repo: SqliteApprovalRepository | None = None,
         allowlist_repo: SqliteAllowlistRepository | None = None,
+        asset_repo: SqliteAssetRepository | None = None,
         specialist_bridge: SpecialistBridge | None = None,
     ) -> None:
         self.db = db
@@ -100,6 +102,7 @@ class WorkflowEngine:
         self.run_repo = run_repo or SqliteWorkflowRunRepository(db=db)
         self.approval_repo = approval_repo or SqliteApprovalRepository(db=db)
         self.allowlist_repo = allowlist_repo or SqliteAllowlistRepository(db=db)
+        self.asset_repo = asset_repo or SqliteAssetRepository(db=db)
 
     async def execute_workflow(
         self,
@@ -594,6 +597,7 @@ class WorkflowEngine:
                     kind="host",
                     org_id=ctx.org_id,
                     allowlist_repo=self.allowlist_repo,
+                    asset_repo=self.asset_repo,
                     force_override=force_override,
                 )
 
@@ -630,6 +634,7 @@ class WorkflowEngine:
                     kind="ip",
                     org_id=ctx.org_id,
                     allowlist_repo=self.allowlist_repo,
+                    asset_repo=self.asset_repo,
                     force_override=force_override,
                 )
 

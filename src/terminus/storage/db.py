@@ -406,6 +406,12 @@ class Database:
                 locator TEXT,
                 notes TEXT,
                 source TEXT NOT NULL DEFAULT 'manual' CHECK (source IN ('registered', 'manual')),
+                agent_id TEXT,
+                hostname TEXT,
+                criticality TEXT CHECK(criticality IN ('tier0','tier1','tier2','tier3')),
+                owner TEXT,
+                environment TEXT,
+                exposure TEXT CHECK(exposure IN ('internal','internet')),
                 created_at TEXT NOT NULL,
                 FOREIGN KEY (org_id) REFERENCES organizations(org_id) ON DELETE CASCADE
             );
@@ -444,6 +450,16 @@ class Database:
             with suppress(sqlite3.OperationalError):
                 conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} {col_def};")
 
+        for col, col_def in [
+            ("agent_id", "TEXT"),
+            ("hostname", "TEXT"),
+            ("criticality", "TEXT CHECK(criticality IN ('tier0','tier1','tier2','tier3'))"),
+            ("owner", "TEXT"),
+            ("environment", "TEXT"),
+            ("exposure", "TEXT CHECK(exposure IN ('internal','internet'))"),
+        ]:
+            _ensure_column(conn, "assets", col, col_def)
+
         # Create indexes after columns are guaranteed to exist
         index_statements = [
             "CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);",
@@ -466,6 +482,8 @@ class Database:
             "CREATE INDEX IF NOT EXISTS idx_graph_events_org_pair ON graph_events(org_id, source_ip, host, occurred_at DESC);",
             "CREATE INDEX IF NOT EXISTS idx_assets_org_created ON assets(org_id, created_at DESC);",
             "CREATE INDEX IF NOT EXISTS idx_assets_org_kind ON assets(org_id, kind);",
+            "CREATE INDEX IF NOT EXISTS idx_assets_agent_id ON assets(org_id, agent_id);",
+            "CREATE INDEX IF NOT EXISTS idx_assets_hostname ON assets(org_id, lower(hostname));",
         ]
         for stmt in index_statements:
             conn.execute(stmt)
@@ -473,6 +491,7 @@ class Database:
         _init_incident_links(conn)
         _init_orchestration_tables(conn)
         _init_scheduler_tables(conn)
+        _init_repo_security_tables(conn)
 
 
 def _init_incident_links(conn: sqlite3.Connection) -> None:
@@ -642,6 +661,99 @@ def _init_scheduler_tables(conn: sqlite3.Connection) -> None:
             owner_id TEXT NOT NULL, lease_token TEXT NOT NULL,
             lease_expires_at TEXT NOT NULL, heartbeat_at TEXT NOT NULL
         );
+    """)
+
+
+def _ensure_column(conn: sqlite3.Connection, table: str, column: str, ddl: str) -> None:
+    """Add a column to an existing table if it does not already exist."""
+    cursor = conn.execute(f'PRAGMA table_info("{table}")')
+    existing_cols = {
+        row["name"] if isinstance(row, (sqlite3.Row, dict)) else row[1]
+        for row in cursor.fetchall()
+    }
+    if column not in existing_cols:
+        conn.execute(f'ALTER TABLE "{table}" ADD COLUMN {column} {ddl}')
+
+
+def _init_repo_security_tables(conn: sqlite3.Connection) -> None:
+    """Initialize repository security scanning tables and immutable audit triggers."""
+    conn.executescript("""
+        CREATE TABLE IF NOT EXISTS repo_scans (
+            scan_id TEXT PRIMARY KEY,
+            org_id TEXT NOT NULL,
+            asset_id TEXT NOT NULL,
+            trigger TEXT NOT NULL CHECK (trigger IN ('add','push','manual','rematch')),
+            commit_sha TEXT,
+            status TEXT NOT NULL CHECK (status IN ('queued','running','completed','partial','failed')),
+            started_at TEXT,
+            finished_at TEXT,
+            error TEXT,
+            stats_json TEXT NOT NULL DEFAULT '{}',
+            FOREIGN KEY (asset_id) REFERENCES assets(asset_id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS repo_findings (
+            finding_id TEXT PRIMARY KEY,
+            org_id TEXT NOT NULL,
+            asset_id TEXT NOT NULL,
+            scan_id TEXT NOT NULL,
+            category TEXT NOT NULL CHECK (category IN ('secret','dependency','suspicious_commit')),
+            rule TEXT NOT NULL,
+            severity TEXT NOT NULL CHECK (severity IN ('critical','high','medium','low','info')),
+            file TEXT,
+            line INTEGER,
+            commit_sha TEXT,
+            fingerprint TEXT NOT NULL,
+            preview TEXT,
+            details_json TEXT NOT NULL DEFAULT '{}',
+            status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open','acknowledged','false_positive','resolved')),
+            first_seen TEXT NOT NULL,
+            last_seen TEXT NOT NULL,
+            UNIQUE (org_id, asset_id, fingerprint),
+            FOREIGN KEY (asset_id) REFERENCES assets(asset_id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS repo_components (
+            org_id TEXT NOT NULL,
+            asset_id TEXT NOT NULL,
+            commit_sha TEXT NOT NULL,
+            ecosystem TEXT NOT NULL,
+            name TEXT NOT NULL,
+            version TEXT NOT NULL,
+            source_file TEXT NOT NULL,
+            PRIMARY KEY (asset_id, commit_sha, ecosystem, name, version, source_file),
+            FOREIGN KEY (asset_id) REFERENCES assets(asset_id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS repo_finding_events (
+            event_id TEXT PRIMARY KEY,
+            finding_id TEXT NOT NULL,
+            org_id TEXT NOT NULL,
+            actor TEXT NOT NULL,
+            from_status TEXT NOT NULL,
+            to_status TEXT NOT NULL,
+            timestamp TEXT NOT NULL,
+            details_json TEXT NOT NULL DEFAULT '{}',
+            FOREIGN KEY (finding_id) REFERENCES repo_findings(finding_id) ON DELETE CASCADE
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_repo_scans_asset ON repo_scans(org_id, asset_id, started_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_repo_findings_asset ON repo_findings(org_id, asset_id, severity);
+        CREATE INDEX IF NOT EXISTS idx_repo_findings_org_status ON repo_findings(org_id, status);
+        CREATE INDEX IF NOT EXISTS idx_repo_components_asset ON repo_components(org_id, asset_id, commit_sha);
+        CREATE INDEX IF NOT EXISTS idx_repo_finding_events_finding ON repo_finding_events(finding_id, timestamp);
+
+        CREATE TRIGGER IF NOT EXISTS trg_repo_finding_events_no_update
+        BEFORE UPDATE ON repo_finding_events
+        BEGIN
+            SELECT RAISE(ABORT, 'repo_finding_events rows are immutable');
+        END;
+
+        CREATE TRIGGER IF NOT EXISTS trg_repo_finding_events_no_delete
+        BEFORE DELETE ON repo_finding_events
+        BEGIN
+            SELECT RAISE(ABORT, 'repo_finding_events rows are immutable');
+        END;
     """)
 
 

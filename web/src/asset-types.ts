@@ -8,6 +8,9 @@ export const ASSET_KINDS = [
 ] as const;
 
 export type AssetKind = typeof ASSET_KINDS[number]['kind'];
+export type AssetCriticality = 'tier0' | 'tier1' | 'tier2' | 'tier3';
+export type AssetExposure = 'internal' | 'internet';
+
 export interface Asset {
   asset_id: string;
   org_id: string;
@@ -15,6 +18,14 @@ export interface Asset {
   name: string;
   locator: string | null;
   notes: string | null;
+  source?: string;
+  agent_id?: string | null;
+  hostname?: string | null;
+  criticality?: AssetCriticality | null;
+  owner?: string | null;
+  environment?: string | null;
+  exposure?: AssetExposure | null;
   created_at: string;
-  coverage: 'not_connected';
+  coverage: 'scanned' | 'stale' | 'never_scanned' | 'scan_failed' | 'not_connected' | string;
 }
+

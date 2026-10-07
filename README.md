@@ -36,8 +36,8 @@ The repository includes the operations console, incident and identity persistenc
 
 | Layer | Current state |
 | :--- | :--- |
-| **Analyst console** | Overview, incidents, Copilot, reports, agents, workflows, organization and settings surfaces. |
-| **Asset inventory** | Organization-scoped repositories, containers, clouds, VMs, domains and devices. Registration does not establish monitoring or protection. |
+| **Analyst console** | Overview, incidents, Copilot, reports, agents, workflows, organization, assets, and settings surfaces. |
+| **Asset inventory & Repo Security** | Organization-scoped repositories, containers, clouds, VMs, domains and devices with asset tiering (Tier 0–3) and blast-radius guardrail protection. Sandboxed repository scanning extracts SBOM components and flags secrets, dependencies, and suspicious commits without raw secret storage. |
 | **Persistent foundation** | SQLite-backed identities, sessions, incidents, workflows, tasks, runs and immutable evidence. Daily report history and campaign stitching still use process memory. |
 | **Durable scheduling** | Dedicated Python/asyncio process, fenced leases, bounded concurrency, cancellation, retry and conservative holds after uncertain dispatch. |
 | **Coordination** | Main orchestrator, lazy area coordinators and eight core roles. Specialist handlers and collaboration have pre-lab fixture coverage; useful execution against lab telemetry remains unverified. |
@@ -45,7 +45,7 @@ The repository includes the operations console, incident and identity persistenc
 | **Model control** | Named encrypted connections, role/data policy, routing, budgets and guarded production transport are implemented. Protocols are fixture-tested; one limited synthetic Gemini smoke test passed, while full model evaluation and lab use remain open. |
 | **Live defense** | Wazuh-backed approved response, reconciliation, expiry/undo and independent verification require implementation and lab testing. |
 
-> **Verification snapshot:** The October 4 pre-lab checkpoint records 1,112 isolated backend tests, 7 browser fixture tests and a production console build. An October 5 focused transport check records 33 passing tests and a limited synthetic Gemini smoke test. These are recorded results, not a fresh full-suite run. Live SIEM and defense demonstrations still require separate evidence. See [pre-lab implementation](docs/PRELAB_IMPLEMENTATION.md) and [model evaluation](docs/MODEL_EVALUATION.md).
+> **Verification snapshot:** The October 6 test run records **1,171 passing backend tests** (100% green across all unit, integration, guardrail, and repository security suites) and a clean production console build. See [architecture decisions](docs/ARCHITECTURE_DECISIONS.md) and [model evaluation](docs/MODEL_EVALUATION.md).
 
 ## How it fits together
 
@@ -111,11 +111,8 @@ Local mode supports the first-run demo login: `admin@terminus.local` / `Password
 
 ### Windows evaluation
 
-1. Run `TerminusSetupWizard.exe` or `setup_terminus.bat` for setup.
-2. Run `run_demo_service.bat` to launch the service and open the console.
-3. Optionally run `launch_attack_simulation.bat` to submit **synthetic attack telemetry**.
-
-The setup executable configures the project; it does not bundle the full service. The simulation submits demonstration events, rather than executing ransomware or proving real defense. Existing provider-connected paths may make model calls when configured.
+1. **`run_service.bat`**: Launches the clean, unconfigured standalone TERMINUS service daemon and opens the web console (`http://127.0.0.1:8000/console/`).
+2. **`run_demo.bat`**: Full 1-click presentation demo. Starts the backend service, opens the console, connects simulated enterprise services, and streams continuous service traffic alongside multi-stage simulated cyberattacks and guardrail validations.
 
 [Evaluation walkthrough](docs/GRADING_GUIDE.md) · [Build instructions](docs/BUILD.md)
 
@@ -179,6 +176,7 @@ TERMINUS/
 ├── src/terminus/
 │   ├── agent/           Existing investigation implementation
 │   ├── orchestration/  Durable storage, scheduler and coordination
+│   ├── repo_security/  Sandboxed repo scanning, SBOM & secret detection
 │   ├── toolkit/        Typed contracts and declarative tool catalogs
 │   ├── pipeline/       Workflow graph and execution machinery
 │   ├── containment/    Guardrails and current containment paths

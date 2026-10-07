@@ -46,6 +46,23 @@ class MemoryTickets(TicketStore):
 
         threat_intel_score = "Not verified"
 
+        asset_crit = "Not classified"
+        asset_owner = None
+        try:
+            from terminus.storage.assets import SqliteAssetRepository
+            repo = SqliteAssetRepository()
+            candidates = [alert.agent_id, getattr(alert, "hostname", None), alert.src_ip, alert.agent_name]
+            for cand in candidates:
+                if cand:
+                    asset_row = repo.find_for_target(str(org_id), str(cand))
+                    if asset_row:
+                        crit_val = asset_row.get("criticality")
+                        asset_crit = str(crit_val).lower() if crit_val else "Unclassified"
+                        asset_owner = asset_row.get("owner")
+                        break
+        except Exception:
+            pass
+
         ticket_data = {
             "id": ticket_id,
             "org_id": org_id,
@@ -68,7 +85,8 @@ class MemoryTickets(TicketStore):
             "policy_tier": report.policy.tier.value,
             "policy_reason": report.policy.reason,
             "status": "OPEN",
-            "asset_criticality": "Not classified",
+            "asset_criticality": asset_crit,
+            "asset_owner": asset_owner,
             "kill_chain_stage": kill_chain_stage,
             "threat_intel_score": threat_intel_score,
             "time_to_decision_sec": None,

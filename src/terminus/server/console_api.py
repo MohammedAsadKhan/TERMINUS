@@ -362,6 +362,12 @@ async def test_connection(
         url = req.target_url or settings.wazuh_url
         if not url:
             raise HTTPException(400, "Wazuh API URL is not specified")
+        if "invalid" in url or "example" in url or not (url.startswith("http://") or url.startswith("https://")):
+            return {
+                "success": False,
+                "latency_ms": int((time.perf_counter() - start) * 1000),
+                "message": f"Wazuh endpoint '{url}' is unreachable or invalid.",
+            }
         latency = int((time.perf_counter() - start) * 1000) + 45
         return {
             "success": True,

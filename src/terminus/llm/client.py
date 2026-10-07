@@ -188,7 +188,7 @@ class ScriptedLlm(LlmClient):
             return {
                 "severity": "high",
                 "confidence": "high",
-                "summary": "AI AGENT FORENSIC ANALYSIS: Automated SSH password spraying attack detected. 45 failed authentication attempts within 60 seconds targeting root and admin accounts.",
+                "summary": "AI AGENT FORENSIC ANALYSIS: Automated SSH password spraying attack detected. Repeated authentication failure activity observed targeting root and admin accounts.",
                 "recommended_actions": [
                     "Add attacker IP to fail2ban dynamic blocklist",
                     "Enforce SSH public key authentication and disable password logins",

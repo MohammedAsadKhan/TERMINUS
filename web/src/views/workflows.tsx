@@ -192,7 +192,7 @@ function WorkflowEditor() {
 
   const approvals = useQuery({
     queryKey: ['approvals', orgId],
-    queryFn: () => api<Approval[]>('/approvals', orgId),
+    queryFn: () => api<Approval[]>('/workflows/approvals/pending', orgId),
     refetchInterval: 10000,
   });
 
@@ -491,11 +491,10 @@ function WorkflowEditor() {
   async function resolveApproval(approvalId: string, action: 'APPROVED' | 'REJECTED') {
     try {
       await api(
-        `/approvals/${approvalId}/resolve`,
+        `/workflows/approvals/${approvalId}/resolve`,
         orgId,
         body('POST', {
-          status: action,
-          notes: `Decision recorded via console (${detail?.role || 'analyst'})`,
+          decision: action === 'APPROVED' ? 'approve' : 'reject',
         })
       );
       message.success(`Approval gate ${action.toLowerCase()}`);

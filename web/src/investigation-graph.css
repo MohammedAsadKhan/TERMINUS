@@ -40,11 +40,25 @@
 .graph-network-tools { position: absolute; top: 12px; right: 12px; display: flex; gap: 3px; background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 3px; }
 .graph-network-tools button { min-width: 27px; height: 26px; border: 0; background: transparent; color: var(--ink); cursor: pointer; font-size: 12px; }
 .graph-network-tools button:hover { background: var(--raised); }
+.graph-density-toggle-btn { padding: 0 8px !important; font-size: 11px !important; font-weight: 550 !important; border-right: 1px solid var(--line) !important; color: var(--accent) !important; }
 .graph-network-legend { position: absolute; top: 12px; left: 12px; display: flex; flex-wrap: wrap; gap: 7px 12px; max-width: calc(100% - 110px); padding: 6px 10px; border: 1px solid var(--line); border-radius: 4px; background: rgba(15, 23, 42, 0.88); color: var(--subtle); font-size: 10px; pointer-events: none; z-index: 5; backdrop-filter: blur(4px); }
 .graph-network-legend span { display: inline-flex; align-items: center; gap: 5px; }
 .graph-network-legend i { width: 7px; height: 7px; border-radius: 50%; background: #64748b; }
 .graph-network-legend i.source { background: #38bdf8; } .graph-network-legend i.host { background: #10b981; } .graph-network-legend i.technique { background: #f59e0b; } .graph-network-legend i.event { background: #64748b; } .graph-network-legend i.critical { background: #f43f5e; }
-.graph-network-tooltip { position: absolute; right: 12px; top: 50px; max-width: 250px; padding: 6px 9px; border: 1px solid var(--line); border-radius: 3px; background: var(--surface); color: var(--ink); font-size: 11px; pointer-events: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.graph-network-legend .legend-hover-tip { margin-left: 6px; color: var(--accent); opacity: 0.9; font-weight: 550; }
+.graph-network-tooltip { position: absolute; right: 12px; top: 50px; max-width: 280px; padding: 10px 14px; border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 6px; background: rgba(15, 23, 42, 0.94); backdrop-filter: blur(8px); color: var(--ink); font-size: 11px; pointer-events: none; z-index: 10; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4); }
+.tooltip-badge-row { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; }
+.tooltip-kind-tag { font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 3px; letter-spacing: 0.05em; }
+.tooltip-kind-tag.source { background: rgba(56, 189, 248, 0.2); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.4); }
+.tooltip-kind-tag.host { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4); }
+.tooltip-kind-tag.technique { background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); }
+.tooltip-kind-tag.event { background: rgba(100, 116, 139, 0.2); color: #cbd5e1; border: 1px solid rgba(100, 116, 139, 0.4); }
+.tooltip-tier0-tag { font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 3px; background: rgba(244, 63, 94, 0.2); color: #fb7185; border: 1px solid rgba(244, 63, 94, 0.5); }
+.tooltip-title { font-size: 13px; font-weight: 650; color: #fff; margin-bottom: 6px; word-break: break-all; }
+.tooltip-stats { display: flex; flex-direction: column; gap: 2px; font-size: 11px; color: var(--subtle); margin-bottom: 6px; }
+.tooltip-stats .stat-crit { color: #f43f5e; font-weight: 600; }
+.tooltip-stats .stat-high { color: #fb923c; font-weight: 600; }
+.tooltip-action-hint { font-size: 9.5px; color: var(--accent); opacity: 0.9; border-top: 1px solid rgba(255, 255, 255, 0.08); padding-top: 4px; }
 .graph-canvas > .ant-empty { margin-top: 80px; }
 .graph-canvas-note { position: absolute; z-index: 4; bottom: 12px; left: 50px; right: 12px; padding: 7px 9px; color: var(--subtle); font-size: 10px; background: color-mix(in srgb, var(--surface) 94%, transparent); border: 1px solid var(--line); border-radius: 4px; pointer-events: none; }
 .graph-entity { position: relative; width: 220px; padding: 11px 13px; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; color: var(--ink); box-shadow: 0 3px 12px #00000015; }

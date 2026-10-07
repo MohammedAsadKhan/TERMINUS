@@ -23,9 +23,15 @@ from terminus.models import Workflow, WorkflowEdge, WorkflowNode
 from terminus.server.app import create_app
 
 
+from terminus.storage.db import Database, init_db
+
+
 @pytest.fixture
-def client() -> TestClient:
+def client(tmp_path) -> TestClient:
     """Fixture providing clean TestClient for FastAPI app."""
+    db_path = str(tmp_path / "e2e_test.db")
+    Database.reset_instance(db_path)
+    init_db(db_path)
     app = create_app()
     return TestClient(app)
 

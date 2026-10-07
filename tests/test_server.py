@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import uuid
 from pathlib import Path
 
 import pytest
@@ -27,24 +28,25 @@ def test_health_endpoint(client: TestClient) -> None:
 
 def test_auth_and_org_lifecycle_e2e(client: TestClient) -> None:
     """Test complete lifecycle: Register -> Login -> Create Org -> List Orgs -> Ingest Webhook Alert."""
+    test_email = f"admin-{uuid.uuid4().hex[:6]}@acme-corp.com"
     # 1. Register User 1 (Admin)
     res = client.post(
         "/auth/register",
         json={
-            "email": "admin@acme-corp.com",
+            "email": test_email,
             "password": "SecurePassword123!",
             "display_name": "Alice Admin",
         },
     )
     assert res.status_code == 201
     user1_data = res.json()
-    assert user1_data["email"] == "admin@acme-corp.com"
+    assert user1_data["email"] == test_email
 
     # 2. Login User 1
     res = client.post(
         "/auth/login",
         json={
-            "email": "admin@acme-corp.com",
+            "email": test_email,
             "password": "SecurePassword123!",
         },
     )
@@ -93,10 +95,11 @@ def test_auth_and_org_lifecycle_e2e(client: TestClient) -> None:
 def test_agents_and_workflows_api(client: TestClient) -> None:
     """Test AI Agents and Workflows REST API endpoints."""
     # Register & Login User -> Create Org
+    admin_email = f"agent-admin-{uuid.uuid4().hex[:6]}@acme-corp.com"
     client.post(
         "/auth/register",
         json={
-            "email": "agent-admin@acme-corp.com",
+            "email": admin_email,
             "password": "SecurePassword123!",
             "display_name": "Agent Admin",
         },
@@ -104,7 +107,7 @@ def test_agents_and_workflows_api(client: TestClient) -> None:
     res_login = client.post(
         "/auth/login",
         json={
-            "email": "agent-admin@acme-corp.com",
+            "email": admin_email,
             "password": "SecurePassword123!",
         },
     )
@@ -170,16 +173,17 @@ def test_agents_and_workflows_api(client: TestClient) -> None:
 def test_tenant_isolation_unauthorized_access(client: TestClient) -> None:
     """Test that users cannot submit alerts to orgs they are not members of."""
     # Register & Login User 1 -> Create Org A
+    u1_email = f"u1-{uuid.uuid4().hex[:6]}@org-a.com"
     client.post(
         "/auth/register",
         json={
-            "email": "u1@org-a.com",
+            "email": u1_email,
             "password": "Pass123!Password",
             "display_name": "U1",
         },
     )
     res1 = client.post(
-        "/auth/login", json={"email": "u1@org-a.com", "password": "Pass123!Password"}
+        "/auth/login", json={"email": u1_email, "password": "Pass123!Password"}
     )
     token1 = res1.json()["session_token"]
     res_org_a = client.post(
@@ -188,16 +192,17 @@ def test_tenant_isolation_unauthorized_access(client: TestClient) -> None:
     org_a_id = res_org_a.json()["org_id"]
 
     # Register & Login User 2 -> Create Org B
+    u2_email = f"u2-{uuid.uuid4().hex[:6]}@org-b.com"
     client.post(
         "/auth/register",
         json={
-            "email": "u2@org-b.com",
+            "email": u2_email,
             "password": "Pass123!Password",
             "display_name": "U2",
         },
     )
     res2 = client.post(
-        "/auth/login", json={"email": "u2@org-b.com", "password": "Pass123!Password"}
+        "/auth/login", json={"email": u2_email, "password": "Pass123!Password"}
     )
     token2 = res2.json()["session_token"]
 
@@ -218,10 +223,11 @@ def test_tenant_isolation_unauthorized_access(client: TestClient) -> None:
 def test_copilot_global_chat(client: TestClient) -> None:
     """Test global SOC copilot chat endpoint."""
     # Register & Login
+    copilot_email = f"copilot-analyst-{uuid.uuid4().hex[:6]}@security.io"
     client.post(
         "/auth/register",
         json={
-            "email": "copilot-analyst@security.io",
+            "email": copilot_email,
             "password": "SuperSecurePass123!",
             "display_name": "Copilot Analyst",
         },
@@ -229,7 +235,7 @@ def test_copilot_global_chat(client: TestClient) -> None:
     login_res = client.post(
         "/auth/login",
         json={
-            "email": "copilot-analyst@security.io",
+            "email": copilot_email,
             "password": "SuperSecurePass123!",
         },
     )

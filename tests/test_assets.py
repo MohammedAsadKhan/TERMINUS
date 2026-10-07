@@ -75,7 +75,7 @@ def test_asset_create_filter_and_persist_with_coverage(client: TestClient, tmp_p
     asset = response.json()
     assert asset["org_id"] == "org-a"
     assert asset["kind"] == "repository"
-    assert asset["coverage"] == "not_connected"
+    assert asset["coverage"] == "never_scanned"
     assert asset["source"] == "manual"
     assert asset["asset_id"]
 

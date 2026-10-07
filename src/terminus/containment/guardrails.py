@@ -144,6 +144,7 @@ class ContainmentGuardrail:
         kind: str = "host",  # "host" or "ip"
         org_id: str = "default",
         allowlist_repo: Any = None,
+        asset_repo: Any = None,
         force_override: bool = False,
     ) -> BlastRadiusAssessment:
         """Assesses whether containment action against target is permissible."""
@@ -217,7 +218,75 @@ class ContainmentGuardrail:
                     risk_score=1.0,
                 )
 
-        # 3. Critical Hostname Pattern Check (Can be bypassed with force_override)
+        # 3. Registered Asset Tier Check (from asset registry)
+        matched_asset: dict[str, Any] | None = None
+        if asset_repo is not None:
+            try:
+                if hasattr(asset_repo, "find_for_target"):
+                    matched_asset = asset_repo.find_for_target(org_id, target_str)
+            except Exception as e:
+                return BlastRadiusAssessment(
+                    allowed=False,
+                    reason=f"Asset repository verification failed ({e}); failing closed for safety.",
+                    target=target_str,
+                    asset_tier=AssetCriticalityTier.TIER_0,
+                    auto_containment_allowed=False,
+                    risk_score=1.0,
+                )
+
+        if matched_asset is not None:
+            raw_crit = str(matched_asset.get("criticality") or "").lower()
+            asset_name = matched_asset.get("name") or target_str
+            asset_owner = matched_asset.get("owner") or "unassigned"
+
+            if raw_crit in ("tier0", "tier_0"):
+                # Registered Tier 0 CANNOT be bypassed by force_override
+                return BlastRadiusAssessment(
+                    allowed=False,
+                    reason=f"Target '{target_str}' is registered as Tier-0 critical asset ({asset_name}, owner: {asset_owner}). Containment blocked.",
+                    target=target_str,
+                    asset_tier=AssetCriticalityTier.TIER_0,
+                    auto_containment_allowed=False,
+                    risk_score=1.0,
+                )
+            if raw_crit in ("tier1", "tier_1"):
+                if force_override:
+                    return BlastRadiusAssessment(
+                        allowed=True,
+                        reason=f"Critical asset protection overridden by administrator for Tier-1 asset ({asset_name}, owner: {asset_owner}).",
+                        target=target_str,
+                        asset_tier=AssetCriticalityTier.TIER_1,
+                        auto_containment_allowed=True,
+                        risk_score=0.9,
+                    )
+                return BlastRadiusAssessment(
+                    allowed=False,
+                    reason=f"Target '{target_str}' is registered as Tier-1 critical asset ({asset_name}, owner: {asset_owner}). Containment blocked.",
+                    target=target_str,
+                    asset_tier=AssetCriticalityTier.TIER_1,
+                    auto_containment_allowed=False,
+                    risk_score=0.9,
+                )
+            if raw_crit in ("tier2", "tier_2"):
+                return BlastRadiusAssessment(
+                    allowed=True,
+                    reason=f"Target '{target_str}' is registered as Tier-2 asset ({asset_name}, owner: {asset_owner}).",
+                    target=target_str,
+                    asset_tier=AssetCriticalityTier.TIER_2,
+                    auto_containment_allowed=True,
+                    risk_score=0.4,
+                )
+            # Tier 3 or unclassified registered asset
+            return BlastRadiusAssessment(
+                allowed=True,
+                reason=None,
+                target=target_str,
+                asset_tier=AssetCriticalityTier.TIER_3,
+                auto_containment_allowed=True,
+                risk_score=0.1,
+            )
+
+        # 4. Critical Hostname Pattern Check (Fallback for unregistered targets only)
         if any(kw in target_lower for kw in cls.CRITICAL_HOST_KEYWORDS):
             if force_override:
                 return BlastRadiusAssessment(
@@ -237,7 +306,7 @@ class ContainmentGuardrail:
                 risk_score=0.95,
             )
 
-        # 4. Standard Allowed Target
+        # 5. Standard Allowed Target
         return BlastRadiusAssessment(
             allowed=True,
             reason=None,
@@ -246,3 +315,6 @@ class ContainmentGuardrail:
             auto_containment_allowed=True,
             risk_score=0.1,
         )
+
+
+BlastRadiusGuardrails = ContainmentGuardrail

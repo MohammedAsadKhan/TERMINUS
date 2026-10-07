@@ -26,8 +26,9 @@ from terminus.server.deps import get_org_store, get_pipeline_runner, get_reports
 from terminus.server.graph import graph_router
 from terminus.server.model_connections_api import router as model_connections_router
 from terminus.server.model_settings_api import router as model_settings_router
-from terminus.server.specialist_catalog_api import router as specialist_catalog_router
 from terminus.server.orchestration_api import router as orchestration_router
+from terminus.server.repo_api import repo_router
+from terminus.server.specialist_catalog_api import router as specialist_catalog_router
 from terminus.server.routers import (
     agent_router,
     allowlist_router,
@@ -86,6 +87,20 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             _sqlite_workflow_repo,
             _sqlite_allowlist_repo,
         )
+        try:
+            from terminus.demos.seed_data import seed_presentation_demo_data
+
+            seed_presentation_demo_data(org_id=default_org)
+        except Exception:
+            pass
+
+    # Sweep stale repo scans from prior crash/restart
+    try:
+        from terminus.repo_security.storage import SqliteRepoSecurityRepository
+
+        SqliteRepoSecurityRepository().sweep_stale_scans()
+    except Exception:
+        pass
 
     # Spawn 24h automatic daily report scheduler background task
     task = asyncio.create_task(_daily_report_scheduler_task())
@@ -148,6 +163,7 @@ def create_app() -> FastAPI:
                 request.url.path not in {"/auth/login", "/auth/register"}
                 and not request.url.path.startswith("/bank")
                 and not request.url.path.startswith("/stream")
+                and not request.url.path.startswith("/repos/webhook")
                 and request.cookies.get("terminus_session")
                 and not request.headers.get("Authorization")
                 and not request.headers.get("X-Session-Token")
@@ -164,6 +180,7 @@ def create_app() -> FastAPI:
 
     app.include_router(console_router)
     app.include_router(assets_router)
+    app.include_router(repo_router)
     app.include_router(health_router)
     app.include_router(auth_router)
     app.include_router(org_router)

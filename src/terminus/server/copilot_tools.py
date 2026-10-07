@@ -52,6 +52,15 @@ from terminus.ticketing.base import TicketStore
 MAX_ROLE_DESC_LENGTH = 500
 MAX_MASTER_PROMPT_LENGTH = 4000
 
+# Mutating tools — restricted to organization admins (audit finding F02).
+WRITE_TOOLS: frozenset[str] = frozenset({
+    "create_soc_agent",
+    "update_soc_agent",
+    "create_workflow",
+    "update_workflow",
+    "add_containment_allowlist",
+})
+
 TOOL_SCHEMAS: list[dict[str, Any]] = [
     # ─── Incident Query Tools ───────────────────────────────────────────
     {
@@ -405,10 +414,12 @@ class IncidentTools:
         store: TicketStore,
         org_id: OrgId | str,
         db: Database | None = None,
+        actor_role: str = "viewer",
     ) -> None:
         self.store = store
         self.org_id = OrgId(str(org_id))
         self.db = db
+        self.actor_role = actor_role
         self.agent_repo = SqliteAgentRepository(db=db)
         self.workflow_repo = SqliteWorkflowRepository(db=db)
         self.allowlist_repo = SqliteAllowlistRepository(db=db)
@@ -416,6 +427,10 @@ class IncidentTools:
 
     async def execute(self, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
         org_str = str(self.org_id)
+
+        # Write gate (F02): mutating tools require the organization admin role.
+        if name in WRITE_TOOLS and self.actor_role != "admin":
+            return {"error": "forbidden", "detail": f"Administrator role required for '{name}'"}
 
         # ── 1. Incident querying tools ──────────────────────────────────
         if name == "get_incident":
@@ -605,7 +620,7 @@ class IncidentTools:
             }
 
             # Validate workflow (D1, D8, D11, D13)
-            val_errors = validate_workflow(wf_dict, caller_role="admin", is_enabling=False)
+            val_errors = validate_workflow(wf_dict, caller_role=self.actor_role, is_enabling=False)
             if val_errors:
                 return {"success": False, "errors": val_errors}
 
@@ -699,7 +714,7 @@ class IncidentTools:
                 "edges": final_edges,
             }
 
-            val_errors = validate_workflow(updated_dict, caller_role="admin", is_enabling=False)
+            val_errors = validate_workflow(updated_dict, caller_role=self.actor_role, is_enabling=False)
             if val_errors:
                 return {"success": False, "errors": val_errors}
 
@@ -740,7 +755,7 @@ class IncidentTools:
                 "nodes": raw_nodes,
                 "edges": raw_edges,
             }
-            val_errors = validate_workflow(temp_dict, caller_role="admin", is_enabling=False)
+            val_errors = validate_workflow(temp_dict, caller_role=self.actor_role, is_enabling=False)
             return {"valid": len(val_errors) == 0, "errors": val_errors}
 
         if name == "test_workflow":

@@ -41,6 +41,7 @@ class ActiveResponseRunner:
         force_override: bool = False,
         org_id: str = "org-default",
         allowlist_repo: Any | None = None,
+        asset_repo: Any | None = None,
     ) -> ContainmentResult:
         """Executes a containment action with blast radius checks."""
         # 1. Check Blast Radius (D11 & D12)
@@ -50,6 +51,7 @@ class ActiveResponseRunner:
             kind=kind,
             org_id=org_id,
             allowlist_repo=allowlist_repo,
+            asset_repo=asset_repo,
             force_override=force_override,
         )
         if not assessment.allowed:

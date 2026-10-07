@@ -21,9 +21,13 @@ from terminus.storage.db import Database
 class SqliteUserStore(UserStore):
     """Persist identities without copying or rehashing their password hashes."""
 
-    def __init__(self, db: Database) -> None:
+    def __init__(self, db: Database | None = None) -> None:
         super().__init__()
-        self._db: Database = db
+        self._db_override: Database | None = db
+
+    @property
+    def _db(self) -> Database:
+        return self._db_override if self._db_override is not None else Database.get_instance()
 
     @override
     def add(self, user: User) -> None:
@@ -86,8 +90,12 @@ class SqliteUserStore(UserStore):
 class SqliteSessionStore:
     """Persist token digests, UTC expiry, and revocation across restarts."""
 
-    def __init__(self, db: Database) -> None:
-        self._db: Database = db
+    def __init__(self, db: Database | None = None) -> None:
+        self._db_override: Database | None = db
+
+    @property
+    def _db(self) -> Database:
+        return self._db_override if self._db_override is not None else Database.get_instance()
 
     def add(self, token_hash: str, user_id: UserId, expires_at: datetime) -> None:
         _ = self._db.execute(

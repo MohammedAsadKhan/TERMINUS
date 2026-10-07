@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import ipaddress
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -208,7 +209,9 @@ async def test_mapped_private_ipv4_is_allowed_but_unsafe_classes_are_not() -> No
         return ("::ffff:192.168.1.10",)
 
     record = await EndpointVerifier(resolver).verify("https://models.internal/v1")
-    assert record.addresses == ("::ffff:192.168.1.10",)
+    assert [ipaddress.ip_address(addr) for addr in record.addresses] == [
+        ipaddress.ip_address("::ffff:192.168.1.10")
+    ]
 
     for address in ("0.0.0.0", "224.0.0.1", "fe80::1", "2001:db8::1"):
 

@@ -20,8 +20,12 @@ from terminus.storage.db import Database
 class SqliteOrganizationStore(Repository[Organization]):
     """Durable organizations with explicit tenant scope on every public read."""
 
-    def __init__(self, db: Database) -> None:
-        self._db: Database = db
+    def __init__(self, db: Database | None = None) -> None:
+        self._db_override: Database | None = db
+
+    @property
+    def _db(self) -> Database:
+        return self._db_override if self._db_override is not None else Database.get_instance()
 
     def transaction(self) -> AbstractContextManager[sqlite3.Connection]:
         return self._db.transaction()
@@ -54,23 +58,26 @@ class SqliteOrganizationStore(Repository[Organization]):
 
     @override
     def get(self, record_id: str, org_id: OrgId) -> Organization:
+        if str(record_id) != str(org_id):
+            raise NotFoundError(f"Record {record_id} not found in org {org_id}")
         row = self._db.fetchone(
-            "SELECT org_id, name, created_at, license_ref FROM organizations WHERE org_id = ? AND org_id = ?",
-            (record_id, org_id),
+            "SELECT org_id, name, created_at, license_ref FROM organizations WHERE org_id = ?",
+            (str(org_id),),
         )
         if row is None:
             raise NotFoundError(f"Record {record_id} not found in org {org_id}")
         return self._record(row)
 
     def update(self, record: Organization, org_id: OrgId) -> Organization:
+        if str(record.org_id) != str(org_id):
+            raise NotFoundError(f"Record {record.org_id} not found in org {org_id}")
         cursor = self._db.execute(
-            "UPDATE organizations SET name = ?, created_at = ?, license_ref = ? WHERE org_id = ? AND org_id = ?",
+            "UPDATE organizations SET name = ?, created_at = ?, license_ref = ? WHERE org_id = ?",
             (
                 record.name,
                 record.created_at.isoformat(),
                 record.license_ref,
-                record.org_id,
-                org_id,
+                str(org_id),
             ),
         )
         if cursor.rowcount == 0:
@@ -78,9 +85,11 @@ class SqliteOrganizationStore(Repository[Organization]):
         return record
 
     def delete(self, record_id: str, org_id: OrgId) -> None:
+        if str(record_id) != str(org_id):
+            raise NotFoundError(f"Record {record_id} not found in org {org_id}")
         cursor = self._db.execute(
-            "DELETE FROM organizations WHERE org_id = ? AND org_id = ?",
-            (record_id, org_id),
+            "DELETE FROM organizations WHERE org_id = ?",
+            (str(org_id),),
         )
         if cursor.rowcount == 0:
             raise NotFoundError(f"Record {record_id} not found in org {org_id}")
@@ -104,8 +113,12 @@ class SqliteOrganizationStore(Repository[Organization]):
 class SqliteMembershipStore:
     """Durable memberships keyed strictly by (organization, user)."""
 
-    def __init__(self, db: Database) -> None:
-        self._db: Database = db
+    def __init__(self, db: Database | None = None) -> None:
+        self._db_override: Database | None = db
+
+    @property
+    def _db(self) -> Database:
+        return self._db_override if self._db_override is not None else Database.get_instance()
 
     def transaction(self) -> AbstractContextManager[sqlite3.Connection]:
         return self._db.transaction()

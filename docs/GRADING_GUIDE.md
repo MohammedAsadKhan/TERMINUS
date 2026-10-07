@@ -9,7 +9,7 @@
 
 | Metric / Item | Status / Value | Verification Command |
 | :--- | :--- | :--- |
-| **Automated Test Suite** | **133 / 133 Passing** (100% Pass Rate) | `uv run pytest -q` |
+| **Automated Test Suite** | **1,171 / 1,171 Passing** (100% Pass Rate) | `uv run pytest -q` |
 | **Service Daemon Port** | `http://localhost:8000` | `GET /health` $\rightarrow$ `200 OK` |
 | **Web Operations Console** | `http://localhost:8000/console/` | Pre-compiled React 18 / AntD Console |
 | **Default Root Admin** | `admin@terminus.local` / `Password123!` | Auto-bootstrapped on first run |
@@ -78,8 +78,8 @@ curl -s -H "Authorization: Bearer <TOKEN>" -H "X-Org-ID: org-default" http://loc
 
 ### 5. Automated Test Suite Execution
 
-Run the complete 127-test suite with:
+Run the complete test suite with:
 ```bash
-uv run pytest -q
+uv run --frozen python -c "import tempfile,pathlib,pytest; from terminus.storage.db import Database; Database.reset_instance(str(pathlib.Path(tempfile.mkdtemp(prefix='terminus-tests-'))/'tests.db')); raise SystemExit(pytest.main(['-q']))"
 ```
-*Expected Result*: `127 passed in ~50s` (100% Green).
+*Expected Result*: `1171 passed` (100% Green).

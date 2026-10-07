@@ -42,7 +42,7 @@ def mock_ticket_store():
 @pytest.mark.anyio
 async def test_t_cop_1_create_soc_agent(temp_db, mock_ticket_store):
     """T-COP-1: Copilot tool creates valid agent within limits."""
-    tools = IncidentTools(store=mock_ticket_store, org_id="org-copilot", db=temp_db)
+    tools = IncidentTools(store=mock_ticket_store, org_id="org-copilot", db=temp_db, actor_role="admin")
 
     res = await tools.execute(
         "create_soc_agent",
@@ -62,7 +62,7 @@ async def test_t_cop_1_create_soc_agent(temp_db, mock_ticket_store):
 @pytest.mark.anyio
 async def test_t_cop_2_agent_limits_enforced(temp_db, mock_ticket_store):
     """T-COP-2: Rejects agent creation when name, role, or prompt exceeds limits (D23)."""
-    tools = IncidentTools(store=mock_ticket_store, org_id="org-copilot", db=temp_db)
+    tools = IncidentTools(store=mock_ticket_store, org_id="org-copilot", db=temp_db, actor_role="admin")
 
     # Name too long (>80)
     res_name = await tools.execute(
@@ -101,7 +101,7 @@ async def test_t_cop_2_agent_limits_enforced(temp_db, mock_ticket_store):
 @pytest.mark.anyio
 async def test_t_cop_3_create_workflow_defaults_to_draft(temp_db, mock_ticket_store):
     """T-COP-3: Workflows created via Copilot always have enabled=False (D22)."""
-    tools = IncidentTools(store=mock_ticket_store, org_id="org-copilot", db=temp_db)
+    tools = IncidentTools(store=mock_ticket_store, org_id="org-copilot", db=temp_db, actor_role="admin")
 
     nodes = [
         {"id": "n1", "type": "trigger_wazuh", "config": {"min_level": 5}},
@@ -151,7 +151,7 @@ async def test_t_cop_4_auto_layout_computation():
 @pytest.mark.anyio
 async def test_t_cop_5_copilot_cannot_set_force_override(temp_db, mock_ticket_store):
     """T-COP-5: Copilot creation discards force_override=True to False (D12)."""
-    tools = IncidentTools(store=mock_ticket_store, org_id="org-copilot", db=temp_db)
+    tools = IncidentTools(store=mock_ticket_store, org_id="org-copilot", db=temp_db, actor_role="admin")
 
     nodes = [
         {"id": "n1", "type": "trigger_wazuh", "config": {}},
@@ -181,7 +181,7 @@ async def test_t_cop_5_copilot_cannot_set_force_override(temp_db, mock_ticket_st
 @pytest.mark.anyio
 async def test_t_cop_6_optimistic_concurrency_expected_version(temp_db, mock_ticket_store):
     """T-COP-6: Updating workflow with wrong expected_version returns conflict (D18)."""
-    tools = IncidentTools(store=mock_ticket_store, org_id="org-copilot", db=temp_db)
+    tools = IncidentTools(store=mock_ticket_store, org_id="org-copilot", db=temp_db, actor_role="admin")
     wf_repo = SqliteWorkflowRepository(temp_db)
 
     wf = Workflow(
@@ -210,7 +210,7 @@ async def test_t_cop_6_optimistic_concurrency_expected_version(temp_db, mock_tic
 @pytest.mark.anyio
 async def test_t_cop_7_structural_update_forces_disabled(temp_db, mock_ticket_store):
     """T-COP-7: Structural update of enabled workflow forces enabled=False (D13, D22)."""
-    tools = IncidentTools(store=mock_ticket_store, org_id="org-copilot", db=temp_db)
+    tools = IncidentTools(store=mock_ticket_store, org_id="org-copilot", db=temp_db, actor_role="admin")
     wf_repo = SqliteWorkflowRepository(temp_db)
 
     wf = Workflow(
@@ -257,7 +257,7 @@ async def test_t_cop_7_structural_update_forces_disabled(temp_db, mock_ticket_st
 @pytest.mark.anyio
 async def test_t_cop_8_rename_preserves_enabled_status(temp_db, mock_ticket_store):
     """T-COP-8: Rename-only update of enabled workflow preserves enabled=True (D13)."""
-    tools = IncidentTools(store=mock_ticket_store, org_id="org-copilot", db=temp_db)
+    tools = IncidentTools(store=mock_ticket_store, org_id="org-copilot", db=temp_db, actor_role="admin")
     wf_repo = SqliteWorkflowRepository(temp_db)
 
     wf = Workflow(
@@ -290,7 +290,7 @@ async def test_t_cop_8_rename_preserves_enabled_status(temp_db, mock_ticket_stor
 @pytest.mark.anyio
 async def test_t_cop_9_test_workflow_dry_run(temp_db, mock_ticket_store):
     """T-COP-9: test_workflow runs dry-run trace without persisting or executing side effects (D17)."""
-    tools = IncidentTools(store=mock_ticket_store, org_id="org-copilot", db=temp_db)
+    tools = IncidentTools(store=mock_ticket_store, org_id="org-copilot", db=temp_db, actor_role="admin")
     wf_repo = SqliteWorkflowRepository(temp_db)
 
     wf = Workflow(

@@ -3,12 +3,13 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from terminus.server.app import create_app
-from terminus.storage.db import init_db
+from terminus.storage.db import Database, init_db
 
 
 @pytest.fixture
 def client(tmp_path: Path) -> TestClient:
-    db_path = tmp_path / "phase2_test.db"
+    db_path = str(tmp_path / "phase2_test.db")
+    Database.reset_instance(db_path)
     init_db(db_path)
     app = create_app()
     return TestClient(app)

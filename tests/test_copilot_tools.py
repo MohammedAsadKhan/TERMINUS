@@ -50,3 +50,27 @@ async def test_search_exposes_matching_raw_evidence() -> None:
     result = await tools.execute("search_incidents", {"query": "auth-01"})
     assert result["total"] == 1
     assert "37 failed SSH logins" in result["incidents"][0]["raw_event_excerpt"]
+
+
+@pytest.mark.asyncio
+async def test_write_tools_require_admin_role() -> None:
+    import uuid
+    unique_org = f"org-rbac-{uuid.uuid4().hex[:8]}"
+    args = {"name": "RBAC Probe Agent", "role_description": "probe", "master_prompt": "probe"}
+
+    viewer_tools = IncidentTools(TicketStoreStub(), unique_org, actor_role="viewer")
+    before = (await viewer_tools.execute("list_soc_agents", {}))["agents"]
+    denied = await viewer_tools.execute("create_soc_agent", args)
+    assert denied["error"] == "forbidden"
+    assert "create_soc_agent" in denied["detail"]
+    after = (await viewer_tools.execute("list_soc_agents", {}))["agents"]
+    assert [agent["id"] for agent in after] == [agent["id"] for agent in before]
+    assert all(agent["name"] != "RBAC Probe Agent" for agent in after)
+
+    admin_tools = IncidentTools(TicketStoreStub(), unique_org, actor_role="admin")
+    created = await admin_tools.execute("create_soc_agent", args)
+    assert created["success"] is True
+    assert created["agent"]["name"] == "RBAC Probe Agent"
+    names = [agent["name"] for agent in (await admin_tools.execute("list_soc_agents", {}))["agents"]]
+    assert "RBAC Probe Agent" in names
+

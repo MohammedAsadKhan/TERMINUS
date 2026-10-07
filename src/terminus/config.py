@@ -63,7 +63,26 @@ class Settings(BaseSettings):
     _generated_license_secret: bool = PrivateAttr(default=False)
 
     def model_post_init(self, __context: object) -> None:
-        """Auto-generate ephemeral secrets when none are configured."""
+        """Auto-generate ephemeral secrets and resolve environment aliases."""
+        import os
+
+        # Resolve LLM API key from various common environment aliases
+        if not self.llm_api_key:
+            env_key = (
+                os.environ.get("TERMINUS_LLM_API_KEY")
+                or os.environ.get("LLM_API_KEY")
+                or os.environ.get("GROQ_API_KEY")
+                or os.environ.get("OPENAI_API_KEY")
+                or ""
+            ).strip()
+            if env_key:
+                object.__setattr__(self, "llm_api_key", env_key)
+
+        if not self.llm_model or self.llm_model == "openai/gpt-oss-20b":
+            env_model = (os.environ.get("TERMINUS_LLM_MODEL") or os.environ.get("LLM_MODEL") or "").strip()
+            if env_model:
+                object.__setattr__(self, "llm_model", env_model)
+
         if bool(self.bootstrap_admin_email) != bool(self.bootstrap_admin_password):
             raise ValueError(
                 "Bootstrap admin email and password must be configured together"

@@ -16,7 +16,12 @@ from terminus.core.ids import OrgId
 from terminus.llm.base import LlmClient
 from terminus.llm.client import OpenAiCompatibleLlm
 from terminus.server.copilot_tools import TOOL_SCHEMAS, IncidentTools
-from terminus.server.deps import get_current_org, get_llm_client, get_pipeline_runner
+from terminus.server.deps import (
+    get_current_org,
+    get_current_user_role,
+    get_llm_client,
+    get_pipeline_runner,
+)
 
 copilot_router = APIRouter(prefix="/incidents", tags=["Analyst Copilot"])
 logger = logging.getLogger("terminus.server.copilot")
@@ -39,6 +44,7 @@ async def chat_with_incident_copilot(
     org_id: Annotated[OrgId, Depends(get_current_org)],
     runner: Annotated[Any, Depends(get_pipeline_runner)],
     llm: Annotated[LlmClient, Depends(get_llm_client)],
+    actor_role: Annotated[str, Depends(get_current_user_role)],
 ) -> CopilotChatResponse:
     """Interactively interrogate the AI SOC Copilot regarding a specific incident."""
     ticket = await runner.deployment.ticket_store.get_ticket(ticket_id, org_id)
@@ -75,7 +81,7 @@ Provide a direct, authoritative forensic response:"""
     consulted = ["Incident record"]
     try:
         if isinstance(llm, OpenAiCompatibleLlm):
-            incident_tools = IncidentTools(runner.deployment.ticket_store, org_id)
+            incident_tools = IncidentTools(runner.deployment.ticket_store, org_id, actor_role=actor_role)
             res_text, consulted = await llm.chat_with_tools(system_prompt, user_prompt, TOOL_SCHEMAS, incident_tools.execute)
         else:
             raw_res = await llm.respond_json(system_prompt, user_prompt)
@@ -118,6 +124,7 @@ async def chat_with_global_copilot(
     org_id: Annotated[OrgId, Depends(get_current_org)],
     runner: Annotated[Any, Depends(get_pipeline_runner)],
     llm: Annotated[LlmClient, Depends(get_llm_client)],
+    actor_role: Annotated[str, Depends(get_current_user_role)],
 ) -> GlobalChatResponse:
     """ChatGPT-style conversational AI assistant for SOC analysts across the organization."""
     tickets = await runner.deployment.ticket_store.list_tickets(org_id)
@@ -169,7 +176,7 @@ async def chat_with_global_copilot(
     consulted = ["Incident records"]
     try:
         if isinstance(llm, OpenAiCompatibleLlm):
-            incident_tools = IncidentTools(runner.deployment.ticket_store, org_id)
+            incident_tools = IncidentTools(runner.deployment.ticket_store, org_id, actor_role=actor_role)
             res_text, consulted = await llm.chat_with_tools(system_prompt, user_prompt, TOOL_SCHEMAS, incident_tools.execute)
         else:
             raw_res = await llm.respond_json(system_prompt, context_str + "\nAnalyst question: " + req.prompt)

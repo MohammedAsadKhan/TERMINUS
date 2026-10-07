@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { App, Alert, Avatar, Button, Dropdown, Form, Input, Modal, Spin, Tag } from 'antd';
-import { ApartmentOutlined, ArrowRightOutlined, CheckOutlined, CloudOutlined, DashboardOutlined, DesktopOutlined, DockerOutlined, GithubOutlined, DownOutlined, FileTextOutlined, GlobalOutlined, LogoutOutlined, MenuOutlined, MessageOutlined, PlusOutlined, SafetyCertificateOutlined, SettingOutlined, ThunderboltOutlined, UserOutlined, ExperimentOutlined } from '@ant-design/icons';
+import { ApartmentOutlined, ArrowRightOutlined, CheckOutlined, CloudOutlined, DashboardOutlined, DesktopOutlined, DockerOutlined, GithubOutlined, DownOutlined, FileTextOutlined, GlobalOutlined, LogoutOutlined, MenuOutlined, MessageOutlined, PlusOutlined, SafetyCertificateOutlined, SettingOutlined, ThunderboltOutlined, UserOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { api, body } from './api';
@@ -27,6 +27,7 @@ const Workflows = lazy(() => import('./views/workflows'));
 const Settings = lazy(() => import('./views/settings'));
 const Assets = lazy(() => import('./views/assets'));
 const QaWalkthroughs = lazy(() => import('./views/qa-walkthroughs'));
+const InvestigationGraph = lazy(() => import('./views/investigation-graph'));
 
 function Brand() {
   return (
@@ -136,9 +137,10 @@ export function ConsoleApp() {
   const activePath = currentPath === '/assets' ? location.pathname : currentPath;
   const assetIcons = [<GithubOutlined />, <DockerOutlined />, <CloudOutlined />, <VirtualMachineIcon />, <GlobalOutlined />, <DesktopOutlined />];
   const navigation = [
-    { label: 'Start here', items: [
-      { key: '/qa', label: 'QA walkthroughs', icon: <ExperimentOutlined /> },
-    ] },
+    // Future Intro Walkthrough Tutorial (temporarily hidden for presentation):
+    // { label: 'Start here', items: [
+    //   { key: '/qa', label: 'QA walkthroughs', icon: <ExperimentOutlined /> },
+    // ] },
     { label: 'Operations', items: [
       { key: '/', label: 'Overview', icon: <DashboardOutlined /> },
       { key: '/incidents', label: 'Incidents', icon: <SafetyCertificateOutlined /> },
@@ -182,7 +184,6 @@ export function ConsoleApp() {
             <Button className="mobile-nav-toggle" type="text" icon={<MenuOutlined />} aria-label="Open navigation" aria-expanded={navOpen} onClick={() => setNavOpen(!navOpen)} />
             <div className="workspace-breadcrumb"><span>Workspace</span><span>/</span><strong>{currentPage}</strong></div>
             <div className="hud-right-stats">
-              <span className="header-connection"><i className={`engine-light ${system.data ? 'online' : ''}`} />{system.data ? 'Connected' : 'Checking'}</span>
               <Dropdown
                 menu={{
                   items: [
@@ -265,7 +266,7 @@ export function ConsoleApp() {
               <Routes>
                 <Route path="/" element={<Operations />} />
                 <Route path="/incidents" element={<Operations incidentView />} />
-                <Route path="/incidents/graph" element={<Navigate to="/incidents" replace />} />
+                <Route path="/incidents/graph" element={<InvestigationGraph />} />
                 <Route path="/incidents/:ticketId" element={<Operations incidentView />} />
                 <Route path="/copilot" element={<CopilotPage />} />
                 <Route path="/reports" element={<Reports />} />

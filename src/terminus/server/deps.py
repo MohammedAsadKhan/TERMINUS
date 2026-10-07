@@ -221,19 +221,19 @@ def get_workflows_store(
 
 
 def get_user_store() -> UserStore:
-    return _user_store
+    return SqliteUserStore()
 
 
 def get_org_store() -> SqliteOrganizationStore:
-    return _org_store
+    return SqliteOrganizationStore()
 
 
 def get_membership_store() -> SqliteMembershipStore:
-    return _membership_store
+    return SqliteMembershipStore()
 
 
 def get_auth_service() -> AuthService:
-    return _auth_service
+    return AuthService(SqliteUserStore(), session_store=SqliteSessionStore())
 
 
 def get_license_service(
