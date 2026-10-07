@@ -23,6 +23,7 @@ import { api, body } from '../api';
 import { date, EmptyPanel, ErrorPanel } from '../components';
 import { useSession } from '../context';
 import './agent-activity.css';
+import OperationMap from './operation-map';
 
 const PAGE_SIZE = 20;
 const ACTIVE_STATES = new Set(['queued', 'running', 'waiting']);
@@ -295,7 +296,7 @@ function findNode(nodes: TreeNode[], taskId: string, lineage: TreeNode[] = []): 
 }
 
 function taskUrl(page: number, incident: string, status: string): string {
-  const params = new URLSearchParams({ limit: String(PAGE_SIZE), offset: String(page * PAGE_SIZE) });
+  const params = new URLSearchParams({ limit: String(PAGE_SIZE), offset: String(page * PAGE_SIZE), newest_first: 'true' });
   if (incident.trim()) params.set('incident_id', incident.trim());
   if (status) params.set('status', status);
   return `/orchestration/tasks?${params.toString()}`;
@@ -318,6 +319,74 @@ function TreeBranch({ node, selected, onSelect, depth = 0 }: { node: TreeNode; s
     </button>
     {!!node.children?.length && <ul>{node.children.map(child => <TreeBranch key={child.task_id} node={child} selected={selected} onSelect={onSelect} depth={depth + 1} />)}</ul>}
   </li>;
+}
+
+function descendants(root: TreeNode): TreeNode[] {
+  return [root, ...(root.children || []).flatMap(descendants)];
+}
+
+function latestRun(node: TreeNode): AgentRun | null {
+  return [...(node.runs || [])].sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))[0] || null;
+}
+
+function duration(start?: string | null, end?: string | null): string {
+  if (!start) return 'Not started';
+  const seconds = Math.max(0, Math.floor(((end ? Date.parse(end) : Date.now()) - Date.parse(start)) / 1000));
+  if (!Number.isFinite(seconds)) return 'Unknown';
+  return seconds < 60 ? `${seconds}s` : seconds < 3600 ? `${Math.floor(seconds / 60)}m ${seconds % 60}s` : `${Math.floor(seconds / 3600)}h ${Math.floor(seconds % 3600 / 60)}m`;
+}
+
+function OperationOverview({ tree, selected, onSelect }: { tree: IncidentTree; selected: string | null; onSelect: (id: string) => void }) {
+  const roots = [...tree.roots].sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+  const match = selected ? findNode(roots, selected) : null;
+  const root = match ? match.lineage[0] || match.node : roots[0];
+  if (!root) return null;
+  const nodes = descendants(root);
+  const specialists = nodes.filter(node => !['main_orchestrator', 'area_orchestrator'].includes(node.role));
+  const active = nodes.filter(node => ACTIVE_STATES.has(node.status));
+  const lastCompletion = active.length ? null : nodes.map(node => node.completed_at || node.updated_at || '').sort().at(-1);
+  return <section className="panel operation-overview" aria-label="Operation overview">
+    <header className="operation-heading">
+      <div><span className="eyebrow">OPERATION OVERVIEW</span><h2>{objectiveText(root.objective)}</h2><Id>{tree.incident_id}</Id></div>
+      <StateTag value={active.some(node => node.status === 'running') ? 'running' : active.length ? 'waiting' : root.status} />
+    </header>
+    <div className="operation-controls"><Select aria-label="Select orchestration run" value={root.task_id} options={roots.map(item => ({ value: item.task_id, label: `${date(item.created_at)} · ${item.role.replaceAll('_', ' ')}` }))} onChange={onSelect} /><span>Each operation contains its recorded child tasks.</span></div>
+    <OperationMap nodes={nodes.map(node => ({ id: node.task_id, parent: node.parent_task_id, label: node.role.replaceAll('_', ' '), status: node.status, activity: node.status === 'running' ? 'Executing admitted task; inspect saved evidence and run output below.' : specialistResult(latestRun(node)?.result)?.tool_calls.at(-1)?.tool_id || objectiveText(node.objective) }))} onSelect={onSelect} />
+    <dl className="operation-metrics">
+      <div><dt>Elapsed</dt><dd>{duration(root.started_at, lastCompletion)}</dd></div>
+      <div><dt>Agents running</dt><dd>{specialists.filter(node => node.status === 'running').length}</dd></div>
+      <div><dt>Waiting / queued</dt><dd>{specialists.filter(node => ['queued', 'waiting'].includes(node.status)).length}</dd></div>
+      <div><dt>Specialists spawned</dt><dd>{specialists.length}</dd></div>
+    </dl>
+    <div className="operation-ownership">{nodes.filter(node => ['main_orchestrator', 'area_orchestrator'].includes(node.role)).map(node => <button key={node.task_id} onClick={() => onSelect(node.task_id)}><BranchesOutlined /><span>{node.role.replaceAll('_', ' ')} · {node.area.replaceAll('_', ' ')}</span><StateTag value={node.status} /></button>)}</div>
+    {specialists.length ? <div className="operation-agent-grid">{specialists.map(node => {
+      const run = latestRun(node);
+      const result = specialistResult(run?.result);
+      const lastCall = result?.tool_calls.at(-1);
+      const observation = [...(node.evidence || [])].sort((a, b) => (b.collected_at || '').localeCompare(a.collected_at || ''))[0];
+      const observedTool = asObject(observation?.content)?.tool_id;
+      const activity = node.status === 'running' ? (typeof observedTool === 'string' ? `Last recorded: ${observedTool} · ${date(observation.collected_at)}` : 'Executing admitted task; waiting for recorded output') : node.status === 'queued' ? 'Waiting for a scheduler worker' : lastCall ? `${lastCall.tool_id} · ${displayStatus(lastCall.status)}` : result?.model ? `Analysis recorded · ${result.model.model}` : objectiveText(node.objective);
+      return <button className={`operation-agent${selected === node.task_id ? ' selected' : ''}`} key={node.task_id} onClick={() => onSelect(node.task_id)}>
+        <div className="operation-agent-head"><strong>{node.role.replaceAll('_', ' ')}</strong><StateTag value={node.status} /></div>
+        <span className="operation-agent-area">{node.area.replaceAll('_', ' ')}</span>
+        <p>{activity}</p>
+        <footer><span>{result ? `${result.findings.length} cited findings · ${analysisLabel(result)}` : 'No analysis recorded yet'}</span><span>Inspect activity →</span></footer>
+      </button>;
+    })}</div> : <p className="operation-empty">No specialist tasks have been spawned under this operation.</p>}
+    <p className="operation-footnote">Execution status is separate from investigation coverage. Cards show recorded activity; updates arrive every 2 seconds. Motion indicates recorded running tasks; it does not imply unrecorded tool or model calls.</p>
+  </section>;
+}
+
+function ActivityTimeline({ task, run, evidence }: { task: ActivityTask; run: AgentRun | null; evidence: EvidenceRecord[] }) {
+  const result = specialistResult(run?.result);
+  return <section className="activity-subsection"><h4>Activity timeline</h4><ol className="agent-timeline">
+    <li><strong>Task admitted</strong><small>{date(task.created_at)}</small><p>{objectiveText(task.objective)}</p></li>
+    {run && <li><strong>Execution {run.status === 'running' ? 'started' : 'recorded'}</strong><small>{date(run.started_at || run.created_at)}</small><p>Run <Id>{run.run_id}</Id></p></li>}
+    {[...evidence].filter(record => asObject(record.content)?.run_id === run?.run_id).sort((a, b) => (a.collected_at || '').localeCompare(b.collected_at || '')).map(record => <li key={record.evidence_id}><strong>Evidence saved · {String(asObject(record.content)?.tool_id || record.source)}</strong><small>{date(record.collected_at)}</small><Id>{record.evidence_id}</Id></li>)}
+    {result?.tool_calls.map((call, index) => <li key={`${call.tool_id}-${index}`}><strong>{call.tool_id}</strong><StateTag value={call.status} /><p>{call.evidence_count} evidence records · recorded call order {index + 1}</p></li>)}
+    {result?.model && <li><strong>Model analysis recorded</strong><p>{result.model.model} · {result.findings.length} cited findings</p></li>}
+    {run?.completed_at && <li><strong>Execution finished</strong><small>{date(run.completed_at)}</small><p>{analysisLabel(result)}</p></li>}
+  </ol><p className="coverage-note">Tool and model steps use their recorded order; individual step timestamps are unavailable in this result.</p></section>;
 }
 
 function RunResult({ run, evidence }: { run: AgentRun | null; evidence: EvidenceRecord[] }) {
@@ -428,6 +497,7 @@ export default function AgentActivity() {
   const [incidentDraft, setIncidentDraft] = useState('');
   const [selection, setSelection] = useState<{ orgId: string; taskId: string } | null>(null);
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
+  const [grouping, setGrouping] = useState('incident');
   const selectedTaskId = selection?.orgId === orgId ? selection.taskId : null;
 
   useEffect(() => {
@@ -442,7 +512,7 @@ export default function AgentActivity() {
   const tasks = useQuery({
     queryKey: ['orchestration-tasks', orgId, page, status, incident],
     queryFn: () => api<TaskPage>(taskUrl(page, incident, status), orgId),
-    refetchInterval: 8_000,
+    refetchInterval: 2_000,
   });
   const catalog = useQuery({ queryKey: ['orchestration-catalog', orgId], queryFn: () => api<CatalogResponse>('/orchestration/catalog', orgId) });
   const selectedRow = tasks.data?.items.find(item => item.task.task_id === selectedTaskId) || null;
@@ -450,14 +520,14 @@ export default function AgentActivity() {
     queryKey: ['orchestration-task', orgId, selectedTaskId],
     queryFn: () => api<TaskDetail>(`/orchestration/tasks/${encodeURIComponent(selectedTaskId!)}`, orgId),
     enabled: !!selectedTaskId,
-    refetchInterval: selectedRow && ACTIVE_STATES.has(selectedRow.task.status) ? 8_000 : false,
+    refetchInterval: 2_000,
   });
   const selectedIncident = selectedRow?.task.incident_id || detail.data?.task.incident_id;
   const tree = useQuery({
     queryKey: ['orchestration-tree', orgId, selectedIncident],
     queryFn: () => api<IncidentTree>(`/orchestration/incidents/${encodeURIComponent(selectedIncident!)}/tree`, orgId),
     enabled: !!selectedIncident,
-    refetchInterval: selectedRow && ACTIVE_STATES.has(selectedRow.task.status) ? 8_000 : false,
+    refetchInterval: 2_000,
   });
   const treeMatch = selectedTaskId && tree.data ? findNode(tree.data.roots, selectedTaskId) : null;
   const helpRequestId = treeMatch ? [treeMatch.node, ...treeMatch.lineage.slice().reverse()].find(node => node.help_request_id)?.help_request_id : null;
@@ -482,9 +552,16 @@ export default function AgentActivity() {
     || (detail.data?.runs.length ? detail.data.runs[detail.data.runs.length - 1] : null);
   const result = specialistResult(currentRun?.result);
   const visibleEvidence = useMemo(() => {
-    const records = [...(detail.data?.evidence || []), ...(helpContext.data?.shared_evidence || [])];
+    const incidentEvidence = (tree.data?.roots || []).flatMap(descendants).flatMap(node => node.evidence || []);
+    const cited = new Set(result?.evidence_ids || []);
+    const records = [...(detail.data?.evidence || []), ...(helpContext.data?.shared_evidence || []), ...incidentEvidence.filter(record => cited.has(record.evidence_id))];
     return [...new Map(records.map(record => [record.evidence_id, record])).values()];
-  }, [detail.data?.evidence, helpContext.data?.shared_evidence]);
+  }, [detail.data?.evidence, helpContext.data?.shared_evidence, tree.data, currentRun]);
+  const sortedTasks = [...(tasks.data?.items || [])].sort((a, b) => (b.task.created_at || '').localeCompare(a.task.created_at || ''));
+  const taskGroups = grouping === 'time' ? [['Execution history', sortedTasks] as const] : [...sortedTasks.reduce((groups, item) => {
+    groups.set(item.task.incident_id, [...(groups.get(item.task.incident_id) || []), item]);
+    return groups;
+  }, new Map<string, TaskRow[]>()).entries()];
   const canOperate = membership?.role === 'admin' || membership?.role === 'member';
   const canCancel = !!detail.data?.scheduler_job && ACTIVE_STATES.has(detail.data.task.status);
   const waiting = tasks.isFetching || detail.isFetching || tree.isFetching || catalog.isFetching;
@@ -504,7 +581,7 @@ export default function AgentActivity() {
       <div><span className="eyebrow">LIVE ORCHESTRATION</span><strong>{tasks.data?.items.length ?? '—'}</strong><small>tasks on this page</small></div>
       <div><ClockCircleOutlined /><strong>{tasks.data?.items.filter(item => ACTIVE_STATES.has(item.task.status)).length ?? '—'}</strong><small>active or waiting</small></div>
       <div><BranchesOutlined /><strong>{selectedIncident ? '1' : '—'}</strong><small>incident in focus</small></div>
-      <div className="activity-summary-action"><span>Auto-refreshes every 8 seconds</span><Button icon={<ReloadOutlined spin={waiting} />} onClick={() => void refresh()}>Refresh now</Button></div>
+      <div className="activity-summary-action"><span>Auto-refreshes every 2 seconds</span><Button icon={<ReloadOutlined spin={waiting} />} onClick={() => void refresh()}>Refresh now</Button></div>
     </section>
 
     <section className="activity-toolbar" aria-label="Task filters">
@@ -513,16 +590,19 @@ export default function AgentActivity() {
       {(status || incident) && <Button onClick={() => { setStatus(''); setIncident(''); setIncidentDraft(''); setPage(0); setSelection(null); }}>Clear filters</Button>}
     </section>
 
+    <div className="activity-view-options"><Select aria-label="Group agent activity" value={grouping} options={[{ value: 'incident', label: 'Group by incident' }, { value: 'time', label: 'Execution history · newest first' }]} onChange={setGrouping} /><span>Newest first within the loaded page. Select an incident task to open its full operation.</span></div>
+    {tree.data && <OperationOverview tree={tree.data} selected={selectedTaskId} onSelect={taskId => { setSelection({ orgId, taskId }); setSelectedRunId(null); }} />}
+
     <ErrorPanel error={tasks.error} retry={() => void tasks.refetch()} />
     {tasks.isPending ? <div className="panel"><Skeleton active paragraph={{ rows: 8 }} /></div> : tasks.data?.items.length ? <div className="activity-workbench">
       <section className="panel activity-queue" aria-labelledby="activity-queue-title">
         <div className="activity-section-heading"><div><span className="eyebrow">DURABLE QUEUE</span><h2 id="activity-queue-title">Agent tasks</h2></div><Tag>{page * PAGE_SIZE + 1}–{page * PAGE_SIZE + tasks.data.items.length}</Tag></div>
-        <div className="task-list">{tasks.data.items.map(item => <button key={item.task.task_id} className={`task-row${selectedTaskId === item.task.task_id ? ' selected' : ''}`} onClick={() => { setSelection({ orgId, taskId: item.task.task_id }); setSelectedRunId(null); }}>
+        <div className="task-list">{taskGroups.map(([label, items]) => <section key={label} className="incident-task-group"><header><strong title={label}>{label}</strong><span>{items.length} on this page</span></header>{items.map(item => <button key={item.task.task_id} className={`task-row${selectedTaskId === item.task.task_id ? ' selected' : ''}`} onClick={() => { setSelection({ orgId, taskId: item.task.task_id }); setSelectedRunId(null); }}>
           <div className="task-row-top"><span>{item.task.role.replaceAll('_', ' ')}</span><StateTag value={item.task.status} /></div>
           <p>{objectiveText(item.task.objective)}</p>
           <div className="task-meta"><span>{item.task.area.replaceAll('_', ' ')}</span><Id>{item.task.incident_id}</Id><span>{date(item.task.updated_at)}</span></div>
           {item.scheduler_job?.recovery_reason && <small className="recovery"><PauseCircleOutlined /> {item.scheduler_job.recovery_reason}</small>}
-        </button>)}</div>
+        </button>)}</section>)}</div>
         <Pagination simple current={page + 1} pageSize={PAGE_SIZE} total={(page + 1) * PAGE_SIZE + (tasks.data.items.length === PAGE_SIZE ? 1 : 0)} showSizeChanger={false} onChange={next => { setPage(next - 1); setSelection(null); }} />
       </section>
 
@@ -537,16 +617,17 @@ export default function AgentActivity() {
           {detail.data.child_records_may_be_truncated && <Alert type="warning" showIcon title="Bounded detail view" description={`One or more record groups reached the ${detail.data.child_records_limit}-record display limit. Additional records may exist.`} />}
           <SchedulerProgress job={detail.data.scheduler_job} />
           <RunHistory runs={detail.data.runs} selected={currentRun?.run_id || null} onSelect={setSelectedRunId} />
+          <ActivityTimeline task={detail.data.task} run={currentRun} evidence={detail.data.evidence} />
           <RunResult run={currentRun} evidence={visibleEvidence} />
           <section className="activity-subsection">
             <h4>Evidence collected</h4>
-            {detail.data.evidence.length ? <div className="evidence-list">{detail.data.evidence.map(record => <article key={record.evidence_id}><div><strong>{record.source}</strong><Id>{record.evidence_id}</Id></div><small>Source time {date(record.source_timestamp)} · collected {date(record.collected_at)}</small>{record.content_ref && <p>{record.content_ref}</p>}</article>)}</div> : <p className="muted">No evidence records are attached to this task.</p>}
+            {visibleEvidence.length ? <div className="evidence-list">{visibleEvidence.map(record => <article key={record.evidence_id}><div><strong>{record.source}</strong><Id>{record.evidence_id}</Id></div><small>Source time {date(record.source_timestamp)} · collected {date(record.collected_at)}</small>{record.content_ref && <p>{record.content_ref}</p>}</article>)}</div> : <p className="muted">{result?.evidence_ids.length ? 'This task cites saved evidence; its records are outside the loaded detail.' : 'No evidence records are attached to this task.'}</p>}
           </section>
           {!!detail.data.actions.length && <section className="activity-subsection"><h4>Action attempts</h4>{detail.data.actions.map(action => <div className="call-row" key={action.attempt_id}><div><strong>{action.action}</strong><small>{action.targets.length} target{action.targets.length === 1 ? '' : 's'}</small></div><StateTag value={action.status} /></div>)}</section>}
           {(helpContext.data || treeMatch?.node.help_ownership?.length) && <section className="activity-subsection help-context"><h4>Help ownership and context</h4>
             {helpContext.isPending ? <Skeleton active paragraph={{ rows: 3 }} /> : helpContext.data ? <HelpRecord ownership={helpContext.data} /> : treeMatch?.node.help_ownership?.map(record => <HelpRecord key={record.help_request_id} ownership={record} />)}
           </section>}
-          {!!result?.evidence_ids.length && <p className="coverage-note">This result cites {result.evidence_ids.length} evidence record{result.evidence_ids.length === 1 ? '' : 's'} from the current run.</p>}
+          {!!result?.evidence_ids.length && <p className="coverage-note">This result cites {result.evidence_ids.length} saved evidence record{result.evidence_ids.length === 1 ? '' : 's'} from this incident.</p>}
         </>}
       </aside>
     </div> : <EmptyPanel title="No orchestration tasks" description={status || incident ? 'No tasks match these exact filters.' : 'No durable agent work has been admitted for this organization.'} action={page > 0 ? <Button onClick={() => setPage(current => Math.max(0, current - 1))}>Previous page</Button> : undefined} />}

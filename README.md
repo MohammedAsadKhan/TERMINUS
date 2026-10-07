@@ -208,3 +208,5 @@ TERMINUS/
 **TERMINUS** · Evidence before conclusions. Approval before consequential action. Verification before success.
 
 </div>
+
+The [orchestration rehearsal](docs/ORCHESTRATION_REHEARSAL.md) runs locally from QA walkthroughs without keys or lab VMs. It demonstrates animated delegation and a simulated response decision. Real task delegation and activity are visible in Agents, refreshed every two seconds.

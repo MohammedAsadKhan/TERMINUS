@@ -21,6 +21,17 @@ from tests.test_specialist_runtime import deps_for, job_context, parse
 CATALOG = load_catalog()
 BUNDLES = {b.role: set(b.tool_ids) for b in CATALOG.core_bundles}
 TOOLS = {t.tool_id: t for t in CATALOG.tools}
+
+
+def test_authentication_incident_narrows_search_without_changing_other_incidents(read_setup):
+    make, _, _, _ = read_setup
+    _, lease = make()
+    for step in ROLE_SPECS["triage"].plan:
+        if step.tool_id in {"alerts.search", "collection.coverage"}:
+            scoped = step.build_query(lease.task, QueryContext(authentication_incident=True))
+            assert scoped.event_kind == "authentication"
+            assert scoped.page_size == 20
+            assert step.build_query(lease.task, QueryContext()).event_kind == "evidence"
 ROLES = sorted(CORE_ROLES)
 UNINSTALLED = {
     "network": {"network.connections", "network.dns"},

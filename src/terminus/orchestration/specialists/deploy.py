@@ -13,8 +13,8 @@ never fabricates a result. Model transport remains disabled unless
 registered connections, durable role policy, the shared budget ledger, and the
 configured credential cipher.
 
-Connector credentials: the repository has no production wiring for per-org Wazuh
-manager/indexer credentials, so none is invented here. By default an
+Connector credentials: explicit SPECIALIST_WAZUH deployment settings bind
+separate manager/indexer credentials to one organization. By default an
 organization that exists in the database gets a store-only read service (incident
 and evidence tools; every connector-backed tool surfaces an explicit gap), and
 unknown organizations resolve to nothing (a ``service_not_configured`` gap).
@@ -44,6 +44,7 @@ from terminus.orchestration.specialists.runtime import SharedHelpContext, Specia
 from terminus.storage.db import Database
 from terminus.toolkit.context import ToolReadPolicyStore
 from terminus.toolkit.readers import InvestigationReadService
+from terminus.toolkit.wazuh_deployment import readers_from_environ
 from terminus.toolkit.wazuh_readers import WazuhIndexerReader, WazuhManagerReader
 
 DATABASE_ENV = "TERMINUS_SPECIALIST_DATABASE"
@@ -59,6 +60,7 @@ _LOCK = threading.Lock()
 _STATE: dict[str, object] = {}
 _CONNECTORS: list[ConnectorFactory] = []
 _STRING_LIST = TypeAdapter(list[str])
+_JSON_VALUE: TypeAdapter[JsonValue] = TypeAdapter(JsonValue)
 
 
 class SpecialistDeploymentError(RuntimeError):
@@ -110,7 +112,16 @@ def build_deployment_deps(  # noqa: C901, PLR0915 - explicit composition root
                 return services[org_id]
             if not db.fetchone("SELECT 1 FROM organizations WHERE org_id=?", (org_id,)):
                 return None  # unknown organization fails closed
-            manager, indexer = _CONNECTORS[0](org_id) if _CONNECTORS else (None, None)
+            try:
+                manager, indexer = (
+                    _CONNECTORS[0](org_id)
+                    if _CONNECTORS
+                    else readers_from_environ(environ, org_id)
+                )
+            except ValueError:
+                raise SpecialistDeploymentError(
+                    "Invalid tenant-bound Wazuh connector configuration"
+                ) from None
             service = InvestigationReadService(
                 org_id, scheduler, policies, manager=manager, indexer=indexer
             )
@@ -126,7 +137,10 @@ def build_deployment_deps(  # noqa: C901, PLR0915 - explicit composition root
         if row is None:
             return None
         try:
-            payload = cast("dict[str, object]", json.loads(str(cast("object", row["raw_payload_json"]))))
+            payload = cast(
+                "dict[str, object]",
+                json.loads(str(cast("object", row["raw_payload_json"]))),
+            )
             stamp = datetime.fromisoformat(str(payload["timestamp"]))
         except (ValueError, TypeError, KeyError):
             return None
@@ -159,13 +173,30 @@ def build_deployment_deps(  # noqa: C901, PLR0915 - explicit composition root
             shared_evidence_ids=tuple(evidence),
         )
 
+    def authentication_incident_for(org_id: str, incident_id: str) -> bool:
+        row = db.fetchone(
+            "SELECT raw_payload_json FROM incidents WHERE org_id=? AND ticket_id=?",
+            (org_id, incident_id),
+        )
+        if row is None:
+            return False
+        try:
+            payload = _JSON_VALUE.validate_json(str(cast("object", row["raw_payload_json"])))
+            rule = payload.get("rule") if isinstance(payload, dict) else None
+            groups = rule.get("groups") if isinstance(rule, dict) else None
+            return isinstance(groups, list) and any(
+                group in {"authentication_failed", "authentication_success"}
+                for group in groups
+                if isinstance(group, str)
+            )
+        except (ValueError, TypeError, AttributeError):
+            return False
+
     routing: ModelRoutingService | None = None
     client_for: ClientFactory | None = None
     live_setting = environ.get(LIVE_MODELS_ENV, "").strip().casefold()
     if live_setting not in {"", "false", "true"}:
-        raise SpecialistDeploymentError(
-            f"{LIVE_MODELS_ENV} must be true or false"
-        )
+        raise SpecialistDeploymentError(f"{LIVE_MODELS_ENV} must be true or false")
     if live_setting == "true":
         from terminus.model_gateway.admission import ModelAdmissionService
         from terminus.model_gateway.ledger import ModelBudgetStore
@@ -184,9 +215,7 @@ def build_deployment_deps(  # noqa: C901, PLR0915 - explicit composition root
                 f"Live specialist models require {MODEL_CREDENTIALS_ENV}"
             )
         try:
-            connections = ModelConnectionStore(
-                db, CredentialCipher.from_key(key)
-            )
+            connections = ModelConnectionStore(db, CredentialCipher.from_key(key))
         except Exception:
             raise SpecialistDeploymentError(
                 "Live specialist model credential storage is unavailable"
@@ -213,6 +242,7 @@ def build_deployment_deps(  # noqa: C901, PLR0915 - explicit composition root
         client_for=client_for,
         incident_time_for=incident_time_for,
         help_context_for=help_context_for,
+        authentication_incident_for=authentication_incident_for,
     )
 
 

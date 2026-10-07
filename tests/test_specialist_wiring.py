@@ -387,7 +387,8 @@ def test_builder_window_is_clamped_to_one_hour_around_anchor(read_setup):
     for spec in ROLE_SPECS.values():
         for step in spec.plan:
             q = step.build_query(lease.task, QueryContext(anchor))
-            assert q.start <= anchor <= q.end
+            expected_anchor = (lease.task.started_at or lease.task.created_at) if q.event_kind == "inventory" else anchor
+            assert q.start <= expected_anchor <= q.end
             assert (q.end - q.start).total_seconds() <= 3600
 
 

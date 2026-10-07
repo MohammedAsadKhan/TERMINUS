@@ -1,0 +1,16 @@
+.operation-map { display: grid; gap: 24px; padding: 24px 0; }
+.operation-map-level { display: flex; justify-content: center; flex-wrap: wrap; gap: 16px; position: relative; }
+.operation-map-level + .operation-map-level:before { content: ''; position: absolute; top: -24px; height: 24px; border-left: 2px solid var(--border, #36516b); }
+.operation-map-node { background: var(--surface, #171d26); color: inherit; border: 1px solid var(--border, #36516b); border-radius: 10px; padding: 18px; width: 270px; text-align: left; cursor: pointer; animation: agent-arrive .45s ease-out; }
+.operation-map-node strong { display: block; margin: 8px 0; font-size: 15px; }
+.operation-map-parent { font-size: 11px; color: var(--text-muted, #9aaabc); }
+.operation-map-node p { margin: 10px 0 0; font-size: 13px; line-height: 1.6; }
+.operation-map-node.state-running { border-color: #6eafff; animation: agent-arrive .45s ease-out, agent-working 2s ease-in-out infinite; }
+.simulation-console { display: grid; gap: 20px; }
+.simulation-toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.simulation-detail, .simulation-response { padding: 24px; border: 1px solid var(--border, #36516b); border-radius: 10px; }
+.simulation-log { font-family: monospace; line-height: 1.8; padding-left: 20px; }
+@keyframes agent-arrive { from { opacity: 0; transform: translateY(-12px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes agent-working { 50% { box-shadow: 0 0 0 3px #6eafff20; } }
+@media (prefers-reduced-motion: reduce) { .operation-map-node, .operation-map-node.state-running { animation: none; } }
+@media (max-width: 650px) { .operation-map-node { width: 100%; } }

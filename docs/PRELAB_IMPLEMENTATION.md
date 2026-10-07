@@ -1,5 +1,16 @@
 # Pre-lab implementation — October 4, 2026
 
+## October 5/6 local Wazuh integration handoff
+
+Owner - Mohammed | Agent - Codex orchestrator. Read-only connector deployment
+and explicit administrator import command implemented; 81 targeted tests passed.
+See [Wazuh lab connection](WAZUH_LAB_CONNECTION.md) for endpoints, local commands,
+credential prompts, incident-scoped authorization and release boundaries.
+Manual manager authentication and five real indexer events were verified by the
+operator. Live importer/specialist evidence verification remains pending local
+credential entry; do not mark it done from fixture tests. Continuous authenticated
+ingestion, certificate trust and approval-bound live response remain open.
+
 ## October 5 active handoff: specialist workflow validation
 
 Claimed by - Mohammed | Agent - Codex orchestrator | Status - complete. Done by - Mohammed | Agent - Codex orchestrator and delegated agents.
@@ -126,3 +137,18 @@ Pre-lab implementation slice verified. Done by - Mohammed | Agent - Codex orches
 - [ ] Select exact application target B and required telemetry, then implement its remaining adapters. Rehearse/reset locally before AWS migration.
 
 Noah may handle the later DeepSeek/other provider validation. Future-specialty execution stays outside 1.0. Mark completed tasks using the team checklist's Done by convention.
+# Agents operation overview
+
+The Agents activity page now groups the bounded task list by incident, with an
+optional newest-first execution history. The tasks API accepts `newest_first`
+without changing the default ordering of existing storage callers. Selecting
+a task loads its incident tree and shows an operation selector, orchestration
+ownership, elapsed time, specialist counts and child agent cards. Cards and
+the inspector refresh every eight seconds. The activity timeline uses actual
+task/run timestamps and evidence collection timestamps; result-only tool calls
+show recorded order without invented per-step times. Model analysis that reuses
+earlier evidence displays cited records from the same incident tree.
+
+This is recorded activity visibility, not terminal streaming or model internal
+reasoning. Future specialties remain disabled. Validation: frontend production
+build, four Chrome activity tests and 48 storage/coordination API tests passed.

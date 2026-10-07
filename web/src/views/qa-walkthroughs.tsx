@@ -2,6 +2,7 @@ import { Button, Tag } from 'antd';
 import { Link } from 'react-router-dom';
 import { TEST_TOPICS } from '../test-alerts';
 import './qa-walkthroughs.css';
+import OrchestrationSimulation from './orchestration-simulation';
 
 const walkthroughs = [
   {
@@ -62,6 +63,8 @@ export default function QaWalkthroughs() {
         <Button type="primary"><Link to={item.path}>{item.action}</Link></Button>
       </section>)}
     </div>
+
+    <section className="qa-note"><h2>6. Orchestration and response simulation</h2><p>Inspect spawned agents, edit the recommendation duration, and choose whether to approve the simulated response.</p><OrchestrationSimulation /></section>
 
     <section className="qa-topics">
       <h2>Sample alert topics</h2>

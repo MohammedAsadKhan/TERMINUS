@@ -213,6 +213,7 @@ class ProductionModelTransport:
                     endpoint, address, codec.path(request), headers, body, permit
                 )
                 if status != 200:
+                    _logger.warning("Model provider returned HTTP status=%s", status)
                     code = (
                         "rate_limited"
                         if status == 429
@@ -237,6 +238,12 @@ class ProductionModelTransport:
                 status="error", model=request.model, error_code="response_too_large"
             )
         except TimeoutError:
+            _logger.warning(
+                "Model transport timed out: stage=%s deadline_seconds=%s io_started=%s",
+                stage,
+                self.timeout_seconds,
+                permit.io_started,
+            )
             return ModelResponse(
                 status="error", model=request.model, error_code="timeout_unknown_usage"
             )

@@ -102,7 +102,7 @@ test('shows durable execution, analysis gaps, provenance, help context, and the 
   await page.goto('/console/agents');
 
   await expect(page.getByRole('heading', { name: 'Follow every admitted investigation.' })).toBeVisible();
-  await expect(page.getByText('Auto-refreshes every 8 seconds')).toBeVisible();
+  await expect(page.getByText('Auto-refreshes every 2 seconds')).toBeVisible();
   await page.getByRole('button', { name: /network.*Investigate lateral traffic/ }).click();
 
   await expect(page.getByRole('heading', { name: 'Execution and analysis' })).toBeVisible();
@@ -146,4 +146,85 @@ test('keeps task cancellation visible but unavailable to viewers', async ({ page
 
   await expect(page.getByRole('button', { name: 'Cancel task' })).toBeDisabled();
   expect(fixture.wasCancelled()).toBe(false);
+});
+
+test('groups incident work into an operation with spawned agents and a recorded activity timeline', async ({ page }) => {
+  await mockConsole(page, 'member', true);
+  await page.goto('/console/agents');
+  await expect(page.getByRole('combobox', { name: 'Group agent activity' })).toBeVisible();
+  await page.getByRole('button', { name: /network.*Investigate lateral traffic/ }).click();
+  const operation = page.getByRole('region', { name: 'Operation overview' });
+  await expect(operation.getByRole('heading', { name: 'Coordinate investigation.' })).toBeVisible();
+  await expect(operation.getByText('Specialists spawned')).toBeVisible();
+  await expect(operation.getByRole('button', { name: /main orchestrator/ })).toBeVisible();
+  await expect(operation.getByRole('button', { name: /network.*Inspect activity/ })).toBeVisible();
+  await operation.getByRole('button', { name: /network.*Inspect activity/ }).click();
+  await expect(page.getByRole('heading', { name: 'Activity timeline' })).toBeVisible();
+  await expect(page.getByText('Model analysis recorded', { exact: true })).toBeVisible();
+  await page.screenshot({ path: 'test-results/agent-operation-overview.png', fullPage: false });
+});
+
+
+test('fresh simulation pauses for approval, verifies, undoes, and resets without writes', async ({ page }) => {
+  await mockConsole(page, 'member');
+  const writes: string[] = [];
+  page.on('request', request => { if (request.method() !== 'GET') writes.push(request.url()); });
+  await page.clock.install();
+  await page.goto('/console/qa');
+  await page.getByRole('button', { name: 'Run orchestration simulation', exact: true }).click();
+  for (let i = 0; i < 8; i++) await page.clock.runFor(1900);
+  await expect(page.getByRole('button', { name: 'Approve simulated action' })).toBeVisible();
+  await expect(page.getByText('Simulated execution:', { exact: false })).toHaveCount(0);
+  await page.getByRole('spinbutton', { name: 'Simulated block duration' }).fill('60');
+  await page.getByRole('button', { name: 'Approve simulated action' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'applying 60-second response' })).toBeVisible();
+  await page.clock.runFor(1900);
+  await page.clock.runFor(1900);
+  await page.getByRole('button', { name: 'Undo simulated block' }).click();
+  await expect(page.getByText('Simulated undo complete:', { exact: false })).toBeVisible();
+  await page.getByRole('button', { name: 'Reset / replay' }).click();
+  await expect(page.getByRole('button', { name: 'Run orchestration simulation', exact: true })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Approve simulated action' })).toHaveCount(0);
+  expect(writes).toEqual([]);
+});
+
+
+test('simulation can pause and dismiss without approving a response', async ({ page }) => {
+  await mockConsole(page, 'member');
+  await page.clock.install();
+  await page.goto('/console/qa');
+  await page.getByRole('button', { name: 'Run orchestration simulation', exact: true }).click();
+  await page.clock.runFor(1900);
+  await page.getByRole('button', { name: 'Pause simulation', exact: true }).click();
+  await page.clock.runFor(10000);
+  await expect(page.getByText('1 / 8 investigation events')).toBeVisible();
+  await page.getByRole('button', { name: 'Resume simulation', exact: true }).click();
+  for (let i = 0; i < 7; i++) await page.clock.runFor(1900);
+  await page.getByRole('button', { name: 'Dismiss recommendation', exact: true }).click();
+  await expect(page.getByText('Recommendation dismissed. No simulated action approved.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Undo simulated block' })).toHaveCount(0);
+});
+
+test('all non-SSH scenarios show distinct recommendations and reset on switching', async ({ page }) => {
+  await mockConsole(page, 'member');
+  await page.clock.install();
+  await page.goto('/console/qa');
+  const scenarios = [
+    ['Ransomware-like file changes', 'Temporarily isolate training-workstation-02', 'SIM-EV-FILES-01'],
+    ['Suspicious remote access', 'Temporarily restrict source 198.51.100.242', 'SIM-EV-FLOW-01'],
+    ['Unexpected admin account change', 'Temporarily suspend training-user-04 privileged access', 'SIM-EV-ACCOUNT-01'],
+    ['Application exploit probe', 'Temporarily block the probe source at training-api-05', 'SIM-EV-REQUEST-01'],
+    ['Unusual outbound data transfer', 'Temporarily restrict egress to 203.0.113.44', 'SIM-EV-EGRESS-01'],
+  ];
+  for (const [label, proposal, evidence] of scenarios) {
+    await page.getByRole('combobox', { name: 'Simulation scenario' }).click();
+    await page.getByTitle(label, { exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Approve simulated action' })).toHaveCount(0);
+    await page.getByRole('button', { name: 'Run orchestration simulation', exact: true }).click();
+    for (let i = 0; i < 8; i++) await page.clock.runFor(1900);
+    await expect(page.getByRole('heading', { name: proposal, exact: true })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Response decision' })).toContainText(evidence);
+    await page.getByRole('button', { name: 'Keep investigating', exact: true }).click();
+    await expect(page.getByText('Further investigation requested. No simulated action approved.')).toBeVisible();
+  }
 });

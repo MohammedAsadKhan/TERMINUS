@@ -37,6 +37,16 @@ def make_task(
     )
 
 
+def test_newest_task_pages_preserve_tenant_and_incident_scope(store: OrchestrationStore):
+    _ = [make_task(store) for _ in range(4)]
+    _ = make_task(store, "b")
+    _ = make_task(store, incident="other")
+    chronological = store.list_tasks("a", incident_id="incident-1")
+    first = store.list_tasks("a", incident_id="incident-1", newest_first=True, limit=2)
+    second = store.list_tasks("a", incident_id="incident-1", newest_first=True, limit=2, offset=2)
+    assert [task.task_id for task in first + second] == [task.task_id for task in reversed(chronological)]
+
+
 def test_restart_preserves_records_and_existing_schema(store: OrchestrationStore):
     task = make_task(store)
     run = store.create_agent_run("a", task.task_id, model_name="metadata-only")

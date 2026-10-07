@@ -169,10 +169,11 @@ def list_tasks(
     offset: Annotated[int, Query()] = 0,
     incident_id: str | None = None,
     task_status: Annotated[str | None, Query(alias="status")] = None,
+    newest_first: bool = False,
 ) -> dict[str, Any]:
     _validate_paging(limit, offset)
     try:
-        tasks = store.list_tasks(str(org_id), incident_id=incident_id, status=task_status, limit=limit, offset=offset)
+        tasks = store.list_tasks(str(org_id), incident_id=incident_id, status=task_status, limit=limit, offset=offset, newest_first=newest_first)
         return {
             "items": [
                 {

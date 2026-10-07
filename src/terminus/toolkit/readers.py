@@ -151,7 +151,7 @@ class InvestigationReadService:
                     return self._gap(
                         tool_id, "unavailable", "coverage_sources_not_configured"
                     )
-                if query.event_kind not in {"evidence", "coverage"}:
+                if query.event_kind not in {"evidence", "coverage", "authentication"}:
                     return self._gap(tool_id, "unsupported", "query_kind_not_supported")
                 self.contexts.authorize(context)
                 manager_result, indexer_result = await asyncio.gather(
@@ -159,7 +159,14 @@ class InvestigationReadService:
                         query.model_copy(update={"event_kind": "coverage"}), endpoint
                     ),
                     self.indexer.read(
-                        query.model_copy(update={"event_kind": "detection"}), endpoint
+                        query.model_copy(
+                            update={
+                                "event_kind": "authentication"
+                                if query.event_kind == "authentication"
+                                else "detection"
+                            }
+                        ),
+                        endpoint,
                     ),
                 )
                 return self._publish(
@@ -203,6 +210,7 @@ class InvestigationReadService:
                 expected = (
                     "authentication"
                     if tool_id == "identity.auth_events"
+                    or query.event_kind == "authentication"
                     else "detection"
                 )
                 if query.event_kind not in {"evidence", expected}:

@@ -327,6 +327,10 @@ class _Reader(ABC):
             return _collection(
                 budget.observations, ["Provider body exceeded 64 KiB"], truncated=True
             )
+        except httpx2.HTTPStatusError as exc:
+            return _request_failure(
+                budget, f"Provider HTTP status {exc.response.status_code}"
+            )
         except httpx2.HTTPError:
             return _request_failure(budget, "Provider request failed")
         except (ValueError, KeyError, TypeError):

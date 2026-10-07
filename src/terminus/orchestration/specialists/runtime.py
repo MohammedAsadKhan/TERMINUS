@@ -57,6 +57,7 @@ class QueryContext:
     """
 
     incident_time: datetime | None = None
+    authentication_incident: bool = False
 
 
 QueryBuilder = Callable[[Task, QueryContext], ReadQuery]
@@ -102,6 +103,7 @@ class SpecialistDeps:
     client_for: ClientFactory | None = None
     incident_time_for: IncidentTimeResolver | None = None
     help_context_for: HelpContextResolver | None = None
+    authentication_incident_for: Callable[[str, str], bool] | None = None
 
 
 def _gap(code: GapCode, tool_id: str | None = None, detail: str = "") -> SpecialistGap:
@@ -127,7 +129,9 @@ def _classify(result: ToolResult) -> list[SpecialistGap]:
     return []
 
 
-def _incident_time(deps: SpecialistDeps, org_id: str, incident_id: str) -> datetime | None:
+def _incident_time(
+    deps: SpecialistDeps, org_id: str, incident_id: str
+) -> datetime | None:
     if deps.incident_time_for is None:
         return None
     try:
@@ -265,6 +269,41 @@ async def _model_step(
     return accepted, ref
 
 
+def make_saved_evidence_handler(
+    deps: SpecialistDeps,
+    org_id: str,
+    incident_id: str,
+    evidence_ids: tuple[str, ...],
+) -> JobHandler:
+    """Analyze an administrator-selected snapshot without recollecting telemetry.
+
+    Model admission still checks every canonical evidence reference, its tenant,
+    incident, immutable hash, classification, role policy and budget.
+    """
+    if not evidence_ids or len(evidence_ids) > MAX_MODEL_EVIDENCE:
+        raise ValueError("Select between one and sixteen evidence records")
+
+    async def handler(ctx: JobContext) -> JsonValue:
+        if (
+            ctx.task.org_id != org_id
+            or ctx.lease.incident_id != incident_id
+            or ctx.task.role != "triage"
+        ):
+            raise ValueError("Saved-evidence analysis scope mismatch")
+        gaps = [
+            _gap(
+                "coverage_partial",
+                None,
+                "Saved historical evidence; sensor completeness remains unverified",
+            )
+        ]
+        findings, model = await _model_step(ctx, deps, list(evidence_ids), gaps)
+        result = _finalize("triage", [], list(evidence_ids), findings, gaps, model)
+        return cast("JsonValue", result.model_dump(mode="json"))
+
+    return handler
+
+
 def make_specialist_handler(  # noqa: C901, PLR0915
     spec: RoleSpec, deps: SpecialistDeps
 ) -> JobHandler:
@@ -312,7 +351,14 @@ def make_specialist_handler(  # noqa: C901, PLR0915
             if service is None:
                 break
             await ctx.checkpoint()  # refreshes ctx.lease; never reuse contexts
-            qctx = QueryContext(_incident_time(deps, org_id, ctx.lease.incident_id))
+            qctx = QueryContext(
+                _incident_time(deps, org_id, ctx.lease.incident_id),
+                authentication_incident=(
+                    deps.authentication_incident_for(org_id, ctx.lease.incident_id)
+                    if deps.authentication_incident_for
+                    else False
+                ),
+            )
             try:
                 query = step.build_query(ctx.task, qctx)
             except (ValueError, TypeError, LookupError):

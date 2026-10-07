@@ -119,6 +119,7 @@ class OrchestrationStore:
         status: str | None = None,
         limit: int = 50,
         offset: int = 0,
+        newest_first: bool = False,
     ) -> list[Record]:
         _ = _IDENTIFIER.validate_python(org_id, strict=True)
         if (
@@ -141,8 +142,9 @@ class OrchestrationStore:
                 where.append(f"{column} = ?")
                 params.append(value)
         params.extend((limit, offset))
+        direction = "DESC" if newest_first else "ASC"
         rows = self.db.fetchall(
-            f"SELECT payload_json FROM {table} WHERE {' AND '.join(where)} ORDER BY created_at, {key} LIMIT ? OFFSET ?",  # noqa: S608
+            f"SELECT payload_json FROM {table} WHERE {' AND '.join(where)} ORDER BY created_at {direction}, {key} {direction} LIMIT ? OFFSET ?",  # noqa: S608
             tuple(params),
         )
         return [
@@ -293,6 +295,7 @@ class OrchestrationStore:
         status: str | None = None,
         limit: int = 50,
         offset: int = 0,
+        newest_first: bool = False,
     ) -> list[Task]:
         return self._list(
             Task,
@@ -301,6 +304,7 @@ class OrchestrationStore:
             status=status,
             limit=limit,
             offset=offset,
+            newest_first=newest_first,
         )
 
     def create_agent_run(

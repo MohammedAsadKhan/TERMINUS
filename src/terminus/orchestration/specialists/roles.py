@@ -39,13 +39,18 @@ def _query(task: Task, context: QueryContext, resource_id: str, kind: str) -> Re
     The window is always exactly the one-hour read limit (55 minutes before the
     anchor, 5 after), so an old alert yields a valid window around its own time.
     """
-    anchor = context.incident_time or task.started_at or task.created_at
+    anchor = (
+        (task.started_at or task.created_at)
+        if kind == "inventory"
+        else (context.incident_time or task.started_at or task.created_at)
+    )
     return ReadQuery.model_validate(
         {
             "resource_id": resource_id,
             "start": anchor - _BEFORE,
             "end": anchor + _AFTER,
             "event_kind": kind,
+            "page_size": 20,
         }
     )
 
@@ -69,8 +74,19 @@ def _endpoint(tool_id: str, kind: str = "evidence") -> PlannedCall:
 
 
 _INCIDENT_GET = _incident("incident.get")
-_ALERTS = _endpoint("alerts.search")
-_COVERAGE = _endpoint("collection.coverage")
+
+
+def _scoped_alert_query(task: Task, context: QueryContext) -> ReadQuery:
+    return _query(
+        task,
+        context,
+        ENDPOINT_RESOURCE_ID,
+        "authentication" if context.authentication_incident else "evidence",
+    )
+
+
+_ALERTS = PlannedCall("alerts.search", _scoped_alert_query)
+_COVERAGE = PlannedCall("collection.coverage", _scoped_alert_query)
 
 ROLE_SPECS: Final[dict[str, RoleSpec]] = {
     "triage": RoleSpec("triage", (_INCIDENT_GET, _ALERTS, _COVERAGE)),
@@ -78,7 +94,8 @@ ROLE_SPECS: Final[dict[str, RoleSpec]] = {
         "identity", (_INCIDENT_GET, _endpoint("identity.auth_events"), _COVERAGE)
     ),
     "endpoint": RoleSpec(
-        "endpoint", (_INCIDENT_GET, _endpoint("endpoint.agent"), _ALERTS, _COVERAGE)
+        "endpoint",
+        (_INCIDENT_GET, _endpoint("endpoint.agent", "inventory"), _ALERTS, _COVERAGE),
     ),
     "network": RoleSpec(
         "network",
