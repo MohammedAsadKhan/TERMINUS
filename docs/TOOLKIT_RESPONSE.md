@@ -1,5 +1,7 @@
 # Response and improvement toolkit contracts
 
+**October 17 status:** the separate [incident response service](RESPONSE_DECISIONS.md) passed bounded live SSH tests. This does not implement all named catalog tools below. See [completed test scope](TESTING_STATUS.md); catalog availability remains explicit.
+
 The [response catalog](../src/terminus/toolkit/response_catalog.json) defines intended tools, connector prerequisites, specialty coverage and three core bundles. It does not install handlers, invoke providers, grant approvals, register future roles or change existing workflow behavior. The [PRD response requirements](PRD.md) and [future release boundary](FUTURE_SCOPE.md) remain authoritative.
 
 All tools in this catalog are `implementation_pending` or `planned`. Existing evidence storage, containment guardrails, reports and action records are integration seams, not proof that these named tool adapters exist. A connector's `not_configured` status also remains explicit even when a related underlying client exists. Scenario A and B labs are not built by this change; Scenario B's vulnerability and response remain unselected.

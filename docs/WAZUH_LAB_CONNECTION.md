@@ -62,7 +62,7 @@ The historical time window above matches the first SSH test; for subsequent
 tests select the actual timestamps (maximum one hour). An empty/partial/failed
 collection creates no incident. This is explicit import, not continuous polling.
 
-## Remaining live integration gates
+## Historical worker bring-up and subsequent validation
 
 First live worker run completed main/area/triage but produced partial evidence:
 the broad one-hour detection search exceeded 64 KiB, and current manager
@@ -84,17 +84,14 @@ The original attempt and evidence remain in history. The lab worker must still
 be launched with live models disabled. No credential is needed by the retry
 command; connector credentials remain in the worker environment.
 
-- Configure authenticated alert ingestion into canonical incidents. The reader
-  deployment does not poll alerts into new incidents.
-- The local admin import command now creates read policy and agent bindings;
-  an authenticated UI setup path remains future work. Models cannot establish
-  those permissions.
-- Run an actual leased specialist task and inspect durable evidence/audit results.
-- Preserve management access, stabilize management IPs, and snapshot the VMs.
-- Implement and validate approval-bound response dispatch, reconciliation,
-  independent verification, expiry and undo separately.
+## October 17 completion
 
-Do not mark these gates complete based on successful manual curl requests.
+- [x] Authenticated bounded import preserves canonical incident/source evidence; actual leased specialist work and saved Gemini analysis were observed.
+- [x] Real SSH response dispatch, independent blocking/management checks, expiry and interruption reconciliation passed through the bounded response service.
+- [x] File-integrity import and cited Gemini analysis passed; automated file restoration remains unavailable.
+
+See [testing status](TESTING_STATUS.md), [response decisions](RESPONSE_DECISIONS.md) and [file-integrity results](FILE_INTEGRITY_LAB_2026-10-17.md). Automatic pending-incident polling is implemented and fixture-validated; this is not a claim of a fully rehearsed unattended investigation pipeline. Snapshot restore, dedicated response-account RBAC, early undo and production deployment remain outside the completed scope. Manual curl success alone never establishes these results.
+
 # Gemini lab budget
 
 Live saved-evidence validation succeeded in task

@@ -1,5 +1,7 @@
 # File-integrity lab result — October 17, 2026
 
+**Status: COMPLETE — real detection, import, cited analysis and operator test-file restoration.** Response recommendations remain reviewable; automated file restoration is unavailable. See [testing completion](TESTING_STATUS.md).
+
 ## Verified live result
 
 Controlled, harmless file tampering on the existing Ubuntu endpoint generated **four real Wazuh events**: two additions, one modification, and one deletion. No malware or vulnerable VM was required.

@@ -1,5 +1,7 @@
 # Incident response decisions
 
+**Status: COMPLETE — scoped prototype acceptance, October 17, 2026.** See the [testing completion record](TESTING_STATUS.md) for test layers and remaining release boundaries.
+
 ## Operator controls
 
 Every newly imported incident receives a system recommendation. The scoped console worker can also prepare a pending incident from three new authenticated lab SSH failures; that intake alone never authorizes execution. The incident **Response** tab shows its evidence, impact, target scope, capability, verification and recovery. Existing incidents can use **Prepare / refresh recommendation**. The incident Activity tab and Agents task inspector share the persisted response timeline.
@@ -68,4 +70,4 @@ Both new-service SSH response paths passed in the installed isolated lab:
 - The canonical initial events were imported by the trusted bounded reader in the live harness. Automatic pending-incident intake, repeated autonomous responses, and revised-duration carry-forward were fixture-validated; the live autonomy rehearsal executed one action before interruption.
 - Evidence is saved at `~/Downloads/TERMINUS_Lab_Test_2026-10-17/response-decisions.json`. The real file-integrity response controls were also inspected in Chrome; unsupported execution remained disabled. Screenshot: `response-controls.png` in the same directory.
 
-This validates the bounded lab adapter and decision service, not arbitrary response actions or production deployment. Existing fixture approvals, model recommendations, and historical standalone tests remain separately labeled. Changes are uncommitted.
+This validates the bounded lab adapter and decision service, not arbitrary response actions or production deployment. Existing fixture approvals, model recommendations, and historical standalone tests remain separately labeled. Implementation committed and pushed as `4afc1df`.

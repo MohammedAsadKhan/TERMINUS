@@ -1,5 +1,7 @@
 # Approval-bound response foundation
 
+**October 17 update:** the separate live service in `response/live.py` completed bounded SSH approval, autonomy, verification and expiry/reconciliation acceptance. See [response decisions](RESPONSE_DECISIONS.md) and [testing status](TESTING_STATUS.md). The October 4 fixture foundation described below remains fixture-only; its receipts do not authorize live actions.
+
 October 4, 2026. Done by - Mohammed | Agent - Codex orchestrator and GPT-6.1 Sol implementation agent. This is an internal fixture foundation for Scenario A, not a live defense adapter. A03–A05 remain subject to their lab acceptance criteria.
 
 ## Contract and ownership
@@ -12,7 +14,7 @@ Human approval requires current administrator membership, an exact proposal dige
 
 ## Durable fixture lifecycle
 
-`response/storage.py` persists policies, proposals, decisions, unique intents and events. `response/fixtures.py` provides a private SQLite-only test driver. There is no public dispatch endpoint or live network, endpoint or identity action in this package.
+`response/storage.py` persists policies, proposals, decisions, unique intents and events. `response/fixtures.py` provides a private SQLite-only test driver. This fixture driver exposes no public dispatch endpoint or live network, endpoint or identity action. The separate live service is documented above.
 
 1. Persist a unique intent and attempt before simulated provider I/O.
 2. Treat cancellation, expiry, revocation and stale ownership conservatively.
@@ -22,11 +24,12 @@ Human approval requires current administrator membership, an exact proposal dige
 
 All outcomes expose `fixture_only=true`, `live_executed=false` and `live_verified=false`, including successfully verified fixture observations.
 
-## Remaining integration
+## Integration status as of October 17
 
-- Connect trusted response planning to the toolkit/workflow interfaces and authenticated operator review UI.
-- Select the installed Wazuh version, least-privileged manager credential and supported active-response configuration.
-- Implement real dispatch and reconciliation through a controlled adapter, with independent telemetry proving attacker-path blocking and management/service health.
-- Test timed expiry, undo and demonstration reset in the local lab before AWS migration.
+- [x] Authenticated incident review controls and durable live authorization boundary, separate from fixture tables.
+- [x] Installed Wazuh temporary IP-block transport, independent blocking/management observations, timed expiry and read-only interruption reconciliation.
+- [ ] Dedicated least-privileged response credential validation and production certificate deployment.
+- [ ] Early undo and automated ownership-checked empty-table cleanup.
+- [ ] Broader toolkit/workflow response integration and AWS deployment.
 
-Do not use fixture receipts or test-provided observations as real defense evidence. Current verification results are recorded in [the pre-lab checkpoint](PRELAB_IMPLEMENTATION.md).
+Completed items refer to the separate bounded live service, not execution of this fixture driver. See [current testing status](TESTING_STATUS.md); the [pre-lab checkpoint](PRELAB_IMPLEMENTATION.md) remains historical evidence.

@@ -1,74 +1,22 @@
-# Scenario A live response — implementation handoff
+# Scenario A live response — completed lab handoff
 
-Status: transport and endpoint command implemented. Manual lab checks validated
-Wazuh command delivery, source blocking, management access, and timed recovery.
-The Terminus durable live response lifecycle is not connected. No automatic policy is enabled. Existing response policies
-and lifecycle remain fixture-only. Do not use the transport directly from a
-model, workflow, or public API.
+**Status: COMPLETE for the bounded SSH lab and incident response-decision release, October 17, 2026.** Implementation committed and pushed as `4afc1df`. See [testing status](TESTING_STATUS.md) for the accepted scope and evidence layers.
 
-## Implemented
+## Verified completion
 
-- `src/terminus/response/wazuh_transport.py`: bounded Wazuh 4.x manager transport,
-  separate response credentials, one fixed installed-script command (`!terminus-ip-block`), one configured
-  endpoint/source, ten-second total deadline, 64 KiB response bound, no retries
-  or redirects. Provider acceptance remains unverified. Ambiguous send outcomes
-  require reconciliation.
-- `scripts/lab/terminus_ip_block.py`: Ubuntu lab command using nftables. Only
-  source `10.77.0.10` is permitted. The action's intent and proposal digest derive
-  a dedicated owned table. A timed IPv4 set element expires after 30–900 seconds
-  independently of the worker. Duplicate dispatch cannot renew the timeout.
-  Delete validates table ownership before removing only that table. Empty tables
-  remain after expiry until ownership-checked cleanup.
+- [x] Durable live proposals, exact-digest administrator decisions, incident-scoped autonomy, intent persistence and concurrency/replay guards. Fixture approvals remain separate.
+- [x] Installed root-owned nftables endpoint command and bounded Wazuh transport using `!terminus-ip-block` for agent 001 and source 10.77.0.10. No generic remote shell or automatic Wazuh rule owns the decision.
+- [x] Three standalone autonomous lab cycles with independent block, management-health and recovery checks; cooldown, quota and active-controller interruption recorded in the [SSH report](LAB_TEST_RESULTS_2026-10-17.md).
+- [x] One approve-once and one incident-autonomy cycle through the new decision service, independently verified expiry/recovery and interruption reconciliation without redispatch; see [response decisions](RESPONSE_DECISIONS.md).
+- [x] Console decision controls, unavailable-action display, persisted activity and fixture-based permission/failure checks.
 
-## Work required before any live dispatch
+Done by — Mohammed / Codex, October 17, 2026; evidence and validation counts are linked above. Live decisions used the authorized local administrator harness; browser and HTTP validation were separate checks.
 
-1. Add a durable live authorization/lifecycle boundary. Existing
-   `ResponsePolicy.fixture_only=True` must not be reinterpreted as live approval.
-   Bind an administrator-configured autonomous policy to exact registered
-   target, source, fresh canonical evidence, threshold, duration, exclusions,
-   connector identity and policy version. Record admission and dispatch intent
-   before I/O. Enforce quotas and ownership atomically. Never replay an unknown
-   or interrupted send.
-2. Install and validate nftables on Ubuntu. Copy the endpoint script root-owned,
-   mode 0750, into `/var/ossec/active-response/bin/terminus-ip-block`. Register the
-   command on the Wazuh manager (inside `ossec_config`):
+## Remaining boundaries
 
-   ```xml
-   <command>
-     <name>terminus-ip-block</name>
-     <executable>terminus-ip-block</executable>
-     <timeout_allowed>no</timeout_allowed>
-   </command>
-   ```
+The lab used the existing API account. A dedicated least-privileged response account, production certificates/deployment, early undo and automated empty-table cleanup remain unverified. Kernel timeout removes the blocked address; an empty owned table may remain. Broad unattended intake and model-led multispecialist-to-response operation have not received full live acceptance. Automatic pending intake and repeat incident-autonomy behavior have fixture coverage only.
 
-   The endpoint implements its own kernel timeout. Do not attach an automatic
-   Wazuh rule trigger: Terminus must own the decision. Verify installed Wazuh
-   configuration and command delivery in the lab before relying on this snippet.
-3. Provision a separate response account restricted to
-   `active-response:command` for `agent:id:001`. Wazuh's permission allows other
-   commands on that endpoint; Terminus must enforce its fixed command boundary.
-4. Add independent observation and conservative reconciliation: inspect the
-   owned table, blocked source and remaining TTL; observe SSH from Kali failing
-   after a successful baseline; verify Windows management SSH still works.
-   Provider acknowledgement cannot satisfy these checks.
-5. Test expiry and ownership-checked cleanup, then observe Kali SSH recovery.
-   Test cancellation, crash before/after send, unknown outcomes, changed policy,
-   protected addresses and duplicate alerts. Persist results in the operation
-   history. Do not call a fixture check live verification.
-6. Connect continuous bounded Wazuh intake and specialist investigation to the
-   approved autonomous policy. Enable only after the live rehearsal passes.
-
-## References
-
-- [Wazuh 4.14 API reference](https://documentation.wazuh.com/4.14/user-manual/api/reference.html)
-- [Wazuh 4.14 API specification](https://github.com/wazuh/wazuh/blob/v4.14.0/api/api/spec/spec.yaml)
-- [Custom active response scripts](https://documentation.wazuh.com/current/user-manual/capabilities/active-response/custom-active-response-scripts.html)
-
-Claim protocol: mark each completed item with `Done by — <name/agent>, <date>,
-<validation evidence>`. Keep live-validation items unchecked until observed in
-the installed environment. Transport and endpoint command: implemented by Codex;
-fixture tests cover scope, bounded output, ambiguous timeout, ownership, duplicate
-dispatch and TTL construction. No live block has been attempted.
+Use the [console worker and read-only reconciliation instructions](RESPONSE_DECISIONS.md) for this implementation. Console dispatch ownership fences the historical standalone controller. Do not reinterpret old fixture records as authorization or run competing dispatchers.
 
 ## Manual lab evidence
 

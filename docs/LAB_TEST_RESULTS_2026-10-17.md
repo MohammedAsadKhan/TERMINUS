@@ -1,5 +1,7 @@
 # Lab testing evidence — October 17, 2026
 
+**Status: COMPLETE — standalone autonomous SSH lab acceptance.** The later [console decision-service rehearsal](RESPONSE_DECISIONS.md) adds two separately recorded cycles; [file-integrity testing](FILE_INTEGRITY_LAB_2026-10-17.md) also passed. See [overall scoped completion](TESTING_STATUS.md).
+
 Scope: isolated Scenario A SSH defense. Real Wazuh observations and real nftables effects are kept separate from fixture tests and presentation simulations.
 
 ## Live baseline
@@ -46,4 +48,4 @@ This autonomous path is a deterministic policy on fresh authenticated events. It
 
 ## Scope of completion
 
-Tonight's isolated SSH lab milestone is complete: real ingestion, earlier saved Gemini analysis, deterministic autonomous blocking, independent recovery, repeat operation, cooldown, protected source, stale replay, unavailable-endpoint admission, active controller interruption, reconciliation, and durable quota. Other response types, production deployment, notification delivery, response UI projection, and a model-led multi-specialist response decision remain separate work. Changes have not been committed or pushed.
+Tonight's isolated SSH lab milestone is complete: real ingestion, earlier saved Gemini analysis, deterministic autonomous blocking, independent recovery, repeat operation, cooldown, protected source, stale replay, unavailable-endpoint admission, active controller interruption, reconciliation, and durable quota. Response UI projection and the incident decision service subsequently passed their scoped checks; see [response decisions](RESPONSE_DECISIONS.md). Production deployment, notification delivery, other executable response types and a model-led multi-specialist response decision remain outside this completed milestone. Implementation committed and pushed as `4afc1df`.

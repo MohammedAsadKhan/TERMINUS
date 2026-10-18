@@ -1,5 +1,15 @@
 # Terminus team execution checklist
 
+## October 17 scoped lab acceptance — complete
+
+- [x] LAB17-SSH Real authenticated SSH ingestion, three autonomous block/recovery cycles and interruption proof. Done by - Mohammed | Agent - Codex | Date - 2026-10-17 | Change - `4afc1df` | Verified - [SSH evidence](LAB_TEST_RESULTS_2026-10-17.md).
+- [x] LAB17-DECISIONS Incident approval and autonomy, independent verification/recovery, worker interruption and reconciliation. Done by - Mohammed | Agent - Codex | Date - 2026-10-17 | Change - `4afc1df` | Verified - [live cycles and fixture/browser boundaries](RESPONSE_DECISIONS.md).
+- [x] LAB17-FIM Four real file events, canonical evidence and cited Gemini analysis; operator restored test files. Done by - Mohammed | Agent - Codex | Date - 2026-10-17 | Change - `4afc1df` | Verified - [FIM report](FILE_INTEGRITY_LAB_2026-10-17.md).
+- [x] LAB17-REGRESSION Backend 1,243 passed; final focused response 26 passed; browser nine passed; console build passed. Done by - Mohammed | Agent - Codex | Date - 2026-10-17 | Change - `4afc1df` | Verified - [completion record](TESTING_STATUS.md).
+
+The original roadmap below retains broader exit criteria, including dedicated credentials, explicit undo and snapshot restoration. Unchecked broader gates do not mean these scoped tests are incomplete. Earlier dated claim records are historical checkpoints.
+
+
 Planning baseline: October 3, 2026. Read [PRD](PRD.md) and [MVP scope](MVP_RELEASE.md) before implementation. These boxes start unchecked: earlier tests and source files do not establish completion of the new release requirements.
 
 ## Working rules
@@ -78,7 +88,7 @@ Add one row per claimed task. Re-read the current shared version before claiming
 
 - [ ] L01 Keep existing Kali; import official Wazuh OVA (8 GB/4 vCPU/50 GB); create Ubuntu Server target A (2 GB/2 vCPU/25 GB). Owner: Mohammed. Exit: machine inventory and versions recorded. Confirm host performance; no need to reinstall Kali.
 - [ ] L02 Create internal `terminus-lab` attack/telemetry network and separate host-only management path. Kali uses lab network; Wazuh/targets have required management connections. Owner: Mohammed. Depends: L01. Exit: addressing table, route checks, management exclusions; no target bridging or interface forwarding. Temporary update access disconnected for attack rehearsal.
-- [ ] L03 Install/enroll Wazuh endpoint agent; configure actual SSH auth-log collection. Owner: Mohammed + SIEM owner. Depends: L02. Exit: target connected and a real failed-login event visible in Wazuh.
+- [x] L03 Install/enroll Wazuh endpoint agent; configure actual SSH auth-log collection. Owner: Mohammed + SIEM owner. Depends: L02. Exit: target connected and a real failed-login event visible in Wazuh. Done by - Mohammed | Agent - Codex | Date - 2026-10-17 | Change - `4afc1df` | Verified - [SSH lab report](LAB_TEST_RESULTS_2026-10-17.md).
 - [ ] L04 Snapshot clean and monitoring-configured states; record restore procedure. Owner: Mohammed. Depends: L03. Exit: restore tested; unique endpoint identities and clocks remain correct.
 - [ ] L05 Set up dedicated lab accounts/fake data and an independent management check. Owner: Mohammed. Depends: L02. Exit: attacker and administrator paths distinguishable; response cannot target management addresses.
 

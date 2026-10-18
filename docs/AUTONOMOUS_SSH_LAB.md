@@ -1,5 +1,7 @@
 # Autonomous SSH lab runner
 
+**Status: COMPLETE — three installed-lab cycles, October 17.** This historical standalone runner is superseded for incident decisions by the [console response worker](RESPONSE_DECISIONS.md). Console ownership permanently fences the standalone dispatcher; do not run competing dispatchers. See [test results](LAB_TEST_RESULTS_2026-10-17.md).
+
 This is a separate, opt-in live lab controller. It does not reinterpret the fixture-only response service, enable future specialties, or give models response credentials.
 
 ## Implemented behavior
@@ -12,13 +14,13 @@ Before dispatch, independent observers must establish Kali SSH access, Windows m
 
 After Wazuh accepts the command, independent SSH observations must show Kali denied, Windows management still available, and the correct action-owned nftables set containing the source. Recovery requires the same owned set empty and Kali SSH working after expiry. Acknowledgement alone is never verified success. Unknown outcomes halt further actions pending reconciliation. Kernel expiry works even if the controller stops. Empty owned tables may remain; automated cleanup/early undo is not implemented by this runner.
 
-## Live prerequisites — not yet verified
+## Lab setup and credential boundary
 
 - Keep Kali adapter 1 on `terminus-lab`. Add a second **host-only** management adapter (never bridged) so Windows can SSH into Kali without using the blocked attack path. Record its `192.168.56.x` address.
 - Configure a dedicated SSH key from Windows to `kali@KALI_MANAGEMENT_IP` and `labadmin@192.168.56.103`. Verify host fingerprints interactively first. The observer uses BatchMode and strict host-key checking and never accepts unknown keys automatically.
 - Provision tightly scoped, read-only sudo access for the Ubuntu observer: `/usr/sbin/nft --json list tables` and `/usr/sbin/nft --json list table inet terminus_*`. Do not grant firewall-write or arbitrary shell sudo access. Have the administrator review the exact sudoers rule with `visudo`.
-- The existing root-owned `terminus-ip-block` endpoint script must still be installed. The ordinary verification user is not expected to execute that script; it runs only through Wazuh. Use a separate Wazuh response API account restricted to `active-response:command` for `agent:id:001`; source and command restrictions are additionally enforced by Terminus and the endpoint script.
-- Keep the indexer SSH tunnel open. Verify all VM clocks and the Kali/Windows SSH baselines. Independent live baseline passed on October 17: Kali SSH probe, Ubuntu management access, read-only nft inspection. Autonomous dispatch remains unverified until a complete live cycle is recorded.
+- The existing root-owned `terminus-ip-block` endpoint script must still be installed. The ordinary verification user is not expected to execute that script; it runs only through Wazuh. Production hardening still requires validating a separate Wazuh response API account restricted to `active-response:command` for `agent:id:001`; source and command restrictions are additionally enforced by Terminus and the endpoint script.
+- Keep the indexer SSH tunnel open. Verify all VM clocks and the Kali/Windows SSH baselines. Independent live baseline passed on October 17: Kali SSH probe, Ubuntu management access, read-only nft inspection. Three autonomous cycles, independent recovery and active-phase interruption subsequently passed; see the linked test report.
 
 ## Run
 
@@ -30,7 +32,7 @@ uv run python scripts/run_autonomous_wazuh_lab.py --database terminus.db --org o
 
 Passwords are prompted locally, never saved or passed in command arguments. The runner uses the existing local-lab TLS exception for Wazuh; production requires trusted certificates. Failed baseline checks enable no policy and send no action. Generate new SSH failures only after the runner reports the policy enabled.
 
-This runner creates canonical incidents and queues the existing read-only investigation tasks; a separately deployed specialist worker can consume them. Autonomous blocking is a deterministic policy decision on fresh authenticated observations, not a completed multi-specialist/model investigation. UI response event projection, explicit revocation/reconciliation controls, notification delivery, and production deployment remain separate work.
+This runner creates canonical incidents and queues the existing read-only investigation tasks; a separately deployed specialist worker can consume them. Autonomous blocking is a deterministic policy decision on fresh authenticated observations, not a completed multi-specialist/model investigation. The later console service implements response timeline projection, revocation and read-only reconciliation; see [response decisions](RESPONSE_DECISIONS.md). Notification delivery and production deployment remain outside the completed lab scope. The rehearsal used the existing lab API account; dedicated response-account RBAC was not established.
 
 ## Validation
 

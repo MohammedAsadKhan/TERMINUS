@@ -14,7 +14,7 @@
 
 <sub>Defensive security operations</sub>
 
-[Current implementation and lab handoff](docs/PRELAB_IMPLEMENTATION.md)
+[Completed lab testing and current limitations](docs/TESTING_STATUS.md) · [Historical pre-lab handoff](docs/PRELAB_IMPLEMENTATION.md)
 
 [Misha's QA walkthrough and evidence log](docs/QA_LOCAL_EXPLORATION.md)
 
@@ -26,11 +26,11 @@
 
 Terminus brings incidents, investigation, agents, response workflows and asset inventory into one analyst workspace. Its direction is simple: turn security telemetry into traceable findings, route work to the right specialists, and require scoped approval and independent verification for consequential responses.
 
-The repository includes the operations console, incident and identity persistence, visual playbooks, a durable scheduler and deterministic main/area coordination. The toolkit catalog defines the next integration layer; live specialist handlers and verified lab defense remain release work.
+The repository includes the operations console, incident and identity persistence, visual playbooks, a durable scheduler and deterministic main/area coordination. The toolkit catalog defines the next integration layer; bounded Wazuh investigation and verified SSH lab defense have passed their scoped acceptance; broader specialist and production coverage remain release work.
 
 | Investigate | Coordinate | Respond |
 | :--- | :--- | :--- |
-| Incident queues, Copilot investigation surfaces and source-linked evidence records. | Durable tasks, tracked runs, bounded scheduling and five logical areas. | Visual playbooks and guardrails, with approval-bound live response planned. |
+| Incident queues, Copilot investigation surfaces and source-linked evidence records. | Durable tasks, tracked runs, bounded scheduling and five logical areas. | Visual playbooks, incident approval and scoped autonomy with independently verified SSH lab response. |
 
 ## Release at a glance
 
@@ -40,12 +40,12 @@ The repository includes the operations console, incident and identity persistenc
 | **Asset inventory & Repo Security** | Organization-scoped repositories, containers, clouds, VMs, domains and devices with asset tiering (Tier 0–3) and blast-radius guardrail protection. Sandboxed repository scanning extracts SBOM components and flags secrets, dependencies, and suspicious commits without raw secret storage. |
 | **Persistent foundation** | SQLite-backed identities, sessions, incidents, workflows, tasks, runs and immutable evidence. Daily report history and campaign stitching still use process memory. |
 | **Durable scheduling** | Dedicated Python/asyncio process, fenced leases, bounded concurrency, cancellation, retry and conservative holds after uncertain dispatch. |
-| **Coordination** | Main orchestrator, lazy area coordinators and eight core roles. Specialist handlers and collaboration have pre-lab fixture coverage; useful execution against lab telemetry remains unverified. |
-| **Defensive toolkit** | **60 specialties · 18 families · 93 tools · 48 connector candidates.** Contracts plus an internal read-only registry/gateway, durable invocation quota/audit and fenced evidence writer. Five bounded investigation readers are available through explicit internal installation; live lab and specialist integration remain pending. |
-| **Model control** | Named encrypted connections, role/data policy, routing, budgets and guarded production transport are implemented. Protocols are fixture-tested; one limited synthetic Gemini smoke test passed, while full model evaluation and lab use remain open. |
-| **Live defense** | Wazuh-backed approved response, reconciliation, expiry/undo and independent verification require implementation and lab testing. |
+| **Coordination** | Main orchestrator, lazy area coordinators and eight core roles. Specialist collaboration has fixture coverage; bounded real Wazuh triage and cited Gemini analysis passed. All eight roles have not received live acceptance. |
+| **Defensive toolkit** | **60 specialties · 18 families · 93 tools · 48 connector candidates.** Contracts plus an internal read-only registry/gateway, durable invocation quota/audit and fenced evidence writer. Five bounded investigation readers are available through explicit internal installation; bounded Wazuh lab reads passed; broader catalog integration remains planned. |
+| **Model control** | Named encrypted connections, role/data policy, routing, budgets and guarded production transport are implemented. Protocols are fixture-tested; real saved SSH and file-integrity evidence received cited Gemini analysis. Other providers and full model evaluation remain separate. |
+| **Live defense** | Approve-once and incident-autonomous Wazuh SSH blocking, independent verification, timed expiry and reconciliation passed in the fixed lab scope. File restoration and production deployment remain unavailable/unverified. |
 
-> **Verification snapshot:** The October 6 test run records **1,171 passing backend tests** (100% green across all unit, integration, guardrail, and repository security suites) and a clean production console build. See [architecture decisions](docs/ARCHITECTURE_DECISIONS.md) and [model evaluation](docs/MODEL_EVALUATION.md).
+> **Verification snapshot (October 17):** 1,243 backend tests passed; after final polling refinements, 26 focused response tests passed. Nine browser checks and the production console build passed. Five real SSH block/recovery cycles and real file-integrity analysis are recorded with their distinct test boundaries in [testing status](docs/TESTING_STATUS.md).
 
 ## How it fits together
 
@@ -71,7 +71,7 @@ flowchart TD
     class ROLES,GATE,READ,PLAN,APPROVE,EFFECT,VERIFY planned;
 ```
 
-Solid connections show the current foundation; dotted connections show pending specialist/model/response integration. The API and scheduler run as separate processes on the same host and SQLite file. Scheduler completion alone never proves that an endpoint is protected.
+Solid connections show the foundation; dotted connections summarize the broader integration roadmap. The bounded Wazuh/Gemini/SSH response path has since passed scoped lab acceptance; the diagram does not imply every specialist or response adapter is live. The API and scheduler run as separate processes on the same host and SQLite file. Scheduler completion alone never proves that an endpoint is protected.
 
 [Scheduler operations](docs/SCHEDULER.md) · [Coordination contracts](docs/COORDINATION.md) · [Architecture decisions](docs/ARCHITECTURE_DECISIONS.md)
 
@@ -105,7 +105,7 @@ uv run --frozen uvicorn terminus.server.app:create_app --factory --host 127.0.0.
 
 Open **http://127.0.0.1:8000/console/**. The prebuilt console is tracked, so an initial launch needs no frontend build.
 
-The **QA walkthroughs** item in the console sidebar opens Misha Stegall's guided checks for synthetic alert ingestion, incident evidence, specialist activity, workflows, and connector settings. The Overview has both a one-click random synthetic alert and a topic dropdown. Use the [QA evidence guide](docs/QA_LOCAL_EXPLORATION.md) to record expected and observed results. Local startup, build, and fixture checks have passed; live Wazuh, model, notification, and response connections still require end-to-end verification.
+The **QA walkthroughs** item in the console sidebar opens Misha Stegall's guided checks for synthetic alert ingestion, incident evidence, specialist activity, workflows, and connector settings. The Overview has both a one-click random synthetic alert and a topic dropdown. Use the [QA evidence guide](docs/QA_LOCAL_EXPLORATION.md) to record expected and observed results. Local startup, build and fixture checks passed. Bounded Wazuh ingestion, Gemini evidence analysis and approved/autonomous SSH response passed their recorded lab checks; notification delivery and production deployment remain unverified. See [testing status](docs/TESTING_STATUS.md).
 
 Local mode supports the first-run demo login: `admin@terminus.local` / `Password123!`. Existing credentials are not reset at startup. Hosted mode creates no demo account.
 
