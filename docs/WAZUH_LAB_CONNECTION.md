@@ -116,3 +116,9 @@ This is a local database setting, not a change to Google billing or API quota.
 The saved-evidence analysis launcher carries the existing zero-dollar budget
 and optional token cap into a new UTC day. Unknown usage reservations remain
 in the audit ledger; removing a token cap does not erase or reconcile them.
+
+## Configurable model evidence size
+
+Production admission retains a 24 KiB default. Trusted specialist deployments can set `TERMINUS_SPECIALIST_MODEL_EVIDENCE_BYTES` between 1024 and 262144 bytes. The saved-evidence lab launcher defaults to 64 KiB (`--evidence-limit-bytes 65536`). Redaction, evidence integrity, permissions, and budget admission remain enforced. Larger inputs consume more provider quota.
+
+October 17 validation: task `7cf92763-857a-4a8c-907e-8950f4b8e8d5` analyzed the fresh SSH incident with Gemini and returned three cited findings (13,022 total tokens). Coverage remains partial; no response was dispatched. Findings include separate console login failures and legitimate sudo activity and must not be merged into an unsupported compromise claim.

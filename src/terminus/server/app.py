@@ -40,6 +40,7 @@ from terminus.server.routers import (
     webhook_router,
     workflow_router,
 )
+from terminus.server.response_api import router as response_router
 from terminus.server.streaming import streaming_router
 
 
@@ -179,6 +180,7 @@ def create_app() -> FastAPI:
         return response
 
     app.include_router(console_router)
+    app.include_router(response_router)
     app.include_router(assets_router)
     app.include_router(repo_router)
     app.include_router(health_router)

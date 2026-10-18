@@ -135,6 +135,9 @@ class SqliteIncidentRepository:
                 "INSERT INTO incident_alert_links (org_id, alert_id, ticket_id) VALUES (?, ?, ?)",
                 (str(org_id), alert.id, str(ticket_id)),
             )
+            from terminus.response.live import LiveResponseService
+
+            LiveResponseService(self.db).refresh(str(org_id), str(ticket_id))
             return ticket_id
 
     async def get_by_alert(self, alert_id: str, org_id: OrgId | str) -> dict[str, Any] | None:

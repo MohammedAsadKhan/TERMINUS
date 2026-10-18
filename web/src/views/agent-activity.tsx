@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Alert,
   App,
@@ -24,6 +25,7 @@ import { date, EmptyPanel, ErrorPanel } from '../components';
 import { useSession } from '../context';
 import './agent-activity.css';
 import OperationMap from './operation-map';
+import IncidentResponse from './incident-response';
 
 const PAGE_SIZE = 20;
 const ACTIVE_STATES = new Set(['queued', 'running', 'waiting']);
@@ -489,6 +491,9 @@ function Catalog({ data, loading }: { data?: CatalogResponse; loading: boolean }
 
 export default function AgentActivity() {
   const { orgId, detail: membership } = useSession();
+  const [responseParams] = useSearchParams();
+  const linkedIncident = responseParams.get('incident_id') || '';
+  const linkedTask = responseParams.get('task_id') || '';
   const { message } = App.useApp();
   const queryClient = useQueryClient();
   const [page, setPage] = useState(0);
@@ -503,11 +508,11 @@ export default function AgentActivity() {
   useEffect(() => {
     setPage(0);
     setStatus('');
-    setIncident('');
-    setIncidentDraft('');
-    setSelection(null);
+    setIncident(linkedIncident);
+    setIncidentDraft(linkedIncident);
+    setSelection(linkedTask ? {orgId, taskId:linkedTask} : null);
     setSelectedRunId(null);
-  }, [orgId]);
+  }, [orgId, linkedIncident, linkedTask]);
 
   const tasks = useQuery({
     queryKey: ['orchestration-tasks', orgId, page, status, incident],
@@ -609,6 +614,7 @@ export default function AgentActivity() {
       <aside className="panel activity-inspector" aria-label="Task inspector">
         {!selectedTaskId ? <EmptyPanel title="Select a task" description="Choose a durable task to inspect its run, evidence, model attempt, and collaboration context." /> : detail.isPending ? <Skeleton active paragraph={{ rows: 10 }} /> : detail.error ? <ErrorPanel error={detail.error} retry={() => void detail.refetch()} /> : detail.data && <>
           <header className="inspector-header"><div><span className="eyebrow">TASK INSPECTOR</span><h2>{detail.data.task.role.replaceAll('_', ' ')}</h2><p>{objectiveText(detail.data.task.objective)}</p></div><StateTag value={detail.data.task.status} /></header>
+          <IncidentResponse key={detail.data.task.incident_id} incidentId={detail.data.task.incident_id} timelineOnly />
           <div className="inspector-id"><span>Task</span><Id>{detail.data.task.task_id}</Id><span>Incident</span><Id>{detail.data.task.incident_id}</Id></div>
           <div className="inspector-actions">
             <span>Execution state and finding verdict are reported independently.</span>

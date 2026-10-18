@@ -1,4 +1,4 @@
-"""Trusted local administrator import of bounded Wazuh authentication evidence."""
+"""Trusted administrator import of bounded authentication and isolated FIM evidence."""
 
 import hashlib
 import json
@@ -22,13 +22,30 @@ def _object(value: JsonValue) -> dict[str, JsonValue]:
     return value
 
 
-def import_authentication_incident(  # noqa: C901 -- ordered source admission
+def import_authentication_incident(
+    db: Database, *, org_id: str, actor: str, agent_id: str, collection: ReadCollection,
+) -> str:
+    """Import failed authentication records using the existing strict admission."""
+    return _import_incident(db, org_id=org_id, actor=actor, agent_id=agent_id,
+                            collection=collection, kind="authentication")
+
+
+def import_file_integrity_incident(
+    db: Database, *, org_id: str, actor: str, agent_id: str, collection: ReadCollection,
+) -> str:
+    """Import real file-integrity events confined to the harmless lab directory."""
+    return _import_incident(db, org_id=org_id, actor=actor, agent_id=agent_id,
+                            collection=collection, kind="file integrity")
+
+
+def _import_incident(  # noqa: C901, PLR0912 -- ordered source admission
     db: Database,
     *,
     org_id: str,
     actor: str,
     agent_id: str,
     collection: ReadCollection,
+    kind: str,
 ) -> str:
     """Preserve provider records; grant reads only after current admin admission."""
     if (
@@ -59,9 +76,17 @@ def import_authentication_incident(  # noqa: C901 -- ordered source admission
         if (
             not isinstance(rule, dict)
             or not isinstance(groups, list)
-            or "authentication_failed" not in groups
+            or (kind == "authentication" and "authentication_failed" not in groups)
+            or (kind == "file integrity" and "syscheck" not in groups)
         ):
-            raise ValueError("Expected failed authentication evidence")
+            raise ValueError(f"Expected {kind} evidence")
+        if kind == "file integrity":
+            syscheck = alert.get("syscheck")
+            path = syscheck.get("path") if isinstance(syscheck, dict) else None
+            if (not isinstance(path, str)
+                or not path.startswith("/home/labadmin/terminus-fim-lab/")
+                or any(part in {".", ".."} for part in path.split("/"))):
+                raise ValueError("Expected dedicated lab file path")
         if not isinstance(alert.get("id"), str) or not isinstance(
             alert.get("timestamp"), str
         ):
@@ -95,8 +120,12 @@ def import_authentication_incident(  # noqa: C901 -- ordered source admission
                 _object(latest["rule"]).get("description", ""),
                 "low",
                 "low",
-                "Imported authentication events; investigation pending. Severity is provisional.",
-                "[]",
+                f"Imported {kind} events; investigation pending. Severity is provisional.",
+                json.dumps([
+                    "Operator review: preserve file-change evidence and confirm whether the changes were authorized.",
+                    "Operator review: compare the affected files with a trusted baseline; restore only after explicit approval.",
+                    "File recovery is not executable through the current IP-block adapter; do not infer an attacker IP from local file changes.",
+                ]) if kind == "file integrity" else "[]",
                 _object(latest["agent"]).get("name", ""),
                 latest.get("full_log", ""),
                 "triage",
@@ -115,7 +144,7 @@ def import_authentication_incident(  # noqa: C901 -- ordered source admission
             },
             ("terminus_store", "wazuh_manager", "wazuh_indexer"),
         )
-        for resource, kind, endpoint in (
+        for resource, resource_kind, endpoint in (
             ("incident-ref", "incident", None),
             ("endpoint-ref", "endpoint", agent_id),
         ):
@@ -126,7 +155,7 @@ def import_authentication_incident(  # noqa: C901 -- ordered source admission
                         "resource_id": resource,
                         "org_id": org_id,
                         "incident_id": incident_id,
-                        "kind": kind,
+                        "kind": resource_kind,
                         "agent_id": endpoint,
                     }
                 ),
@@ -136,17 +165,22 @@ def import_authentication_incident(  # noqa: C901 -- ordered source admission
             org_id,
             incident_id,
             IncidentObjective(
-                objective="Collect real authentication evidence and endpoint coverage; no model or response actions.",
+                objective=f"Collect real {kind} evidence and endpoint coverage; no model or response actions.",
                 areas=["alert_handling"],
                 idempotency_key="wazuh-lab-import",
             ),
         )
+        from terminus.response.live import LiveResponseService
+
+        live_response = LiveResponseService(db)
         for observation, _ in sources:
-            _ = coordination.records.create_evidence(
+            evidence = coordination.records.create_evidence(
                 org_id,
                 root.task_id,
                 "source.wazuh_import",
                 observation.source_timestamp,
                 content=observation.model_dump(mode="json"),
             )
+            live_response.record_source(org_id,incident_id,evidence.evidence_id)
+    live_response.refresh(org_id, incident_id)
     return incident_id

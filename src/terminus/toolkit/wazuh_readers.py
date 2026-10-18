@@ -432,10 +432,10 @@ class WazuhIndexerReader(_Reader):
     async def _read(
         self, query: ReadQuery, resource: EndpointResource, budget: _WireBudget
     ) -> ReadCollection:
-        if query.event_kind not in {"detection", "authentication"}:
+        if query.event_kind not in {"detection", "authentication", "file"}:
             return ReadCollection(
                 status="unsupported",
-                gaps=("Indexer supports detection and authentication only",),
+                gaps=("Indexer supports detection, authentication and file integrity only",),
             )
         filters: list[JsonValue] = [
             {"term": {"agent.id": resource.agent_id}},
@@ -459,6 +459,8 @@ class WazuhIndexerReader(_Reader):
                     }
                 }
             )
+        if query.event_kind == "file":
+            filters.append({"term": {"rule.groups": "syscheck"}})
         body: dict[str, JsonValue] = {
             "size": query.page_size,
             "track_total_hits": True,

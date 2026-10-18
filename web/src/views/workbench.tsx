@@ -31,10 +31,11 @@ import { date, ErrorPanel } from '../components';
 import { ChatText, CopilotPanel } from '../copilot-ui';
 import { NetworkCanvas, type NetworkEvent, type NetworkSelection } from '../network-canvas';
 import { LiveTrafficAlertChart, AttackSurfaceMatrix, SeverityEndpointPieCharts } from './overview-charts';
+import IncidentResponse from './incident-response';
 import type { AgentAction, Approval, Incident } from '../types';
 
 type Action = { action_type: 'start_investigation' | 'close_ticket' | 'reopen_ticket'; resolution_category?: string; resolution_notes?: string };
-type DetailTab = 'Evidence' | 'Activity' | 'Assistant';
+type DetailTab = 'Evidence' | 'Response' | 'Activity' | 'Assistant';
 type ViewLayout = 'unified' | 'queue' | 'graph';
 
 const severityOrder: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
@@ -587,7 +588,7 @@ function IncidentPanel({ id, onClose }: { id: string; onClose: () => void }) {
               <Button icon={<DownloadOutlined />} aria-label="Download incident JSON" onClick={() => download(`${item.id}.json`, JSON.stringify(item, null, 2))}>Export JSON</Button>
             </div>
             <div className="work-tabs" role="tablist" aria-label="Incident information">
-              {(['Evidence', 'Activity', 'Assistant'] as DetailTab[]).map(value => (
+              {(['Evidence', 'Response', 'Activity', 'Assistant'] as DetailTab[]).map(value => (
                 <button key={value} type="button" role="tab" aria-selected={tab === value} className={tab === value ? 'active' : ''} onClick={() => setTab(value)}>{value}</button>
               ))}
             </div>
@@ -637,6 +638,10 @@ function IncidentPanel({ id, onClose }: { id: string; onClose: () => void }) {
                   </section>
                 )}
               </div>
+            )}
+            {tab === 'Response' && <IncidentResponse key={id} incidentId={id} />}
+            {tab === 'Activity' && (
+              <IncidentResponse key={id} incidentId={id} timelineOnly />
             )}
             {tab === 'Activity' && (
               <div className="work-detail-content">

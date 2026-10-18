@@ -77,6 +77,7 @@ async function mockConsole(page: Page, role: 'admin' | 'member' | 'viewer' = 'me
     if (url.pathname === '/orgs') return json(route, [{ org_id: 'org-blue', name: 'Blue Team', created_at: now }]);
     if (url.pathname === '/orgs/current') return json(route, { organization: { org_id: 'org-blue', name: 'Blue Team', created_at: now }, role, members: [], license: null, license_error: null });
     if (url.pathname === '/system') return json(route, { version: 'test', storage: 'sqlite', transport: 'fixture', llm_mode: 'fixture', llm_model: 'fixture', live_response: false, workflow_execution: true, integrations: [] });
+    if (url.pathname === `/incidents/${task.incident_id}/response`) return json(route, {proposals:[], authorizations:[], intents:[], events:[], operation_id:null});
     if (url.pathname === '/assets') return json(route, []);
     if (url.pathname === '/agents') return json(route, [{ id: 'agent-1', name: 'Forensic investigator', role_description: 'Examines endpoint evidence', master_prompt: 'Use cited evidence.', status: 'active', incidents_processed: 3, created_at: now }]);
     if (url.pathname === '/orchestration/tasks' && request.method() === 'GET') return json(route, { items: [{ task: visibleTask(), scheduler_job: visibleJob() }], limit: 20, offset: 0 });

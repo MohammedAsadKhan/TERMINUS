@@ -106,6 +106,7 @@ async def run(args: argparse.Namespace) -> None:  # noqa: C901, PLR0912, PLR0915
                 "TERMINUS_SPECIALIST_DATABASE": args.database,
                 "TERMINUS_SPECIALIST_ACTOR_USER_ID": args.actor,
                 "TERMINUS_SPECIALIST_LIVE_MODELS": "true",
+                "TERMINUS_SPECIALIST_MODEL_EVIDENCE_BYTES": str(args.evidence_limit_bytes),
                 "TERMINUS_MODEL_CREDENTIALS_KEY": LocalSecrets().terminus_model_credentials_key.get_secret_value(),
             }
         )
@@ -175,7 +176,7 @@ async def run(args: argparse.Namespace) -> None:  # noqa: C901, PLR0912, PLR0915
             args.incident,
             "alert_handling",
             "triage",
-            "Analyze saved historical SSH evidence with approved Gemini; no response actions.",
+            "Analyze saved historical source evidence with approved Gemini; no response actions.",
             parent_task_id=parents[0].task_id,
             idempotency_key="lab-gemini:" + str(uuid4()),
         )
@@ -228,6 +229,10 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ("database", "org", "actor", "incident", "source-task"):
         parser.add_argument("--" + name, required=True)
+    parser.add_argument(
+        "--evidence-limit-bytes", type=int, default=65536,
+        help="Redacted model evidence bound for this lab run (default: 64 KiB)",
+    )
     parser.add_argument(
         "--check",
         action="store_true",

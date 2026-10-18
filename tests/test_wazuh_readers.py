@@ -563,3 +563,18 @@ def test_connector_origin_rejects_insecure_or_ambiguous_urls(url):
             username=SecretStr("user"),
             password=SecretStr("secret"),
         )
+
+
+@pytest.mark.asyncio
+async def test_file_integrity_query_is_endpoint_time_and_group_scoped():
+    requests = []
+    def transport(request):
+        requests.append(request)
+        return httpx2.Response(200, json=page([hit(rule={"groups": ["syscheck"]}, syscheck={"path": "/home/labadmin/terminus-fim-lab/demo.conf"})]))
+    async with httpx2.AsyncClient(transport=httpx2.MockTransport(transport)) as client:
+        result = await WazuhIndexerReader(indexer_settings(), client).read(query("file"), RESOURCE)
+    assert result.status == "ok"
+    filters = json.loads(requests[0].content)["query"]["bool"]["filter"]
+    assert {"term": {"agent.id": "001"}} in filters
+    assert {"term": {"rule.groups": "syscheck"}} in filters
+    assert any("range" in value for value in filters)

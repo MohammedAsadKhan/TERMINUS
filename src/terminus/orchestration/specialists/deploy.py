@@ -225,6 +225,7 @@ def build_deployment_deps(  # noqa: C901, PLR0915 - explicit composition root
             ModelPolicyStore(db),
             connections,
             EndpointVerifier(resolve_addresses),
+            evidence_limit_bytes=int(environ.get("TERMINUS_SPECIALIST_MODEL_EVIDENCE_BYTES", "24576")),
         )
         routing = ModelRoutingService(admission, ModelBudgetStore(db, clock=clock))
 
