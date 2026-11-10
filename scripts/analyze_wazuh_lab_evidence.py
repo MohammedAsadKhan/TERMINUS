@@ -1,3 +1,9 @@
+# File name: analyze_wazuh_lab_evidence.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Run one approved Gemini triage turn over saved lab evidence, without response tools.
+
 """Run one approved Gemini triage turn over saved lab evidence, without response tools."""
 # ruff: noqa: INP001
 

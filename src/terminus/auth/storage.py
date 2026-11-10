@@ -1,3 +1,9 @@
+# File name: storage.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: SQLite identity adapters backed by the platform's configured database.
+
 """SQLite identity adapters backed by the platform's configured database."""
 
 from __future__ import annotations

@@ -1,3 +1,9 @@
+# File name: test_model_routing.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: M04: capability routing and bounded approved fallback (fixture transports only).
+
 # ruff: noqa: F811, RUF059
 """M04: capability routing and bounded approved fallback (fixture transports only)."""
 

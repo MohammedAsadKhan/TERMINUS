@@ -1,4 +1,10 @@
 # -*- mode: python ; coding: utf-8 -*-
+# File name: TerminusSetupWizard.spec
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Describe the PyInstaller bundle for the optional Windows setup wizard.
+
 
 
 a = Analysis(

@@ -1,3 +1,9 @@
+# File name: test_assets.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Tests for the organization-scoped asset inventory API.
+
 """Tests for the organization-scoped asset inventory API."""
 
 from __future__ import annotations

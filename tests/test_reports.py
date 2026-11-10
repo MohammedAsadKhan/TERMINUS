@@ -1,3 +1,9 @@
+# File name: test_reports.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Unit and integration tests for Daily Incident Reports and Report Manager API.
+
 """Unit and integration tests for Daily Incident Reports and Report Manager API."""
 
 from __future__ import annotations

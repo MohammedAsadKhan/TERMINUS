@@ -1,3 +1,9 @@
+# File name: test_model_connections.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Tenant, validation, concurrency, and credential tests for model connections.
+
 """Tenant, validation, concurrency, and credential tests for model connections."""
 
 from __future__ import annotations

@@ -1,3 +1,9 @@
+# File name: test_durable_orgs.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Organizations and membership guards survive restart and concurrent writers.
+
 """Organizations and membership guards survive restart and concurrent writers."""
 
 from __future__ import annotations

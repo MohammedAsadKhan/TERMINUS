@@ -1,3 +1,9 @@
+# File name: registry.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Immutable operator-installed executables, separate from roadmap metadata.
+
 """Immutable operator-installed executables, separate from roadmap metadata.
 
 Construct this registry in trusted application composition code. Neither a model

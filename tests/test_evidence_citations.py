@@ -1,3 +1,9 @@
+# File name: test_evidence_citations.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Citation preservation regressions; all persistence uses a private temporary DB.
+
 """Citation preservation regressions; all persistence uses a private temporary DB."""
 
 from dataclasses import replace

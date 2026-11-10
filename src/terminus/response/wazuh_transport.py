@@ -1,3 +1,9 @@
+# File name: wazuh_transport.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Private, bounded Wazuh 4.x response transport.
+
 """Private, bounded Wazuh 4.x response transport.
 
 This is not an authorization gateway or an enabled specialist tool. Callers must

@@ -1,3 +1,9 @@
+# File name: memory.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Memory-backed ticket store implementation.
+
 """Memory-backed ticket store implementation."""
 
 from __future__ import annotations

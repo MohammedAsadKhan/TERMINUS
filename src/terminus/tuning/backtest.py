@@ -1,3 +1,9 @@
+# File name: backtest.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Historical Rule Replay & Backtesting Simulator for TERMINUS.
+
 """Historical Rule Replay & Backtesting Simulator for TERMINUS.
 
 Replays proposed detection tuning rules against historical telemetry with

@@ -1,3 +1,9 @@
+# File name: builder.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Select notification adapters from the configured delivery settings.
+
 from __future__ import annotations
 
 import anyio

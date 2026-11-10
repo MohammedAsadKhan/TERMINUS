@@ -1,3 +1,9 @@
+# File name: factory.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Build the eight core specialist handlers from one set of dependencies.
+
 """Build the eight core specialist handlers from one set of dependencies."""
 
 from __future__ import annotations

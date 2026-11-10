@@ -1,3 +1,9 @@
+# File name: test_scheduler_runtime.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Exercise actual async handlers against temporary durable SQLite databases.
+
 """Exercise actual async handlers against temporary durable SQLite databases."""
 
 from __future__ import annotations

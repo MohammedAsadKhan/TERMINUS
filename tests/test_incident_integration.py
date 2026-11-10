@@ -1,3 +1,9 @@
+# File name: test_incident_integration.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Server-wired incident persistence, workflow linkage, and replay regressions.
+
 """Server-wired incident persistence, workflow linkage, and replay regressions."""
 
 from dataclasses import replace

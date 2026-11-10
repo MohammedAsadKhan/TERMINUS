@@ -1,3 +1,9 @@
+# File name: test_model_native.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Synthetic fixture tests for provider-native codecs; no provider I/O.
+
 """Synthetic fixture tests for provider-native codecs; no provider I/O."""
 
 from __future__ import annotations

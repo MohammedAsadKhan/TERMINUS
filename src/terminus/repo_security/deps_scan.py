@@ -1,3 +1,9 @@
+# File name: deps_scan.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Dependency scanning and OSV vulnerability resolution engine.
+
 """Dependency scanning and OSV vulnerability resolution engine."""
 
 from __future__ import annotations

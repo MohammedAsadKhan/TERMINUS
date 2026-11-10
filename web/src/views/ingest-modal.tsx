@@ -1,3 +1,9 @@
+// File: ingest-modal.tsx
+// Author: Team LARP
+// Date: 2026-11-09
+// Version: 0.1.0
+// Purpose: Render the form for submitting labeled synthetic alerts.
+
 import { useState } from 'react';
 import { Alert, App, Button, Input, Modal } from 'antd';
 import { useMutation, useQueryClient } from '@tanstack/react-query';

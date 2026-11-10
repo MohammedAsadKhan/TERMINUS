@@ -1,3 +1,9 @@
+# File name: test_durable_auth.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Check that organization accounts and authentication survive database reopen.
+
 from __future__ import annotations
 
 import sqlite3

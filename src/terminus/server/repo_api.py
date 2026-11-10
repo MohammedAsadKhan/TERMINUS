@@ -1,3 +1,9 @@
+# File name: repo_api.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: API endpoints for repository security scans, findings, SBOM components, and GitHub webhooks.
+
 """API endpoints for repository security scans, findings, SBOM components, and GitHub webhooks."""
 
 from __future__ import annotations

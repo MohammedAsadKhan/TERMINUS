@@ -1,3 +1,9 @@
+// File: components.tsx
+// Author: Team LARP
+// Date: 2026-11-09
+// Version: 0.1.0
+// Purpose: Provide shared controls and loading, error, and empty states.
+
 import { Alert, Button, Empty, Skeleton, Tag, Typography } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
 import type { ReactNode } from 'react';

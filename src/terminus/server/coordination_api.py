@@ -1,3 +1,9 @@
+# File name: coordination_api.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Authenticated, tenant-scoped coordination controls and persisted inspection.
+
 """Authenticated, tenant-scoped coordination controls and persisted inspection."""
 
 from __future__ import annotations

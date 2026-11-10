@@ -1,3 +1,9 @@
+# File name: test_investigation_read_service.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Fixture-backed real composition, with server grants and provider separation.
+
 """Fixture-backed real composition, with server grants and provider separation."""
 
 from __future__ import annotations

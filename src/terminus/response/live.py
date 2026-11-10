@@ -1,3 +1,9 @@
+# File name: live.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Live response decisions, isolated from fixture approvals and provider receipts.
+
 """Live response decisions, isolated from fixture approvals and provider receipts."""
 
 # pyright: basic
@@ -99,6 +105,8 @@ class LiveResponseService:
         )
         if record is None or record.source != "source.wazuh_import":
             raise ValueError("Canonical source record required")
+        # Bind eligibility to the exact imported content so a changed
+        # record cannot reuse this provenance receipt.
         self.db.execute(
             "INSERT OR IGNORE INTO live_response_source_receipts VALUES(?,?,?,?)",
             (org, incident, evidence_id, digest(record.content)),
@@ -628,6 +636,8 @@ class LiveResponseService:
             raise ValueError("Invalid decision")
         if decision == "reject" and not note.strip():
             raise ValueError("Rejection reason required")
+        # Check the reviewed digest and persist the decision and any
+        # authorization together so concurrent reviews see one outcome.
         with self.db.transaction():
             row, payload = self._proposal(org, incident, proposal, expected)
             prior = self.db.fetchone(
@@ -981,6 +991,8 @@ class LiveResponseService:
                 continue
             if not await self.observe(observer, "baseline", {}):
                 continue
+            # Reserve the intent in SQLite before contacting Wazuh. A second
+            # worker must see the existing intent and skip this dispatch.
             try:
                 details = self._reserve(org, incident, auth, row, payload)
             except PermissionError:
@@ -1003,6 +1015,8 @@ class LiveResponseService:
                     result.status,
                     "Provider result recorded; acknowledgement is not verification",
                 )
+                # Wazuh confirms receipt. The observer checks the endpoint,
+                # source connectivity, and management path separately.
                 if result.status == "acknowledged":
                     for _ in range(5):
                         if await self.observe(observer, "blocked", details):

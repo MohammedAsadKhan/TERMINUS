@@ -1,3 +1,9 @@
+# File name: buffer.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Asynchronous Ingestion Buffer & Token-Bucket Rate Limiter for TERMINUS.
+
 """Asynchronous Ingestion Buffer & Token-Bucket Rate Limiter for TERMINUS.
 
 Provides resilient alert buffering during telemetry spikes and floods,

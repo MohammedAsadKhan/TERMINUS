@@ -1,3 +1,9 @@
+# File name: service.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Create accounts and verify credentials before issuing sessions.
+
 from __future__ import annotations
 
 import secrets

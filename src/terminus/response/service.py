@@ -1,3 +1,9 @@
+# File name: service.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Approval-bound durable response foundation with private, isolated fixtures.
+
 # pyright: reportAny=false, reportExplicitAny=false, reportPrivateUsage=false
 """Approval-bound durable response foundation with private, isolated fixtures.
 

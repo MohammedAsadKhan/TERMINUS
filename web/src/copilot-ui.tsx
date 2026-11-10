@@ -1,3 +1,9 @@
+// File: copilot-ui.tsx
+// Author: Team LARP
+// Date: 2026-11-09
+// Version: 0.1.0
+// Purpose: Render the Copilot conversation panel and shared conversation state.
+
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Alert, Badge, Button, Empty, Input, Popconfirm, Tag, Tooltip } from 'antd';

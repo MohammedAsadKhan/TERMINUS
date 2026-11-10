@@ -1,3 +1,9 @@
+# File name: test_orchestration_concurrency.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Real SQLite contention checks for durable task admission and transitions.
+
 """Real SQLite contention checks for durable task admission and transitions."""
 
 from concurrent.futures import ThreadPoolExecutor

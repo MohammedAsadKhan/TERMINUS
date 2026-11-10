@@ -1,3 +1,9 @@
+// File: network-canvas.tsx
+// Author: Team LARP
+// Date: 2026-11-09
+// Version: 0.1.0
+// Purpose: Draw network topology and its selectable nodes.
+
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   forceCenter,

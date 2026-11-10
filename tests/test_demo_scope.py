@@ -1,3 +1,9 @@
+# File name: test_demo_scope.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Keep synthetic public demo traffic out of other tenants and hosted mode.
+
 """Keep synthetic public demo traffic out of other tenants and hosted mode."""
 
 from __future__ import annotations

@@ -1,3 +1,9 @@
+// File: shell.tsx
+// Author: Team LARP
+// Date: 2026-11-09
+// Version: 0.1.0
+// Purpose: Render authentication, organization selection, navigation, and console routes.
+
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { App, Alert, Avatar, Button, Dropdown, Form, Input, Modal, Spin, Tag } from 'antd';
 import { ApartmentOutlined, ArrowRightOutlined, CheckOutlined, CloudOutlined, DashboardOutlined, DesktopOutlined, DockerOutlined, GithubOutlined, DownOutlined, FileTextOutlined, GlobalOutlined, LogoutOutlined, MenuOutlined, MessageOutlined, PlusOutlined, SafetyCertificateOutlined, SettingOutlined, ThunderboltOutlined, UserOutlined } from '@ant-design/icons';

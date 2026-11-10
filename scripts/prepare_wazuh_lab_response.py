@@ -1,3 +1,9 @@
+# File name: prepare_wazuh_lab_response.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Save an evidence-backed review plan; never approve or execute a response.
+
 """Save an evidence-backed review plan; never approve or execute a response."""
 # ruff: noqa: INP001
 import argparse

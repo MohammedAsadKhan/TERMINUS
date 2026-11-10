@@ -1,3 +1,9 @@
+# File name: copilot.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Interactive Incident Analyst Copilot Endpoint for TERMINUS.
+
 """Interactive Incident Analyst Copilot Endpoint for TERMINUS.
 
 Enables human SOC analysts to query incident context, run on-demand forensics,

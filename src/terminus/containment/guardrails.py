@@ -1,3 +1,9 @@
+# File name: guardrails.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Blast-Radius Calculation & Critical Asset Protection Guardrails for TERMINUS.
+
 """Blast-Radius Calculation & Critical Asset Protection Guardrails for TERMINUS.
 
 Prevents automated or accidental disruption of Tier-0 critical enterprise infrastructure

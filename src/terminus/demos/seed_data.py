@@ -1,3 +1,9 @@
+# File name: seed_data.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Deterministic enterprise demo seed data for assets, guardrails, repositories, and SBOM.
+
 """Deterministic enterprise demo seed data for assets, guardrails, repositories, and SBOM."""
 
 from __future__ import annotations

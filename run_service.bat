@@ -1,4 +1,10 @@
 @echo off
+REM File: run_service.bat
+REM Author: Team LARP
+REM Date: 2026-11-09
+REM Version: 0.1.0
+REM Purpose: Start the Windows service launcher and open the local operations console.
+
 setlocal enabledelayedexpansion
 title TERMINUS Autonomous AI SOC Platform - Regular Service Daemon
 cd /d "%~dp0"

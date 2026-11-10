@@ -1,3 +1,9 @@
+// File: assets.tsx
+// Author: Team LARP
+// Date: 2026-11-09
+// Version: 0.1.0
+// Purpose: Browse and manage the organization's asset inventory.
+
 import { useState } from 'react';
 import { Alert, App, Button, Drawer, Form, Input, Modal, Select, Space, Table, Tabs, Tag, Typography } from 'antd';
 import { DeleteOutlined, EyeOutlined, PlayCircleOutlined, PlusOutlined, ReloadOutlined, SafetyCertificateOutlined } from '@ant-design/icons';

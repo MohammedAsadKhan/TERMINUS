@@ -1,3 +1,9 @@
+# File name: http.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Create shared HTTP clients for outbound integration requests.
+
 from __future__ import annotations
 
 import socket

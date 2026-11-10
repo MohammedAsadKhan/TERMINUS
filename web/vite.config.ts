@@ -1,3 +1,9 @@
+// File: vite.config.ts
+// Author: Team LARP
+// Date: 2026-11-09
+// Version: 0.1.0
+// Purpose: Build the console into FastAPI static assets and proxy API requests during development.
+
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 

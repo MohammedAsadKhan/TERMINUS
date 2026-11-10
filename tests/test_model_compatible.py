@@ -1,3 +1,9 @@
+# File name: test_model_compatible.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Synthetic fixture tests for the OpenAI-compatible provider codec.
+
 """Synthetic fixture tests for the OpenAI-compatible provider codec."""
 
 from __future__ import annotations

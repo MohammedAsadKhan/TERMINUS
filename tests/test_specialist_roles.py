@@ -1,3 +1,9 @@
+# File name: test_specialist_roles.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: O05 WP2: eight core role plans, factory and deployable handlers.
+
 # ruff: noqa: F811
 # pyright: basic, reportPrivateUsage=false, reportMissingParameterType=false, reportUnknownParameterType=false, reportUnknownArgumentType=false, reportUnknownVariableType=false, reportUnknownMemberType=false, reportAny=false, reportExplicitAny=false, reportMissingTypeArgument=false
 """O05 WP2: eight core role plans, factory and deployable handlers."""

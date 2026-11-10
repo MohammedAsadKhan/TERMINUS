@@ -1,3 +1,9 @@
+# File name: storage.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: SQLite persistence for repository scans, findings, components, and finding events.
+
 """SQLite persistence for repository scans, findings, components, and finding events."""
 
 from __future__ import annotations

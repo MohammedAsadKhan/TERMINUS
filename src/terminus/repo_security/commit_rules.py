@@ -1,3 +1,9 @@
+# File name: commit_rules.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Suspicious commit and repository anomaly inspection rules.
+
 """Suspicious commit and repository anomaly inspection rules."""
 
 from __future__ import annotations

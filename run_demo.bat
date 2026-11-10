@@ -1,4 +1,10 @@
 @echo off
+REM File: run_demo.bat
+REM Author: Team LARP
+REM Date: 2026-11-09
+REM Version: 0.1.0
+REM Purpose: Reset presentation demo records and run the local console with simulated traffic.
+
 setlocal enabledelayedexpansion
 title TERMINUS - Presentation and Live Demo Runner
 cd /d "%~dp0"

@@ -1,3 +1,9 @@
+# File name: static.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Static SIEM client implementation for simulation and offline tests.
+
 """Static SIEM client implementation for simulation and offline tests."""
 
 from __future__ import annotations

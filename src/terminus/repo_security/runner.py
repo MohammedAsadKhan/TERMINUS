@@ -1,3 +1,9 @@
+# File name: runner.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Asynchronous background execution and orchestration for repository scans.
+
 """Asynchronous background execution and orchestration for repository scans."""
 
 from __future__ import annotations

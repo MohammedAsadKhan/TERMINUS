@@ -1,3 +1,9 @@
+# File name: test_model_credential_cipher.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Credential encryption boundary regression tests.
+
 """Credential encryption boundary regression tests."""
 
 from __future__ import annotations

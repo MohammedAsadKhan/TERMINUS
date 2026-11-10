@@ -1,3 +1,9 @@
+# File name: test_wazuh_lab_import.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Recorded real-shaped alert import, admission and replay checks.
+
 """Recorded real-shaped alert import, admission and replay checks."""
 # pyright: basic
 

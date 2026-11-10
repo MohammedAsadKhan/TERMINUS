@@ -1,3 +1,9 @@
+# File name: models.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Strict durable records for orchestration; these records do not execute work.
+
 """Strict durable records for orchestration; these records do not execute work."""
 
 from __future__ import annotations

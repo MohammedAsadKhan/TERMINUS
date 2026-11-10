@@ -1,3 +1,9 @@
+# File name: gateway.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Internal, explicitly installed read-tool execution with durable admission.
+
 """Internal, explicitly installed read-tool execution with durable admission.
 
 This gateway is deliberately not exposed to model arguments or HTTP callers.

@@ -1,3 +1,9 @@
+# File name: evaluation.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: M06: model evaluation on incident cases with honest live vs contract coverage.
+
 """M06: model evaluation on incident cases with honest live vs contract coverage.
 
 Every (connection, model, case) pair gets one immutable record per track:

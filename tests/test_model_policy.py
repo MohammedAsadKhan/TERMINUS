@@ -1,3 +1,9 @@
+# File name: test_model_policy.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Durable role, model, and evidence-classification policy checks.
+
 """Durable role, model, and evidence-classification policy checks."""
 
 from __future__ import annotations

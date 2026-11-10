@@ -1,3 +1,11 @@
+/*
+ * File: workbench.css
+ * Author: Team LARP
+ * Date: 2026-11-09
+ * Version: 0.1.0
+ * Purpose: Style the incident workbench, response panels, and overview layout.
+ */
+
 /* Quiet application frame and incident workbench. */
 .hud-layout.top-layout { flex-direction: column; }
 .top-layout .console-workspace { width: 100%; }

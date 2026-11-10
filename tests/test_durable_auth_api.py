@@ -1,3 +1,9 @@
+# File name: test_durable_auth_api.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Integration coverage for SQLite-backed authentication and tenant membership.
+
 """Integration coverage for SQLite-backed authentication and tenant membership."""
 
 from __future__ import annotations

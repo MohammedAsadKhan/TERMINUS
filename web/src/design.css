@@ -1,3 +1,11 @@
+/*
+ * File: design.css
+ * Author: Team LARP
+ * Date: 2026-11-09
+ * Version: 0.1.0
+ * Purpose: Define shared design tokens and visual treatments for the console.
+ */
+
 /* Terminus workspace design system. This layer supersedes the legacy HUD styles. */
 :root {
   --canvas: var(--bg-base);

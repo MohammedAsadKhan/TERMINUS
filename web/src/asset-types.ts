@@ -1,3 +1,9 @@
+// File: asset-types.ts
+// Author: Team LARP
+// Date: 2026-11-09
+// Version: 0.1.0
+// Purpose: Define asset kinds and the data displayed by the inventory views.
+
 export const ASSET_KINDS = [
   { kind: 'repository', label: 'Repositories', singular: 'repository', hint: 'Repository URL or owner/name' },
   { kind: 'container', label: 'Containers', singular: 'container', hint: 'Image name, digest, or Docker workload' },

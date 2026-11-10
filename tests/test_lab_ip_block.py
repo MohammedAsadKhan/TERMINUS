@@ -1,3 +1,9 @@
+# File name: test_lab_ip_block.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Check the lab nftables script against invalid input and owned-set changes.
+
 import importlib.util
 import json
 from pathlib import Path

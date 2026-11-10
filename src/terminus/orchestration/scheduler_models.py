@@ -1,3 +1,9 @@
+# File name: scheduler_models.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Strict scheduler metadata and fencing tokens, separate from canonical tasks.
+
 """Strict scheduler metadata and fencing tokens, separate from canonical tasks."""
 
 from __future__ import annotations

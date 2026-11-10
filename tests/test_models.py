@@ -1,3 +1,9 @@
+# File name: test_models.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Tests for the models module — SiemAlert alias parsing and model validation.
+
 """Tests for the models module — SiemAlert alias parsing and model validation."""
 
 from __future__ import annotations

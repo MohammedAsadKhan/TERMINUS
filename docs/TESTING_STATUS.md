@@ -1,5 +1,7 @@
 # Testing completion — October 17, 2026
 
+**Next open product acceptance gate:** [October 18 browser-driven SSH rehearsal](NEXT_TESTING_SESSION.md): three consecutive console-driven runs before containerization. Earlier scoped completion below does not establish this browser-to-provider workflow.
+
 **Status: COMPLETE for the scoped local prototype and response-decision release.** Completed by Mohammed with Codex. Implementation was committed and pushed as `4afc1df`. This record distinguishes installed-lab observations from fixture checks; it does not certify the entire release roadmap or production deployment.
 
 | Accepted scope | Result | Evidence |

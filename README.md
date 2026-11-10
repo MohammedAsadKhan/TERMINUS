@@ -114,7 +114,7 @@ Local mode supports the first-run demo login: `admin@terminus.local` / `Password
 1. **`run_service.bat`**: Launches the clean, unconfigured standalone TERMINUS service daemon and opens the web console (`http://127.0.0.1:8000/console/`).
 2. **`run_demo.bat`**: Full 1-click presentation demo. Starts the backend service, opens the console, connects simulated enterprise services, and streams continuous service traffic alongside multi-stage simulated cyberattacks and guardrail validations.
 
-[Evaluation walkthrough](docs/GRADING_GUIDE.md) · [Build instructions](docs/BUILD.md)
+[Evaluation walkthrough](docs/GRADING_GUIDE.md) · [Installation manual](docs/INSTALLATION.md) · [SDD-to-code map](docs/IMPLEMENTATION_MAP.md)
 
 For a first hands-on check with clearly labeled synthetic data, follow the [local QA exploration guide](docs/QA_LOCAL_EXPLORATION.md). It distinguishes an incident appearing in the console from verified specialist execution or defense.
 

@@ -1,3 +1,9 @@
+# File name: native.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Pure codecs for provider-native model APIs.
+
 """Pure codecs for provider-native model APIs.
 
 The codecs translate bounded shared contracts to and from provider JSON. They do

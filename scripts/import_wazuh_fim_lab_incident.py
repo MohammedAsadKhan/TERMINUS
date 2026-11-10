@@ -1,3 +1,9 @@
+# File name: import_wazuh_fim_lab_incident.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Import bounded real file-integrity alerts from the dedicated Ubuntu lab folder.
+
 """Import bounded real file-integrity alerts from the dedicated Ubuntu lab folder."""
 # ruff: noqa: INP001
 import argparse

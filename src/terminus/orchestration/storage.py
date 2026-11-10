@@ -1,3 +1,9 @@
+# File name: storage.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Tenant-scoped SQLite persistence, with no scheduling or external execution.
+
 """Tenant-scoped SQLite persistence, with no scheduling or external execution."""
 
 from __future__ import annotations

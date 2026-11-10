@@ -1,3 +1,9 @@
+# File name: client.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Send legacy model requests to a configured OpenAI-compatible endpoint.
+
 from __future__ import annotations
 
 import asyncio

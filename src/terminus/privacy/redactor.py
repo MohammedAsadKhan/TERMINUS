@@ -1,3 +1,9 @@
+# File name: redactor.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Local PII, Credential, and Secret Redaction Engine for TERMINUS.
+
 """Local PII, Credential, and Secret Redaction Engine for TERMINUS.
 
 Ensures zero-latency client-side scrubbing of sensitive enterprise credentials,

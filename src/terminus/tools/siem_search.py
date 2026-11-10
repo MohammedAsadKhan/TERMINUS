@@ -1,3 +1,9 @@
+# File name: siem_search.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Historical SIEM Query & Process Forensics Tool for TERMINUS.
+
 """Historical SIEM Query & Process Forensics Tool for TERMINUS."""
 
 from __future__ import annotations

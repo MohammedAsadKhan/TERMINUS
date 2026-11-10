@@ -1,3 +1,9 @@
+# File name: test_lab_response_plan.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Review plans use exact lab observations and cannot authorize dispatch.
+
 """Review plans use exact lab observations and cannot authorize dispatch."""
 from datetime import UTC, datetime
 

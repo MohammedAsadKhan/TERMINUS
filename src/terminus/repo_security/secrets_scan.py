@@ -1,3 +1,9 @@
+# File name: secrets_scan.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Secret scanning engine across repository trees and commit history with zero raw secret storage.
+
 """Secret scanning engine across repository trees and commit history with zero raw secret storage."""
 
 from __future__ import annotations

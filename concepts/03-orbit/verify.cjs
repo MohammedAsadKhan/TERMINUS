@@ -1,3 +1,9 @@
+// File: verify.cjs
+// Author: Team LARP
+// Date: 2026-11-09
+// Version: 0.1.0
+// Purpose: Check the Orbit concept page with browser automation.
+
 const { chromium } = require('../../web/node_modules/@playwright/test');
 const path = require('path');
 (async () => {

@@ -1,3 +1,9 @@
+# File name: sensor.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Service Connection Sensor and Dynamic Auto-Configuration Engine for TERMINUS.
+
 """Service Connection Sensor and Dynamic Auto-Configuration Engine for TERMINUS.
 
 Tracks real-time SIEM and telemetry service connections, heartbeats, and auto-provisions

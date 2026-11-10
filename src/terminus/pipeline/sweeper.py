@@ -1,3 +1,9 @@
+# File name: sweeper.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Background sweeper task for TERMINUS (D24).
+
 """Background sweeper task for TERMINUS (D24).
 
 Runs on server startup and every 60 seconds to:

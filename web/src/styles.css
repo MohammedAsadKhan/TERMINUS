@@ -1,3 +1,11 @@
+/*
+ * File: styles.css
+ * Author: Team LARP
+ * Date: 2026-11-09
+ * Version: 0.1.0
+ * Purpose: Style the console shell, navigation, authentication, and shared components.
+ */
+
 /* TERMINUS SOC Console Styles - Reformatted High-Density HUD */
 :root {
   --bg-base: #101717;

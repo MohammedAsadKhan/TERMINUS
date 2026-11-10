@@ -1,3 +1,9 @@
+# File name: context.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Durable operator read grants and contexts issued by trusted server code.
+
 """Durable operator read grants and contexts issued by trusted server code.
 
 The actor argument comes from an authenticated server session, never model

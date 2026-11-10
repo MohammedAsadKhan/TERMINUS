@@ -1,3 +1,9 @@
+# File name: lab_import.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Trusted administrator import of bounded authentication and isolated FIM evidence.
+
 """Trusted administrator import of bounded authentication and isolated FIM evidence."""
 
 import hashlib

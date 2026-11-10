@@ -1,3 +1,9 @@
+# File name: graph.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Durable, tenant-scoped seven-day relationship graph over observed alerts.
+
 """Durable, tenant-scoped seven-day relationship graph over observed alerts."""
 
 # ruff: noqa: S608 - SQL fragments are fixed server-side clauses; values use bound parameters.

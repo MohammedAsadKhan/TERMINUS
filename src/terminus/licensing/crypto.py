@@ -1,3 +1,9 @@
+# File name: crypto.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Sign and verify license tokens with the configured secret.
+
 from __future__ import annotations
 
 import base64

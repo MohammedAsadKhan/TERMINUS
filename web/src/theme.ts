@@ -1,3 +1,9 @@
+// File: theme.ts
+// Author: Team LARP
+// Date: 2026-11-09
+// Version: 0.1.0
+// Purpose: Define theme tokens and apply them to the console document.
+
 import { createContext, useContext } from 'react';
 
 export interface ThemeConfig {

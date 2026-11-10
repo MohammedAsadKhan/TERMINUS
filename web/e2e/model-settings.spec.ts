@@ -1,3 +1,9 @@
+// File: model-settings.spec.ts
+// Author: Team LARP
+// Date: 2026-11-09
+// Version: 0.1.0
+// Purpose: Exercise model settings in browser tests.
+
 import { expect, test, type Page, type Route } from '@playwright/test';
 import { spawn, type ChildProcess } from 'node:child_process';
 import { fileURLToPath } from 'node:url';

@@ -1,3 +1,9 @@
+# File name: test_model_data_safety.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Payload redaction and endpoint-locality regression tests.
+
 """Payload redaction and endpoint-locality regression tests."""
 
 from __future__ import annotations

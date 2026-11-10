@@ -1,3 +1,9 @@
+# File name: fixture_client.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Fixture-only transport harness; no production credential or network wiring.
+
 """Fixture-only transport harness; no production credential or network wiring."""
 
 from __future__ import annotations

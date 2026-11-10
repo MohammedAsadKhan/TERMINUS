@@ -1,3 +1,9 @@
+# File name: readers.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Opt-in tenant-bound readers composed behind durable tool admission.
+
 """Opt-in tenant-bound readers composed behind durable tool admission.
 
 The actor and lease come from trusted server/scheduler code. This library adds

@@ -1,3 +1,9 @@
+# File name: test_toolkit_audit.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Reservation quota, restart and stale completion fencing.
+
 """Reservation quota, restart and stale completion fencing."""
 
 from concurrent.futures import ThreadPoolExecutor

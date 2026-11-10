@@ -1,3 +1,9 @@
+// File: agents.tsx
+// Author: Team LARP
+// Date: 2026-11-09
+// Version: 0.1.0
+// Purpose: Present specialist roles, runs, and operation activity.
+
 import { useEffect, useState } from 'react';
 import { Alert, App, Button, Dropdown, Form, Input, Modal, Select, Space, Tabs, Tag } from 'antd';
 import { ApartmentOutlined, DeleteOutlined, EditOutlined, MoreOutlined, PlusOutlined, ThunderboltOutlined } from '@ant-design/icons';

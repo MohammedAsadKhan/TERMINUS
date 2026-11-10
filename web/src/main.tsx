@@ -1,3 +1,9 @@
+// File: main.tsx
+// Author: Team LARP
+// Date: 2026-11-09
+// Version: 0.1.0
+// Purpose: Mount the React console with routing, query caching, and the selected theme.
+
 import React, { useEffect, useState } from 'react';
 import ReactDOM from 'react-dom/client';
 import { App as AntApp, ConfigProvider, theme } from 'antd';

@@ -1,4 +1,6 @@
 # TERMINUS — System Architecture & Technical Specification
+
+> Historical architecture and planning notes. The [current implementation map](docs/IMPLEMENTATION_MAP.md) describes the delivered code and its alignment with SRS v2.
 ## Enterprise Autonomous AI Security Operations & SOAR Engine
 
 ---

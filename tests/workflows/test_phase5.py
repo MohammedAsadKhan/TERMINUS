@@ -1,3 +1,9 @@
+# File name: test_phase5.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Phase 5 Test Suite: Pipeline Runner, Idempotency & Sweeper.
+
 """Phase 5 Test Suite: Pipeline Runner, Idempotency & Sweeper.
 
 Covers T-RUN-1 through T-RUN-10:

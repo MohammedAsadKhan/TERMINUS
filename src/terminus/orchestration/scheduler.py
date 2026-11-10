@@ -1,3 +1,9 @@
+# File name: scheduler.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Dedicated, opt-in asyncio scheduler for explicitly registered handlers.
+
 """Dedicated, opt-in asyncio scheduler for explicitly registered handlers.
 
 Handlers must be cooperative async functions. They should call ``checkpoint``

@@ -1,3 +1,9 @@
+# File name: unavailable.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Unconfigured production SIEM: explicit gaps, never sample host telemetry.
+
 """Unconfigured production SIEM: explicit gaps, never sample host telemetry."""
 
 from __future__ import annotations

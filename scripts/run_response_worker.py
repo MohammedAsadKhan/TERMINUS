@@ -1,3 +1,9 @@
+# File name: run_response_worker.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Opt-in console response worker. Credentials remain local; no standalone dispatcher.
+
 """Opt-in console response worker. Credentials remain local; no standalone dispatcher."""
 
 # ruff: noqa: INP001

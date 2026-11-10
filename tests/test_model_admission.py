@@ -1,3 +1,9 @@
+# File name: test_model_admission.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: M03 integration: durable grants, canonical evidence and fixture-only attempts.
+
 """M03 integration: durable grants, canonical evidence and fixture-only attempts."""
 
 from __future__ import annotations

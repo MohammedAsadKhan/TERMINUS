@@ -1,3 +1,9 @@
+# File name: console_api.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Additional authenticated APIs used by the React console.
+
 """Additional authenticated APIs used by the React console."""
 
 from __future__ import annotations

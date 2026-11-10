@@ -1,3 +1,9 @@
+// File: reports.tsx
+// Author: Team LARP
+// Date: 2026-11-09
+// Version: 0.1.0
+// Purpose: Browse and generate incident and operations reports.
+
 import { useState } from 'react';
 import { App, Button, Descriptions, Drawer, Input, Select, Space, Table, Tag } from 'antd';
 import { DownloadOutlined, FileTextOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons';

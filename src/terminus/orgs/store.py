@@ -1,3 +1,9 @@
+# File name: store.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Memory-backed stores for organizations and memberships.
+
 """Memory-backed stores for organizations and memberships."""
 
 from __future__ import annotations

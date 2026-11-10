@@ -1,3 +1,9 @@
+# File: pyproject.toml
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Define package metadata, dependency groups, and Python quality checks.
+
 [project]
 name = "terminus"
 version = "0.1.0"

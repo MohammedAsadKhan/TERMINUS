@@ -1,3 +1,9 @@
+# File name: runner.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Pipeline Runner orchestrator for TERMINUS.
+
 """Pipeline Runner orchestrator for TERMINUS.
 
 Implements end-to-end alert processing with:

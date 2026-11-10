@@ -1,3 +1,9 @@
+# File name: test_model_protocol.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Shared contract acceptance uses bounded synthetic provider fixtures.
+
 """Shared contract acceptance uses bounded synthetic provider fixtures."""
 
 from __future__ import annotations

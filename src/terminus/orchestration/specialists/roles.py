@@ -1,3 +1,9 @@
+# File name: roles.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Fixed, ordered read plans for the eight core specialist roles.
+
 """Fixed, ordered read plans for the eight core specialist roles.
 
 Every plan is code: tool ids come from the role's catalog bundle, and every

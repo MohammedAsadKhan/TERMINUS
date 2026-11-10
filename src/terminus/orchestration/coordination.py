@@ -1,3 +1,9 @@
+# File name: coordination.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Opt-in, bounded main/area delegation on the existing durable scheduler.
+
 """Opt-in, bounded main/area delegation on the existing durable scheduler.
 
 Completion of an orchestrator records delegation only. Specialist callbacks

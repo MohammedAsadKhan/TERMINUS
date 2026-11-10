@@ -1,3 +1,9 @@
+# File name: storage.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Durable fixture response records, with immutable plans and approvals.
+
 # pyright: reportAny=false, reportExplicitAny=false
 """Durable fixture response records, with immutable plans and approvals."""
 

@@ -1,3 +1,9 @@
+// File: incident-response.tsx
+// Author: Team LARP
+// Date: 2026-11-09
+// Version: 0.1.0
+// Purpose: Render response proposals, authorization decisions, and verified outcomes.
+
 import { useState } from 'react';
 import { Alert, App, Button, Input, InputNumber, Modal, Space, Tag } from 'antd';
 import { useMutation, useQuery } from '@tanstack/react-query';

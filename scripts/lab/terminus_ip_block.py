@@ -1,4 +1,10 @@
 #!/usr/bin/python3
+# File name: terminus_ip_block.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Wazuh endpoint command for the isolated Scenario A lab only.
+
 """Wazuh endpoint command for the isolated Scenario A lab only.
 
 Install root-owned on terminus-target-a. No model arguments, shell, arbitrary

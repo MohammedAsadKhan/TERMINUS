@@ -1,3 +1,9 @@
+# File name: ids.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Branded ID types shared across the platform.
+
 """Branded ID types shared across the platform.
 
 Each domain concept gets its own branded primitive so the type system refuses to let a

@@ -1,3 +1,9 @@
+# File name: test_scheduler_api.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Tenant-isolated HTTP coverage for persisted scheduler controls.
+
 """Tenant-isolated HTTP coverage for persisted scheduler controls."""
 
 from __future__ import annotations

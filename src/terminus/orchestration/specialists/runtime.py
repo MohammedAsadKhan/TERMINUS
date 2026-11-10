@@ -1,3 +1,9 @@
+# File name: runtime.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Common specialist handler: fixed ordered read plan plus optional cited model step.
+
 """Common specialist handler: fixed ordered read plan plus optional cited model step.
 
 Authority comes only from the scheduler lease: organization and role are read
@@ -262,6 +268,7 @@ async def _model_step(
         gaps.append(_gap("model_output_invalid", None, "output failed validation"))
         return [], ref
     allowed = set(sent)
+    # Findings can cite only evidence admitted to this model request.
     accepted = [f for f in parsed.findings if set(f.evidence_ids) <= allowed]
     dropped = len(parsed.findings) - len(accepted)
     if dropped:

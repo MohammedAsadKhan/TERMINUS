@@ -1,3 +1,9 @@
+# File name: active_response.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Guardrailed dispatch boundary for active containment actions.
+
 """Guardrailed dispatch boundary for active containment actions.
 
 No live host, firewall, or IAM providers are currently configured. Eligible

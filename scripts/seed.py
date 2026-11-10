@@ -1,3 +1,9 @@
+# File name: seed.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Seed demo users and organization data for local evaluation.
+
 import httpx
 
 client = httpx.Client(base_url="http://127.0.0.1:8000")

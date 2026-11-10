@@ -1,3 +1,9 @@
+# File name: deps.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: FastAPI dependency injection module for services, authentication, and multi-tenant authorization.
+
 """FastAPI dependency injection module for services, authentication, and multi-tenant authorization."""
 
 from __future__ import annotations

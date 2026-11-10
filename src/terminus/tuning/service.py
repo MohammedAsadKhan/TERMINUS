@@ -1,3 +1,9 @@
+# File name: service.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Closed-Loop Detection Engineering Advisor ("Self-Tuning SOC") for TERMINUS.
+
 """Closed-Loop Detection Engineering Advisor ("Self-Tuning SOC") for TERMINUS.
 
 Automatically analyzes resolved False Positive incidents and generates tuned

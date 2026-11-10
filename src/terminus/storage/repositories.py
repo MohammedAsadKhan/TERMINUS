@@ -1,3 +1,9 @@
+# File name: repositories.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Persistence repositories for TERMINUS.
+
 """Persistence repositories for TERMINUS.
 
 Provides robust SQLite-backed stores for Incidents, Organizations, Users,

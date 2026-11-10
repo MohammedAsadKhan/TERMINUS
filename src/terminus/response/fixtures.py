@@ -1,3 +1,9 @@
+# File name: fixtures.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Internal deterministic fixture transitions. No transport or live adapter.
+
 # pyright: reportAny=false, reportExplicitAny=false, reportPrivateUsage=false
 """Internal deterministic fixture transitions. No transport or live adapter.
 

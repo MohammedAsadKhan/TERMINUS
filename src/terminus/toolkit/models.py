@@ -1,3 +1,9 @@
+# File name: models.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Strict, non-executing contracts for the defensive toolkit roadmap.
+
 """Strict, non-executing contracts for the defensive toolkit roadmap."""
 
 from __future__ import annotations

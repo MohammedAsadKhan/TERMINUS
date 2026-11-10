@@ -1,3 +1,9 @@
+# File name: lab_plan.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Review-only Scenario A plans from canonical evidence; never dispatches actions.
+
 """Review-only Scenario A plans from canonical evidence; never dispatches actions."""
 from __future__ import annotations
 

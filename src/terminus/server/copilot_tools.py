@@ -1,3 +1,9 @@
+# File name: copilot_tools.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Comprehensive tenant-scoped Copilot tools for TERMINUS.
+
 """Comprehensive tenant-scoped Copilot tools for TERMINUS.
 
 Provides incident querying, Agent Fleet configuration, visual DAG workflow building,

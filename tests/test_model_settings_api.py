@@ -1,3 +1,9 @@
+# File name: test_model_settings_api.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Settings changes require current tenant-admin authority and durable CAS.
+
 # ruff: noqa: F811
 """Settings changes require current tenant-admin authority and durable CAS."""
 

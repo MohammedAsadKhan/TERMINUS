@@ -1,3 +1,9 @@
+# File name: app.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: FastAPI application factory and server entrypoint for TERMINUS.
+
 """FastAPI application factory and server entrypoint for TERMINUS."""
 
 from __future__ import annotations

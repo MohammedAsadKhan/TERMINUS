@@ -1,3 +1,9 @@
+# File name: test_scheduler_store.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: SQLite ownership, admission, retry and reconciliation safety boundaries.
+
 """SQLite ownership, admission, retry and reconciliation safety boundaries."""
 
 from __future__ import annotations

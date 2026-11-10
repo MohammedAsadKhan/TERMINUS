@@ -1,3 +1,9 @@
+# File name: test_model_usage_fields.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Fixture tests for cached-input and reasoning token accounting.
+
 """Fixture tests for cached-input and reasoning token accounting."""
 
 from __future__ import annotations

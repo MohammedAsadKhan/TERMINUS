@@ -1,3 +1,9 @@
+# File name: evaluation_cases.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Synthetic, contract-level incident tasks for evaluating configured models.
+
 """Synthetic, contract-level incident tasks for evaluating configured models.
 
 All evidence is clearly fake lab data (RFC 5737 addresses, ``lab.example``

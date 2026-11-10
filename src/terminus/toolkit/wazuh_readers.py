@@ -1,3 +1,9 @@
+# File name: wazuh_readers.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Bounded, read-only Wazuh manager and indexer adapters.
+
 """Bounded, read-only Wazuh manager and indexer adapters.
 
 Only server-owned endpoint mappings and named queries reach these readers. Raw

@@ -1,3 +1,9 @@
+# File name: test_rule_synthesizer.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Unit tests for Dynamic Sigma & YARA Rule Synthesizer and Wilson Score Engine.
+
 """Unit tests for Dynamic Sigma & YARA Rule Synthesizer and Wilson Score Engine."""
 
 from __future__ import annotations

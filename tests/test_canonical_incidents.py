@@ -1,3 +1,9 @@
+# File name: test_canonical_incidents.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Canonical incident admission, legacy upgrades, and restart safety.
+
 """Canonical incident admission, legacy upgrades, and restart safety."""
 
 import asyncio

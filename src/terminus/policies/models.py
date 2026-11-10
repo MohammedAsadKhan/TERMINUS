@@ -1,3 +1,9 @@
+# File name: models.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Configurable Multi-Tenant Policy Engine Models for TERMINUS.
+
 """Configurable Multi-Tenant Policy Engine Models for TERMINUS."""
 
 from __future__ import annotations

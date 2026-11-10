@@ -1,3 +1,9 @@
+# File name: triggers.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: SIEM Alert Trigger Matching Engine for TERMINUS.
+
 """SIEM Alert Trigger Matching Engine for TERMINUS.
 
 Provides single-source-of-truth alert matching logic used both for workflow

@@ -1,3 +1,9 @@
+# File name: storage.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: SQLite-backed organization and membership stores.
+
 """SQLite-backed organization and membership stores.
 
 Both stores use the injected database, so service transactions include every

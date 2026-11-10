@@ -1,3 +1,9 @@
+# File name: model_connections_api.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Authenticated, organization-scoped model connection metadata API.
+
 """Authenticated, organization-scoped model connection metadata API."""
 
 from __future__ import annotations

@@ -1,3 +1,9 @@
+// File: workbench.tsx
+// Author: Team LARP
+// Date: 2026-11-09
+// Version: 0.1.0
+// Purpose: Render the security overview, incident queue, and incident detail routes.
+
 import { useMemo, useState } from 'react';
 import { Alert, App, Button, Descriptions, Empty, Input, Modal, Segmented, Select, Spin, Tag } from 'antd';
 import {

@@ -1,3 +1,9 @@
+# File name: store.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Durable tenant-scoped storage for named model connections.
+
 """Durable tenant-scoped storage for named model connections."""
 
 # pyright: reportAny=false

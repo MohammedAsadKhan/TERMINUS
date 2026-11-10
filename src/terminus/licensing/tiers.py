@@ -1,3 +1,9 @@
+# File name: tiers.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Define subscription tiers, feature entitlements, and usage limits.
+
 from __future__ import annotations
 
 from terminus.licensing.models import Feature, LicenseTier

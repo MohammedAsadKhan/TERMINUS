@@ -1,3 +1,9 @@
+# File name: test_specialist_wiring.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: O05 wiring: production bridge, WAITING_SPECIALIST, automatic resume, incident window.
+
 # ruff: noqa: F811
 # pyright: basic, reportPrivateUsage=false, reportMissingParameterType=false, reportUnknownParameterType=false, reportUnknownArgumentType=false, reportUnknownVariableType=false, reportUnknownMemberType=false, reportAny=false, reportExplicitAny=false, reportMissingTypeArgument=false
 """O05 wiring: production bridge, WAITING_SPECIALIST, automatic resume, incident window."""

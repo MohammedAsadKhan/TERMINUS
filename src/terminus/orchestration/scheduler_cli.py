@@ -1,3 +1,9 @@
+# File name: scheduler_cli.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Dedicated scheduler entry point with explicitly deployed Python handlers.
+
 """Dedicated scheduler entry point with explicitly deployed Python handlers."""
 
 from __future__ import annotations

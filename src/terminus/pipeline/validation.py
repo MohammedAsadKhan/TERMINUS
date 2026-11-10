@@ -1,3 +1,9 @@
+# File name: validation.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Workflow DAG Validation and Policy Gate Enforcement for TERMINUS.
+
 """Workflow DAG Validation and Policy Gate Enforcement for TERMINUS.
 
 Implements all static workflow checks (D1, D8, D11, D13, D23):

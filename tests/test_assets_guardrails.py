@@ -1,3 +1,9 @@
+# File name: test_assets_guardrails.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Tests for asset registry, tiering, guardrails, and ticket criticality mappings.
+
 """Tests for asset registry, tiering, guardrails, and ticket criticality mappings."""
 
 from __future__ import annotations

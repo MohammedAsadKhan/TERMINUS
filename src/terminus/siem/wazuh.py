@@ -1,3 +1,9 @@
+# File name: wazuh.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Wazuh SIEM API client implementation using httpx2.
+
 """Wazuh SIEM API client implementation using httpx2."""
 
 from __future__ import annotations

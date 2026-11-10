@@ -1,3 +1,9 @@
+# File name: base.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Define the interface for creating tickets from investigation reports.
+
 from __future__ import annotations
 
 from typing import Any, Protocol

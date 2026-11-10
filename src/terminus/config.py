@@ -1,3 +1,9 @@
+# File name: config.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Application settings loaded from environment variables.
+
 """Application settings loaded from environment variables.
 
 All fields have defaults so the app boots offline with zero env vars. Secrets that are

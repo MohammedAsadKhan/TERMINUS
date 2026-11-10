@@ -1,3 +1,9 @@
+# File name: model_settings_api.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Tenant-scoped model policy and financial settings; no execution endpoints.
+
 """Tenant-scoped model policy and financial settings; no execution endpoints."""
 
 from __future__ import annotations

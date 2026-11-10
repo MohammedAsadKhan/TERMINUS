@@ -1,3 +1,9 @@
+# File name: scheduler_store.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Atomic durable admission, coordinator ownership, job leases and recovery.
+
 """Atomic durable admission, coordinator ownership, job leases and recovery.
 
 Only explicitly enqueued tasks are eligible. No provider or action is invoked
@@ -380,6 +386,8 @@ class SchedulerStore:
         )
         if len(eligible_roles) > 100:
             raise ValueError("at most 100 eligible roles")
+        # Check capacity and claim the job in one transaction so concurrent
+        # workers cannot allocate the same slot or exceed the limits.
         with self.db.transaction():
             now = self._now()
             self._require_coordinator(owner_id, now)

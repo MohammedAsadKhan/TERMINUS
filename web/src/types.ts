@@ -1,3 +1,9 @@
+// File: types.ts
+// Author: Team LARP
+// Date: 2026-11-09
+// Version: 0.1.0
+// Purpose: Define TypeScript shapes for backend console responses.
+
 export interface User { user_id: string; email: string; display_name: string; created_at: string }
 export interface Organization { org_id: string; name: string; created_at: string }
 export type Role = 'admin' | 'member' | 'viewer';

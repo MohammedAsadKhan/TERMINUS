@@ -1,3 +1,9 @@
+# File name: bank_defense.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Durable, local-only application gateway state for the fictional bank demo.
+
 """Durable, local-only application gateway state for the fictional bank demo.
 
 This controls only the demo bank routes. It does not dispatch Wazuh, firewall,

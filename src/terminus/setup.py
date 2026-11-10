@@ -1,3 +1,9 @@
+# File name: setup.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Interactive setup wizard and database configuration builder for Terminus Engine.
+
 """Interactive setup wizard and database configuration builder for Terminus Engine."""
 
 from __future__ import annotations

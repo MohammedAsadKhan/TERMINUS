@@ -1,3 +1,9 @@
+# File name: specialist_bridge.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Bridge from workflow AI nodes to recorded orchestration specialist runs.
+
 """Bridge from workflow AI nodes to recorded orchestration specialist runs.
 
 The bridge never fabricates a verdict. It admits one specialist task per

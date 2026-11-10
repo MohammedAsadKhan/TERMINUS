@@ -1,3 +1,9 @@
+# File name: normalizer.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: OCSF (Open Cybersecurity Schema Framework) & ECS Schema Normalizer for TERMINUS.
+
 """OCSF (Open Cybersecurity Schema Framework) & ECS Schema Normalizer for TERMINUS.
 
 Normalizes alerts from Wazuh, Sysmon, CrowdStrike, GuardDuty, or generic telemetry

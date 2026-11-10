@@ -1,3 +1,9 @@
+# File name: stitcher.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Temporal Attack Campaign Stitching Engine for TERMINUS.
+
 """Temporal Attack Campaign Stitching Engine for TERMINUS.
 
 Correlates sequential alerts across time windows into unified attack campaigns,

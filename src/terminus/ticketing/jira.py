@@ -1,3 +1,9 @@
+# File name: jira.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Jira API ticket store implementation.
+
 """Jira API ticket store implementation."""
 
 from __future__ import annotations

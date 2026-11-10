@@ -1,3 +1,9 @@
+# File name: sandbox.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Sandboxed repository cloning, URL validation, and safe static file traversal.
+
 """Sandboxed repository cloning, URL validation, and safe static file traversal."""
 
 from __future__ import annotations

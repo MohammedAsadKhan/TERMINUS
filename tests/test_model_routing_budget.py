@@ -1,3 +1,9 @@
+# File name: test_model_routing_budget.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: M05: financial admission inside capability routing (fixture transports only).
+
 # ruff: noqa: F811
 """M05: financial admission inside capability routing (fixture transports only)."""
 

@@ -1,3 +1,9 @@
+# File name: test_toolkit_registry.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Execution requires an explicit async install, readiness and a core grant.
+
 """Execution requires an explicit async install, readiness and a core grant."""
 
 from __future__ import annotations

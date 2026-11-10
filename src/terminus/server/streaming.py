@@ -1,3 +1,9 @@
+# File name: streaming.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Server-Sent Events (SSE) Real-Time Streaming Bus for TERMINUS.
+
 """Server-Sent Events (SSE) Real-Time Streaming Bus for TERMINUS.
 
 Pushes live incident updates, investigation agent progress steps, and

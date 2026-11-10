@@ -1,3 +1,9 @@
+# File name: models.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Data models for repository security scanning, findings, and components.
+
 """Data models for repository security scanning, findings, and components."""
 
 from __future__ import annotations

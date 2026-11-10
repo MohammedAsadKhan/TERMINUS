@@ -1,3 +1,9 @@
+# File name: deployment.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Wire investigation, SIEM, ticketing, and notification dependencies.
+
 from __future__ import annotations
 
 from dataclasses import dataclass

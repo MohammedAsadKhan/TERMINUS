@@ -1,3 +1,9 @@
+# File name: import_wazuh_lab_incident.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Import one explicitly scoped real lab incident and queue read-only triage.
+
 """Import one explicitly scoped real lab incident and queue read-only triage."""
 # ruff: noqa: INP001 -- standalone administrator script
 

@@ -1,3 +1,9 @@
+# File name: bank.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: First Heritage Community Bank — Interactive Retail Banking Honeypot & Decoy Gateway.
+
 """First Heritage Community Bank — Interactive Retail Banking Honeypot & Decoy Gateway.
 
 Provides a realistic local community bank website for red team demonstrations, complete with:

@@ -1,3 +1,9 @@
+# File name: lab_observer.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Fixed read-only SSH observations for the isolated autonomous lab controller.
+
 """Fixed read-only SSH observations for the isolated autonomous lab controller."""
 from __future__ import annotations
 

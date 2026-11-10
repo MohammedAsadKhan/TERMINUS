@@ -1,3 +1,9 @@
+# File name: retry_wazuh_lab_triage.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Explicit local admin request for a new read-only triage attempt.
+
 """Explicit local admin request for a new read-only triage attempt."""
 # ruff: noqa: INP001 -- trusted local deployment command
 

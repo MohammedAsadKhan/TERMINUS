@@ -1,3 +1,9 @@
+// File: simulation-scenarios.ts
+// Author: Team LARP
+// Date: 2026-11-09
+// Version: 0.1.0
+// Purpose: Define staged incident examples for orchestration rehearsals.
+
 export interface SimulationScenario {
   id: string; label: string; area: string; specialist: string; alert: string;
   review: string; finding: string; evidence: string; recommendation: string;

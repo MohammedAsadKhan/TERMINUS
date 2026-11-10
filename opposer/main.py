@@ -1,3 +1,9 @@
+# File name: main.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Terminus Opposer Standalone Server.
+
 """Terminus Opposer Standalone Server.
 
 Runs independently on port 8080 to host the Opposer Red Team Dashboard.

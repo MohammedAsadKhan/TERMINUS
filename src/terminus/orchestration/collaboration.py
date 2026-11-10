@@ -1,3 +1,9 @@
+# File name: collaboration.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Structured peer-help admission, shared-evidence linkage and ownership view.
+
 """Structured peer-help admission, shared-evidence linkage and ownership view.
 
 Deterministic bookkeeping only: no model calls, tools or scope selection. The

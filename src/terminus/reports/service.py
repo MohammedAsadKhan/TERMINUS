@@ -1,3 +1,9 @@
+# File name: service.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Daily Incident Operations and Executive Summary Report service.
+
 """Daily Incident Operations and Executive Summary Report service."""
 
 from __future__ import annotations

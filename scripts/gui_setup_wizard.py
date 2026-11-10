@@ -1,3 +1,9 @@
+# File name: gui_setup_wizard.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: TERMINUS - Graphical Windows Service Setup & Installation Wizard.
+
 """TERMINUS - Graphical Windows Service Setup & Installation Wizard.
 
 A professional, multi-step enterprise setup wizard for installing, configuring,

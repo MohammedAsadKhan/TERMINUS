@@ -1,3 +1,9 @@
+// File: response-decision.spec.ts
+// Author: Team LARP
+// Date: 2026-11-09
+// Version: 0.1.0
+// Purpose: Exercise response decision in browser tests.
+
 import {expect,test,type Route} from '@playwright/test';
 const json=(r:Route,v:unknown)=>r.fulfill({contentType:'application/json',body:JSON.stringify(v)});
 for(const capability of ['Ready','Unsupported action'])test(`response ${capability}`,async({page})=>{

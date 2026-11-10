@@ -1,3 +1,9 @@
+// File: api.ts
+// Author: Team LARP
+// Date: 2026-11-09
+// Version: 0.1.0
+// Purpose: Send console API requests with session and organization context.
+
 export class ApiError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }

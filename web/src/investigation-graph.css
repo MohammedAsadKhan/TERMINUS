@@ -1,3 +1,11 @@
+/*
+ * File: investigation-graph.css
+ * Author: Team LARP
+ * Date: 2026-11-09
+ * Version: 0.1.0
+ * Purpose: Style the investigation graph view and its component states.
+ */
+
 .graph-page { display: flex; flex-direction: column; height: 100%; min-height: 710px; padding: 26px 28px 0; color: var(--ink); }
 .graph-page-head { display: flex; justify-content: space-between; gap: 16px; align-items: center; margin-bottom: 18px; }
 .graph-page-head h1 { margin: 5px 0; font-size: 25px; letter-spacing: -.025em; }

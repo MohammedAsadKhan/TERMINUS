@@ -1,3 +1,9 @@
+# File name: ledger.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Atomic organization-level financial reservations and a durable usage ledger.
+
 """Atomic organization-level financial reservations and a durable usage ledger.
 
 Money is stored as integer micro-USD and tokens as integers. Limits apply per

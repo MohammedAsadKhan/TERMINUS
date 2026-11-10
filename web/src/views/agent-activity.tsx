@@ -1,3 +1,9 @@
+// File: agent-activity.tsx
+// Author: Team LARP
+// Date: 2026-11-09
+// Version: 0.1.0
+// Purpose: Display specialist task and run activity with evidence links.
+
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {

@@ -1,3 +1,9 @@
+# File name: test_policies.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Check deterministic triage rules and their investigation decisions.
+
 from __future__ import annotations
 
 from terminus.core.ids import OrgId

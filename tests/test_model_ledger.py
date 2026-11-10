@@ -1,3 +1,9 @@
+# File name: test_model_ledger.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: M05: atomic reservations, durable usage ledger and reconciliation.
+
 """M05: atomic reservations, durable usage ledger and reconciliation."""
 
 from __future__ import annotations

@@ -1,3 +1,9 @@
+# File name: tools.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Define and dispatch the investigative tool calls available to the agent.
+
 from __future__ import annotations
 
 from terminus.core.ids import OrgId

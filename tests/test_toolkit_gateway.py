@@ -1,3 +1,9 @@
+# File name: test_toolkit_gateway.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Explicit recorded callbacks exercise admission, durability and stale fencing.
+
 """Explicit recorded callbacks exercise admission, durability and stale fencing."""
 
 from __future__ import annotations

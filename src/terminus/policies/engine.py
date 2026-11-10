@@ -1,3 +1,9 @@
+# File name: engine.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Deterministic Sub-Millisecond Multi-Tenant Policy Engine for TERMINUS.
+
 """Deterministic Sub-Millisecond Multi-Tenant Policy Engine for TERMINUS.
 
 Provides high-speed, zero-token triage, per-tenant CIDR allowlists, and accurate

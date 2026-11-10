@@ -1,3 +1,9 @@
+# File name: reconcile_autonomous_wazuh_lab.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Reconcile expired autonomous lab actions using independent SSH observations only.
+
 """Reconcile expired autonomous lab actions using independent SSH observations only."""
 # ruff: noqa: INP001
 import argparse

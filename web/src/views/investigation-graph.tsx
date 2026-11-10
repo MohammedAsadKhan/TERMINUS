@@ -1,3 +1,9 @@
+// File: investigation-graph.tsx
+// Author: Team LARP
+// Date: 2026-11-09
+// Version: 0.1.0
+// Purpose: Render relationships between incident evidence and investigation entities.
+
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, Button, Empty, Input, Select, Slider, Spin } from 'antd';
 import { ArrowLeftOutlined, ReloadOutlined, SearchOutlined } from '@ant-design/icons';

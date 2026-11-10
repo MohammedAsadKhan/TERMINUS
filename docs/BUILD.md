@@ -1,5 +1,7 @@
 # BUILD.md — Agent-Executable Build Specification
 
+> Historical architecture and planning notes. The [current implementation map](IMPLEMENTATION_MAP.md) describes the delivered code and its alignment with SRS v2.
+
 > **Read this first.** This is the decision-complete work package for building the Agentic
 > SOC platform. It is intentionally prescriptive: every contract, signature, endpoint, and
 > file is specified so the builder executes **without asking the user questions**. The

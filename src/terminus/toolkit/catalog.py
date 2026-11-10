@@ -1,3 +1,9 @@
+# File name: catalog.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Assemble and validate roadmap metadata, never an executable registry.
+
 """Assemble and validate roadmap metadata, never an executable registry."""
 
 from __future__ import annotations

@@ -1,3 +1,9 @@
+# File name: schemas.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Node schemas, types, and registry for TERMINUS Workflows.
+
 """Node schemas, types, and registry for TERMINUS Workflows.
 
 Defines the exact 8 allowed node types (D1), their strict Pydantic config schemas,

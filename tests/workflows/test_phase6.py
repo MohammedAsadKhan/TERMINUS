@@ -1,3 +1,9 @@
+# File name: test_phase6.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Phase 6 Test Suite: Copilot Tools & System Prompt.
+
 """Phase 6 Test Suite: Copilot Tools & System Prompt.
 
 Covers T-COP-1 through T-COP-9:

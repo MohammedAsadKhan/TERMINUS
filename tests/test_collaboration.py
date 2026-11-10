@@ -1,3 +1,9 @@
+# File name: test_collaboration.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Structured help-request admission, shared evidence and ownership visibility.
+
 """Structured help-request admission, shared evidence and ownership visibility."""
 
 from __future__ import annotations

@@ -1,3 +1,9 @@
+# File name: test_orgs.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Tests for the organizations module — service, stores, and business rules.
+
 """Tests for the organizations module — service, stores, and business rules."""
 
 from __future__ import annotations

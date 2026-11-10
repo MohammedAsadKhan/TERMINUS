@@ -1,3 +1,9 @@
+# File name: password.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Derive and verify salted password hashes for local authentication.
+
 from __future__ import annotations
 
 import hashlib

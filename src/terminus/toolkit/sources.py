@@ -1,3 +1,9 @@
+# File name: sources.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Typed observations and trusted resource bindings for investigation readers.
+
 """Typed observations and trusted resource bindings for investigation readers."""
 
 from __future__ import annotations

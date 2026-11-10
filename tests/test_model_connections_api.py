@@ -1,3 +1,9 @@
+# File name: test_model_connections_api.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Authenticated, masked HTTP coverage for named model connections.
+
 """Authenticated, masked HTTP coverage for named model connections."""
 
 from __future__ import annotations

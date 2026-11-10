@@ -1,3 +1,9 @@
+# File name: response_api.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Tenant-scoped operator response decisions; no browser-supplied commands.
+
 """Tenant-scoped operator response decisions; no browser-supplied commands."""
 
 from typing import Annotated, Literal

@@ -1,3 +1,9 @@
+# File name: test_model_live.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Production boundaries with simulated provider I/O; no paid/provider traffic.
+
 # ruff: noqa: F811
 """Production boundaries with simulated provider I/O; no paid/provider traffic."""
 

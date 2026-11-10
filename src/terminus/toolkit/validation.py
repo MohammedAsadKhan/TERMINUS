@@ -1,3 +1,9 @@
+# File name: validation.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Contract validation helpers, without a dispatcher or provider invocation.
+
 """Contract validation helpers, without a dispatcher or provider invocation.
 
 These checks are fixtures for the future gateway, not a complete authorization

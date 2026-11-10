@@ -1,3 +1,9 @@
+# File name: synthesizer.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Dynamic Sigma & YARA Detection Rule Synthesizer for TERMINUS.
+
 """Dynamic Sigma & YARA Detection Rule Synthesizer for TERMINUS.
 
 Synthesizes validated detection rules from triaged incident artifacts,

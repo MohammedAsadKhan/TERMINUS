@@ -1,3 +1,9 @@
+// File: test-alerts.spec.ts
+// Author: Team LARP
+// Date: 2026-11-09
+// Version: 0.1.0
+// Purpose: Exercise test alerts in browser tests.
+
 import { expect, test, type Route } from '@playwright/test';
 
 const browserChannel = process.env.TERMINUS_PLAYWRIGHT_CHANNEL;

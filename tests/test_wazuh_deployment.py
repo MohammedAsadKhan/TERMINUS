@@ -1,3 +1,9 @@
+# File name: test_wazuh_deployment.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Tenant isolation and explicit deployment boundaries for Wazuh readers.
+
 """Tenant isolation and explicit deployment boundaries for Wazuh readers."""
 
 import pytest

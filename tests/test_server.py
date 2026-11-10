@@ -1,3 +1,9 @@
+# File name: test_server.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Integration tests for Terminus FastAPI REST API endpoints.
+
 """Integration tests for Terminus FastAPI REST API endpoints."""
 
 from __future__ import annotations

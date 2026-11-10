@@ -1,3 +1,9 @@
+# File name: run_autonomous_wazuh_lab.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Opt in once to bounded autonomous SSH blocking in the isolated lab.
+
 """Opt in once to bounded autonomous SSH blocking in the isolated lab."""
 # ruff: noqa: INP001
 import argparse

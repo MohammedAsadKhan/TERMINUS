@@ -1,3 +1,9 @@
+# File name: test_specialist_bridge.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Workflow AI nodes report recorded specialist runs only; nothing is fabricated.
+
 """Workflow AI nodes report recorded specialist runs only; nothing is fabricated."""
 
 from __future__ import annotations

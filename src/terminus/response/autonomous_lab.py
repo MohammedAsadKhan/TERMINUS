@@ -1,3 +1,9 @@
+# File name: autonomous_lab.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Opt-in autonomous Scenario A controller. Fixed lab scope; no model-selected targets.
+
 """Opt-in autonomous Scenario A controller. Fixed lab scope; no model-selected targets."""
 from __future__ import annotations
 

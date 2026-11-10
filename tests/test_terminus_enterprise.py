@@ -1,3 +1,9 @@
+# File name: test_terminus_enterprise.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Comprehensive Enterprise Test Suite for TERMINUS.
+
 """Comprehensive Enterprise Test Suite for TERMINUS.
 
 Validates all 25 production capabilities:

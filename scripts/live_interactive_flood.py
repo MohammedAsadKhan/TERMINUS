@@ -1,3 +1,9 @@
+# File name: live_interactive_flood.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Terminus - Live Interactive SOC Flood & Defense Simulation.
+
 """Terminus - Live Interactive SOC Flood & Defense Simulation.
 
 Connects to the running TERMINUS Autonomous Service at http://127.0.0.1:8000 (or specified base URL).

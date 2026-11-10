@@ -1,3 +1,9 @@
+# File name: assets.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Organization-scoped inventory asset persistence.
+
 """Organization-scoped inventory asset persistence."""
 
 from __future__ import annotations

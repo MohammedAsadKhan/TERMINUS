@@ -1,3 +1,9 @@
+// File: qa-walkthroughs.tsx
+// Author: Team LARP
+// Date: 2026-11-09
+// Version: 0.1.0
+// Purpose: Display guided console checks and their expected results.
+
 import { Button, Tag } from 'antd';
 import { Link } from 'react-router-dom';
 import { TEST_TOPICS } from '../test-alerts';

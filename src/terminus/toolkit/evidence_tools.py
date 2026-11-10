@@ -1,3 +1,9 @@
+# File name: evidence_tools.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Read-only incident evidence tools over durable orchestration records.
+
 """Read-only incident evidence tools over durable orchestration records.
 
 `evidence.get`, `evidence.timeline` and `evidence.validate_citations` read only

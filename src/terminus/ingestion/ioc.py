@@ -1,3 +1,9 @@
+# File name: ioc.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: High-speed IOC (Indicators of Compromise) extraction and pattern matching.
+
 """High-speed IOC (Indicators of Compromise) extraction and pattern matching."""
 
 from __future__ import annotations

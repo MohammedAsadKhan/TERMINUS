@@ -1,3 +1,9 @@
+# File name: verdict.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Build investigation prompts and parse structured model verdicts.
+
 from __future__ import annotations
 
 from terminus.llm.base import JsonValue

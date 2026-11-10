@@ -1,3 +1,9 @@
+# File name: bank_page.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Fictional bank page used only in local demonstrations.
+
 """Fictional bank page used only in local demonstrations."""
 
 BANK_HTML = """<!DOCTYPE html>

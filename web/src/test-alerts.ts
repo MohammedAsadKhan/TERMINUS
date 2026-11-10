@@ -1,3 +1,9 @@
+// File: test-alerts.ts
+// Author: Team LARP
+// Date: 2026-11-09
+// Version: 0.1.0
+// Purpose: Define labeled synthetic alerts for local console exploration.
+
 /** Synthetic Wazuh-shaped events for local console exploration. */
 export const TEST_TOPICS = [
   { id: 'ssh', label: 'SSH password guessing', area: 'Identity / Scenario A', ruleId: 100101, level: 8, mitre: 'T1110', host: 'training-linux-01' },

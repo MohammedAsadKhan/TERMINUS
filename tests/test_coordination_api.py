@@ -1,3 +1,9 @@
+# File name: test_coordination_api.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: HTTP authentication, strict admission, tenant boundaries and safe inspection.
+
 """HTTP authentication, strict admission, tenant boundaries and safe inspection."""
 
 from __future__ import annotations

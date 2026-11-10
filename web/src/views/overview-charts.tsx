@@ -1,3 +1,9 @@
+// File: overview-charts.tsx
+// Author: Team LARP
+// Date: 2026-11-09
+// Version: 0.1.0
+// Purpose: Render traffic, endpoint severity, and attack surface charts.
+
 import { useMemo, useState } from 'react';
 import { Button, Descriptions, Modal, Tag, Tooltip } from 'antd';
 import {

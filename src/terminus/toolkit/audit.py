@@ -1,3 +1,9 @@
+# File name: audit.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Durable, fenced invocation admission. No handlers or providers run here.
+
 """Durable, fenced invocation admission. No handlers or providers run here."""
 
 from __future__ import annotations

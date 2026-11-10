@@ -1,3 +1,9 @@
+# File name: orchestration_api.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Authenticated inspection and control endpoints for durable orchestration.
+
 """Authenticated inspection and control endpoints for durable orchestration."""
 
 from __future__ import annotations

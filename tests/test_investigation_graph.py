@@ -1,3 +1,9 @@
+# File name: test_investigation_graph.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Graph evidence survives restart and stays inside the requesting tenant.
+
 """Graph evidence survives restart and stays inside the requesting tenant."""
 
 from __future__ import annotations

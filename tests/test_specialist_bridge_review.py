@@ -1,3 +1,9 @@
+# File name: test_specialist_bridge_review.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Fail-closed specialist continuation and durable, cited report integration.
+
 # ruff: noqa: F811
 """Fail-closed specialist continuation and durable, cited report integration."""
 

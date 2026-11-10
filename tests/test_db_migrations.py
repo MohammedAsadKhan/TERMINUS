@@ -1,3 +1,9 @@
+# File name: test_db_migrations.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Verify SQLite schema upgrades preserve records and tenant scope.
+
 from pathlib import Path
 import sqlite3
 

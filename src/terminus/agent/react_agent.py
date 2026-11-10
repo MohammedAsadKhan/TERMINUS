@@ -1,3 +1,9 @@
+# File name: react_agent.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Stateful Multi-Turn ReAct Autonomous Investigation Agent for TERMINUS.
+
 """Stateful Multi-Turn ReAct Autonomous Investigation Agent for TERMINUS.
 
 Executes iterative reasoning, tool calling, payload de-obfuscation, and live threat

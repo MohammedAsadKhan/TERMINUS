@@ -1,3 +1,9 @@
+// File: playwright.config.ts
+// Author: Team LARP
+// Date: 2026-11-09
+// Version: 0.1.0
+// Purpose: Configure browser tests for the console and its local test server.
+
 import { defineConfig } from '@playwright/test';
 
 export default defineConfig({

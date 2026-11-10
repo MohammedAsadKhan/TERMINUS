@@ -1,3 +1,9 @@
+# File name: test_model_evaluation.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: M06: contract-only versus live model coverage (fixture transports only).
+
 # ruff: noqa: F811
 """M06: contract-only versus live model coverage (fixture transports only)."""
 

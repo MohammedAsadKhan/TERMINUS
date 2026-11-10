@@ -1,3 +1,9 @@
+# File name: wazuh_deployment.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Explicit tenant-bound Wazuh readers for a trusted worker deployment.
+
 """Explicit tenant-bound Wazuh readers for a trusted worker deployment."""
 
 from collections.abc import Mapping

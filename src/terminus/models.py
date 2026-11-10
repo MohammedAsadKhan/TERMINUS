@@ -1,3 +1,9 @@
+# File name: models.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Domain models and trust-boundary types for the agentic SOC pipeline.
+
 """Domain models and trust-boundary types for the agentic SOC pipeline.
 
 All data that crosses a boundary (webhook JSON, LLM responses, API payloads) is parsed

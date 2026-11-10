@@ -1,3 +1,9 @@
+# File name: sanitizer.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Adversarial Prompt Injection Defense & Data Isolation for TERMINUS.
+
 """Adversarial Prompt Injection Defense & Data Isolation for TERMINUS.
 
 Provides strict XML-delimited encapsulation and pre-screening to prevent

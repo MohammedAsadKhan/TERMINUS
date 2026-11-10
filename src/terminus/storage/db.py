@@ -1,3 +1,9 @@
+# File name: db.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Persistent database engine and table definitions for TERMINUS.
+
 """Persistent database engine and table definitions for TERMINUS.
 
 Provides thread-safe async SQLite persistence with connection management,

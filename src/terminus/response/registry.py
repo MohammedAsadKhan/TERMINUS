@@ -1,3 +1,9 @@
+# File name: registry.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Trusted response capability registry; recommendations do not imply execution.
+
 """Trusted response capability registry; recommendations do not imply execution."""
 
 from dataclasses import dataclass

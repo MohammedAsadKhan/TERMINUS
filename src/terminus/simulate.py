@@ -1,3 +1,9 @@
+# File name: simulate.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Offline simulation runner for Terminus.
+
 """Offline simulation runner for Terminus.
 
 Runs the complete pipeline end-to-end against a sample Wazuh alert using

@@ -1,3 +1,9 @@
+# File name: live.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Explicitly configured, pinned, bounded provider I/O behind model admission.
+
 """Explicitly configured, pinned, bounded provider I/O behind model admission.
 
 No credentials, environment proxies, redirects, SDK retries or provider traffic

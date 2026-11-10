@@ -1,3 +1,11 @@
+/*
+ * File: model-settings.css
+ * Author: Team LARP
+ * Date: 2026-11-09
+ * Version: 0.1.0
+ * Purpose: Style the model settings view and its component states.
+ */
+
 .model-settings {
   display: grid;
   gap: 16px;

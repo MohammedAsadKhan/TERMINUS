@@ -1,3 +1,9 @@
+# File name: benchmark.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Automated Benchmark Evaluation Suite for TERMINUS.
+
 """Automated Benchmark Evaluation Suite for TERMINUS.
 
 Evaluates precision, recall, false positive reduction, and evidence citation accuracy

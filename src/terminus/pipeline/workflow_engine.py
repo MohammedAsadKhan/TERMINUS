@@ -1,3 +1,9 @@
+# File name: workflow_engine.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Asynchronous DAG Workflow Execution Engine for TERMINUS.
+
 """Asynchronous DAG Workflow Execution Engine for TERMINUS.
 
 Implements all workflow execution decisions (D1, D2, D3, D4, D6, D7, D8, D9, D10,

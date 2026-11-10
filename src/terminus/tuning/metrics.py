@@ -1,3 +1,9 @@
+# File name: metrics.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Statistical Precision & Wilson Score Lower Bound Engine for TERMINUS.
+
 """Statistical Precision & Wilson Score Lower Bound Engine for TERMINUS.
 
 Provides empirical confidence interval calculation for detection rule precision,

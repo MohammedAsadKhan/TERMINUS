@@ -1,3 +1,9 @@
+# File name: test_toolkit_contracts.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Contract fixtures prove safety boundaries without invoking a security tool.
+
 """Contract fixtures prove safety boundaries without invoking a security tool."""
 
 from __future__ import annotations

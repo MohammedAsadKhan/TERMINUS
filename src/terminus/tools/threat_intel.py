@@ -1,3 +1,9 @@
+# File name: threat_intel.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Live Threat Intelligence Integration (VirusTotal, AbuseIPDB, GreyNoise) with TTL caching.
+
 """Live Threat Intelligence Integration (VirusTotal, AbuseIPDB, GreyNoise) with TTL caching."""
 
 from __future__ import annotations

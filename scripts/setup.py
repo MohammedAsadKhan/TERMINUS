@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+# File name: setup.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: CLI Entrypoint wrapper for Terminus interactive setup wizard.
+
 """CLI Entrypoint wrapper for Terminus interactive setup wizard."""
 
 from __future__ import annotations

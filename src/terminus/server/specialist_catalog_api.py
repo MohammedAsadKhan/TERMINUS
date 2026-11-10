@@ -1,3 +1,9 @@
+# File name: specialist_catalog_api.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Read-only roadmap metadata, deliberately separate from execution authority.
+
 """Read-only roadmap metadata, deliberately separate from execution authority."""
 
 from typing import Annotated

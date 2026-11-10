@@ -1,3 +1,9 @@
+# File name: evidence.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Fenced, bounded evidence collection for trusted installed read handlers.
+
 """Fenced, bounded evidence collection for trusted installed read handlers.
 
 This writer has no provider, filesystem or model interface. Source records stay

@@ -1,3 +1,9 @@
+# File name: deobfuscator.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Static Script and Payload De-obfuscation Engine for TERMINUS.
+
 """Static Script and Payload De-obfuscation Engine for TERMINUS.
 
 Automatically decodes Base64 payloads, PowerShell encoded commands,

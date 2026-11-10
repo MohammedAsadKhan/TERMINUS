@@ -1,3 +1,9 @@
+# File name: presentation_rehearsal.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Isolated synthetic demo of intake, durable triage, and honest gaps.
+
 """Isolated synthetic demo of intake, durable triage, and honest gaps.
 
 Run from the repository root with ``uv run --frozen python scripts/presentation_rehearsal.py``.

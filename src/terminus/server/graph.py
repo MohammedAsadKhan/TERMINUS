@@ -1,3 +1,9 @@
+# File name: graph.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Tenant-scoped graph and source-evidence endpoints.
+
 """Tenant-scoped graph and source-evidence endpoints."""
 
 from __future__ import annotations

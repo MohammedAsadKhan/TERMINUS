@@ -1,3 +1,9 @@
+# File name: deploy.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Scheduler-loadable specialist handlers: ``ROLE=...specialists.deploy:ROLE``.
+
 """Scheduler-loadable specialist handlers: ``ROLE=...specialists.deploy:ROLE``.
 
 Configuration is explicit and read lazily on the first leased task:

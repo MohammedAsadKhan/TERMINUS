@@ -1,3 +1,9 @@
+# File name: service.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Organization domain service enforcing business rules.
+
 """Organization domain service enforcing business rules.
 
 All operations require explicit ``org_id`` and ``actor`` (the user performing the action).

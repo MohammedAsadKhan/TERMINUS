@@ -1,3 +1,9 @@
+// File: app.js
+// Author: Team LARP
+// Date: 2026-11-09
+// Version: 0.1.0
+// Purpose: Prototype the Response Forge approval interface for design exploration.
+
 const nav = ['overview','incidents','reports','agents','workflows','integrations','organization','settings'];
 const labels = {overview:'Overview',incidents:'Incidents',reports:'Reports',agents:'Agent fleet',workflows:'Workflows',integrations:'Integrations',organization:'Organization',settings:'Settings'};
 const host = document.querySelector('.dashboard');

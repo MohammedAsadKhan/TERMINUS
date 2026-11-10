@@ -1,3 +1,9 @@
+# File name: models.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Strict, bounded specialist result contracts.
+
 """Strict, bounded specialist result contracts.
 
 A result with gaps is explicitly not a security verdict: absence of telemetry

@@ -1,3 +1,9 @@
+# File name: test_scheduler_cli.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Dedicated process configuration never executes unspecified worker code.
+
 """Dedicated process configuration never executes unspecified worker code."""
 
 from types import ModuleType

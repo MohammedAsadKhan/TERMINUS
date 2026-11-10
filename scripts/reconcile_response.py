@@ -1,3 +1,9 @@
+# File name: reconcile_response.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Independently reconcile expired console responses without dispatch credentials.
+
 """Independently reconcile expired console responses without dispatch credentials."""
 
 # ruff: noqa: INP001

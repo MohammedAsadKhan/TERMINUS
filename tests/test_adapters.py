@@ -1,3 +1,9 @@
+# File name: test_adapters.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Unit tests for Slack, Twilio, Jira, and Wazuh live adapters.
+
 """Unit tests for Slack, Twilio, Jira, and Wazuh live adapters."""
 
 from __future__ import annotations

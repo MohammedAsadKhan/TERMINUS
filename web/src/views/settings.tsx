@@ -1,3 +1,9 @@
+// File: settings.tsx
+// Author: Team LARP
+// Date: 2026-11-09
+// Version: 0.1.0
+// Purpose: Manage console integrations and workspace settings.
+
 import { useEffect, useState } from 'react';
 import {
   Alert,

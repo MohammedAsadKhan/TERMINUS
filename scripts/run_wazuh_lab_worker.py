@@ -1,3 +1,9 @@
+# File name: run_wazuh_lab_worker.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Prompt locally for lab credentials and launch a read-only specialist worker.
+
 """Prompt locally for lab credentials and launch a read-only specialist worker."""
 # ruff: noqa: INP001 -- standalone deployment script
 

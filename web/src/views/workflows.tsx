@@ -1,3 +1,9 @@
+// File: workflows.tsx
+// Author: Team LARP
+// Date: 2026-11-09
+// Version: 0.1.0
+// Purpose: Render the workflow editor and inspect workflow runs.
+
 import { useCallback, useEffect, useState } from 'react';
 import {
   Alert,

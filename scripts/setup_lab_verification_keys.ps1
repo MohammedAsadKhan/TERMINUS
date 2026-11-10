@@ -1,3 +1,9 @@
+# File: setup_lab_verification_keys.ps1
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Install and verify the dedicated public SSH key on the two lab guests.
+
 # Install only the dedicated verification PUBLIC key. Guest passwords stay local.
 $ErrorActionPreference = 'Stop'
 $verificationKey = Join-Path $env:USERPROFILE '.ssh\terminus_lab_ed25519'

@@ -1,3 +1,9 @@
+# File name: routing.py
+# Author: Team LARP
+# Date: 2026-11-09
+# Version: 0.1.0
+# Purpose: Capability routing and bounded approved fallback over M03 admission.
+
 """Capability routing and bounded approved fallback over M03 admission.
 
 Candidates come only from exact policy grants (role, area, connection version,
