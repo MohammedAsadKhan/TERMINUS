@@ -1,9 +1,9 @@
 /*
  * File: workspace.css
  * Author: Team LARP
- * Date: 2026-11-09
+ * Date: 2026-11-17
  * Version: 0.1.0
- * Purpose: Style workspace-level panels and responsive layouts.
+ * Purpose: Style workspace panels, theme-aware navigation, and responsive layouts.
  */
 
 /* Focused workspace skin: navy navigation, quiet surfaces and compact data. */
@@ -35,6 +35,24 @@
 .sidebar-product { display: block; font-size: 11px; font-weight: 650; letter-spacing: .06em; color: #c5cada; }
 .sidebar-product span { color: #8b94ae; margin-left: 5px; font-weight: 500; }
 .sidebar-bottom > small { display: block; font-size: 10px; margin-top: 7px; color: #79829e; }
+/* The navy rail belongs to the light Workspace skin. Match the rail to Carbon's
+   graphite surfaces so a theme change covers the entire analyst workspace. */
+:root[data-theme='carbon'] .workspace-layout .console-sidebar { background: var(--surface); color: var(--ink); border-right-color: var(--line); }
+:root[data-theme='carbon'] .workspace-layout .sidebar-workspace { background: var(--raised); border-color: var(--line); }
+:root[data-theme='carbon'] .workspace-layout .sidebar-workspace-label,
+:root[data-theme='carbon'] .workspace-layout .nav-group-label,
+:root[data-theme='carbon'] .workspace-layout .sidebar-bottom > small { color: var(--subtle); }
+:root[data-theme='carbon'] .workspace-layout .sidebar-workspace strong,
+:root[data-theme='carbon'] .workspace-layout .sidebar-product { color: var(--ink); }
+:root[data-theme='carbon'] .workspace-layout .sidebar-product span { color: var(--subtle); }
+:root[data-theme='carbon'] .workspace-layout .nav-item { color: var(--subtle); }
+:root[data-theme='carbon'] .workspace-layout .nav-item:hover { background: var(--raised); color: var(--ink); }
+:root[data-theme='carbon'] .workspace-layout .nav-item.active { background: var(--raised); color: var(--ink); border-color: var(--line); box-shadow: inset 3px 0 var(--accent); }
+:root[data-theme='carbon'] .workspace-layout .nav-item.active .anticon,
+:root[data-theme='carbon'] .workspace-layout .nav-item.active .vm-nav-icon { color: var(--accent); }
+:root[data-theme='carbon'] .workspace-layout .sidebar-bottom { border-top-color: var(--line); }
+:root[data-theme='carbon'] .workspace-layout .asset-nav-count { background: var(--raised); color: var(--subtle); }
+:root[data-theme='carbon'] .workspace-layout .nav-item.active .asset-nav-count { background: var(--line); color: var(--ink); }
 .console-topbar-main { min-height: 62px; padding: 0 28px; gap: 12px; }
 .workspace-breadcrumb { display: flex; align-items: center; gap: 12px; color: var(--subtle); font-size: 12px; }
 .workspace-breadcrumb strong { color: var(--ink); font-weight: 550; }

@@ -1,8 +1,8 @@
 // File: main.tsx
 // Author: Team LARP
-// Date: 2026-11-09
+// Date: 2026-11-17
 // Version: 0.1.0
-// Purpose: Mount the React console with routing, query caching, and the selected theme.
+// Purpose: Mount the React console with routing, query caching, and the dark default theme.
 
 import React, { useEffect, useState } from 'react';
 import ReactDOM from 'react-dom/client';
@@ -21,8 +21,9 @@ import './workspace.css';
 const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: 15000 }, mutations: { retry: false } } });
 
 function Root() {
-  const [themeId, setThemeIdState] = useState<string>(() => localStorage.getItem('terminus_theme_id') || 'workspace');
-  const activeTheme = THEMES[themeId] || THEMES.workspace;
+  // Preserve an analyst's explicit choice; first-time sessions start in the SOC's dark theme.
+  const [themeId, setThemeIdState] = useState<string>(() => localStorage.getItem('terminus_theme_id') || 'carbon');
+  const activeTheme = THEMES[themeId] || THEMES.carbon;
 
   const setThemeId = (id: string) => {
     if (THEMES[id]) {

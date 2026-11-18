@@ -1,11 +1,12 @@
 # TERMINUS evaluation guide
 
-Team LARP | COSC 3370 | Package version 0.1.0 | November 13, 2026
+Team LARP | COSC 3370 | Package version 0.1.0 | November 17, 2026
 
 Start with the [installation manual](INSTALLATION.md). The standard evaluation starts a clean loopback instance and uses the prebuilt console. It needs no live security connector or model credential.
 
 1. Open the health endpoint and confirm the service responds.
 2. Sign in to the console with the local evaluation account listed in the manual.
+   A new browser session opens in the Carbon Matrix dark theme. Existing browser theme choices remain saved; use the account menu's Appearance control to switch themes.
 3. Review Overview, Incidents, Agents and Workflows. The [QA walkthroughs](QA_LOCAL_EXPLORATION.md) explain how to exercise synthetic intake and inspect recorded activity when those controls are available.
 4. Use the [SDD-to-code map](IMPLEMENTATION_MAP.md) to locate the implementation and identify acceptance checks that remain open.
 

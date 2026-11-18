@@ -1,6 +1,6 @@
 # TERMINUS installation manual
 
-Team LARP | COSC 3370 | Package version 0.1.0 | November 16, 2026
+Team LARP | COSC 3370 | Package version 0.1.0 | November 17, 2026
 
 ## 1. Scope and prerequisites
 
@@ -78,6 +78,6 @@ Press Ctrl+C in the server window. Retain terminus.db if you want to preserve th
 - If uv is unavailable, verify the installation with uv --version and reopen PowerShell.
 - If port 8000 is occupied, set TERMINUS_PORT before launching, for example `$env:TERMINUS_PORT=8001`, and change the browser URL to match.
 - If the local account fails, check that you extracted into a fresh directory and started in local mode. Existing accounts keep their passwords.
-- If the console loads without styles or scripts, confirm the archive contains src/terminus/server/static/console/ with its assets directory.
+- If the console loads without styles or scripts, confirm the archive contains src/terminus/server/static/console/ with its assets directory. New browser sessions use the Carbon Matrix dark theme; an explicit Appearance choice in the account menu persists locally.
 
 For source navigation, see [the implementation map](IMPLEMENTATION_MAP.md). The separate lab procedures in [response decisions](RESPONSE_DECISIONS.md) require the team’s configured VMs and credentials.

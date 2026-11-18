@@ -1,6 +1,6 @@
 # TERMINUS implementation map
 
-Team LARP | COSC 3370 | Package version 0.1.0 | November 13, 2026
+Team LARP | COSC 3370 | Package version 0.1.0 | November 17, 2026
 
 This map connects the October 23 Software Design Document (SDD), the November 9 SRS v2.0, and the delivered repository. It records implementation and verification separately. For evaluation setup, see the [installation manual](INSTALLATION.md).
 
@@ -22,6 +22,8 @@ flowchart LR
 ```
 
 The API serves the React build from `src/terminus/server/static/console/`. Its default startup creates the local SQLite database without presentation agents, workflows, or incidents; those fixtures require `TERMINUS_DEMO_SEED_ENABLED` in local mode. The scheduler and live response worker have separate entry points. They share SQLite and must be started separately for their respective workflows. The normal launcher starts the API only; a healthy API does not show worker readiness. Operator intake routes require an authenticated session and are marked as operator submissions. A separate `/sources/wazuh` route requires a configured source key and organization, records a raw receipt hash, and binds the tenant. Private lab Integrator delivery from genuine target-agent SSH telemetry and one exact-digest approved 60-second block with independent expiry/recovery passed; fresh-install and broader response acceptance remain open.
+
+The console theme is initialized in `web/src/main.tsx`, defined in `web/src/theme.ts`, and styled across `web/src/design.css` and `web/src/workspace.css`. New sessions start in Carbon Matrix; an analyst's saved Appearance selection takes precedence.
 
 ## SDD modules in source
 
