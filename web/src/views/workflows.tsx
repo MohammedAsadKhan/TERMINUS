@@ -1,8 +1,8 @@
 // File: workflows.tsx
 // Author: Team LARP
-// Date: 2026-11-09
+// Date: 2026-11-12
 // Version: 0.1.0
-// Purpose: Render the workflow editor and inspect workflow runs.
+// Purpose: Render the workflow definition editor and inspect workflow runs and approval gates.
 
 import { useCallback, useEffect, useState } from 'react';
 import {
@@ -71,8 +71,8 @@ const palette = [
   { type: 'agent_llm', label: 'AI Investigation Persona', group: 'AGENT', color: 'blue', description: 'Re-evaluates telemetry with custom persona' },
   { type: 'tool_slack', label: 'Slack Alert', group: 'OUTPUT', color: 'blue', description: 'Broadcasts report to Slack channel' },
   { type: 'tool_jira', label: 'Jira Ticket', group: 'OUTPUT', color: 'blue', description: 'Creates structured tracking incident ticket' },
-  { type: 'tool_isolate', label: 'Isolate Host', group: 'CONTAINMENT', color: 'red', description: 'Active containment workstation network cut' },
-  { type: 'tool_firewall', label: 'Block IP Address', group: 'CONTAINMENT', color: 'red', description: 'Active perimeter drop firewall rule' },
+  { type: 'tool_isolate', label: 'Isolate Host', group: 'CONTAINMENT', color: 'red', description: 'Requests host network isolation from the configured provider' },
+  { type: 'tool_firewall', label: 'Block IP Address', group: 'CONTAINMENT', color: 'red', description: 'Requests a firewall block from the configured provider' },
 ];
 
 type FlowNode = Node<
@@ -503,7 +503,11 @@ function WorkflowEditor() {
           decision: action === 'APPROVED' ? 'approve' : 'reject',
         })
       );
-      message.success(`Approval gate ${action.toLowerCase()}`);
+      message.success(
+        action === 'APPROVED'
+          ? 'Authorization recorded; effect pending. Review the workflow run and actions log for the outcome.'
+          : 'Approval rejected; no action will be dispatched.'
+      );
       query.invalidateQueries({ queryKey: ['approvals', orgId] });
     } catch (error) {
       message.error((error as Error).message);
@@ -517,7 +521,7 @@ function WorkflowEditor() {
       <PageTitle
         eyebrow="AUTOMATION / WORKFLOWS"
         title="SOC Response Playbooks."
-        description="Design deterministic gates, AI persona investigations, and active containment workflows."
+        description="Design approval gates, AI persona investigations, and containment workflow definitions."
         actions={
           <Space>
             <Button icon={<ExperimentOutlined />} onClick={() => setActiveTab(activeTab === 'dryrun' ? 'editor' : 'dryrun')}>
@@ -699,7 +703,7 @@ function WorkflowEditor() {
                   disabled={!canWrite}
                   style={{ minWidth: 200 }}
                 />
-                <Tooltip title="Toggle active autonomous execution for this workflow (enabling requires admin)">
+                <Tooltip title="Toggle whether this workflow is enabled for execution (requires admin)">
                   <Space>
                     <Switch
                       size="small"
@@ -785,7 +789,7 @@ function WorkflowEditor() {
             description={
               validation?.errors?.length
                 ? validation.errors.join('; ')
-                : 'All containment paths (host isolation, firewall block) are strictly verified to pass through an admin approval gate or deterministic severity threshold before execution.'
+                : 'The validator checks that containment nodes are preceded by an approval gate or deterministic severity condition in the saved definition. This validates the definition only; it does not confirm runtime execution or an achieved containment effect.'
             }
           />
         </>

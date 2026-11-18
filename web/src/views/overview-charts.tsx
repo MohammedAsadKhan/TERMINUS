@@ -1,8 +1,8 @@
 // File: overview-charts.tsx
 // Author: Team LARP
-// Date: 2026-11-09
+// Date: 2026-11-12
 // Version: 0.1.0
-// Purpose: Render traffic, endpoint severity, and attack surface charts.
+// Purpose: Render recorded-incident timeline, endpoint severity, and attack surface charts.
 
 import { useMemo, useState } from 'react';
 import { Button, Descriptions, Modal, Tag, Tooltip } from 'antd';
@@ -15,7 +15,6 @@ import {
   FireOutlined,
   LineChartOutlined,
   RobotOutlined,
-  SafetyCertificateOutlined,
   ThunderboltOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
@@ -149,14 +148,6 @@ export function getMitreTechniqueName(code: string, fallbackDesc?: string): stri
   return `Adversary Technique (${cleanCode})`;
 }
 
-interface TrafficPoint {
-  timeLabel: string;
-  timestamp: number;
-  reqPerSec: number;
-  x: number;
-  y: number;
-}
-
 interface AlertNode {
   incident: Incident;
   x: number;
@@ -167,7 +158,19 @@ interface AlertNode {
   radius: number;
 }
 
-export function LiveTrafficAlertChart({
+interface TimelineBucket {
+  x: number;
+  width: number;
+  y: number;
+  height: number;
+  count: number;
+}
+
+interface TimelineTick {
+  label: string;
+}
+
+export function IncidentTimelineChart({
   incidents,
   onSelectIncident,
 }: {
@@ -179,18 +182,20 @@ export function LiveTrafficAlertChart({
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
   const [activeSeverityFilter, setActiveSeverityFilter] = useState<string>('all');
 
-  // Compute traffic baseline and mapped alert nodes
+  // Everything plotted here comes from stored incident records. The chart
+  // buckets those records by their recorded timestamps; the console does not
+  // observe service traffic or sensor throughput, so it must not draw them.
   const {
+    buckets,
     alertNodes,
     timeTicks,
-    baselineRps,
-    peakRps,
+    peakBucket,
     totalCritical,
     totalHigh,
     totalMedium,
     totalLow,
-    areaPath,
-    linePath,
+    timedCount,
+    undatedCount,
   } = useMemo(() => {
     const totalCritical = incidents.filter(i => (i.severity || '').toLowerCase() === 'critical').length;
     const totalHigh = incidents.filter(i => (i.severity || '').toLowerCase() === 'high').length;
@@ -198,81 +203,12 @@ export function LiveTrafficAlertChart({
     const totalLow = incidents.filter(i => (i.severity || '').toLowerCase() === 'low').length;
 
     const width = 500;
-    const height = 135;
     const paddingX = 22;
-    const paddingY = 16;
+    const chartTop = 20;
+    const chartBottom = 108;
+    const bucketCount = 12;
 
-    const now = Date.now();
-    const timestamps = incidents
-      .map(i => Date.parse(i.created_at || i.timestamp))
-      .filter(t => Number.isFinite(t))
-      .sort((a, b) => a - b);
-
-    const firstTime = timestamps.length > 0 ? timestamps[0] : now - 300000;
-    const lastTime = timestamps.length > 0 ? timestamps[timestamps.length - 1] : now;
-    const rawSpan = Math.max(lastTime - firstTime, 30000);
-
-    let minTime: number;
-    let maxTime: number;
-    if (rawSpan < 120000) {
-      minTime = firstTime - 60000;
-      maxTime = Math.max(now, lastTime + 45000);
-    } else {
-      const pad = rawSpan * 0.08;
-      minTime = firstTime - pad;
-      maxTime = Math.max(now, lastTime + pad);
-    }
-    const windowSpan = Math.max(maxTime - minTime, 120000);
-
-    // Realistic smooth enterprise baseline traffic curve
-    const curvePointsCount = 20;
-    const step = windowSpan / (curvePointsCount - 1);
-    const baseRpsValue = 220;
-    const trafficPoints: TrafficPoint[] = [];
-
-    let maxRps = baseRpsValue;
-    for (let i = 0; i < curvePointsCount; i++) {
-      const t = minTime + i * step;
-      const d = new Date(t);
-      const timeLabel = `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}:${d.getSeconds().toString().padStart(2, '0')}`;
-      // Smooth gentle organic undulation (205 - 245 req/s)
-      const oscillation = Math.sin(i * 0.55) * 14 + Math.cos(i * 0.95) * 8;
-      const rps = Math.round(baseRpsValue + oscillation);
-      if (rps > maxRps) maxRps = rps;
-      trafficPoints.push({ timeLabel, timestamp: t, reqPerSec: rps, x: 0, y: 0 });
-    }
-
-    const minRps = 180;
-    const rpsRange = Math.max(maxRps - minRps, 50);
-
-    trafficPoints.forEach((p, idx) => {
-      p.x = paddingX + (idx / (curvePointsCount - 1)) * (width - paddingX * 2);
-      p.y = height - paddingY - ((p.reqPerSec - minRps) / rpsRange) * (height - paddingY * 2.2);
-    });
-
-    // Smooth cubic bezier path
-    let areaPath = '';
-    let linePath = '';
-    if (trafficPoints.length > 1) {
-      const first = trafficPoints[0];
-      const last = trafficPoints[trafficPoints.length - 1];
-      let d = `M ${first.x} ${first.y}`;
-      for (let i = 1; i < trafficPoints.length; i++) {
-        const p = trafficPoints[i];
-        const prev = trafficPoints[i - 1];
-        const cx1 = prev.x + (p.x - prev.x) / 2;
-        const cy1 = prev.y;
-        const cx2 = prev.x + (p.x - prev.x) / 2;
-        const cy2 = p.y;
-        d += ` C ${cx1} ${cy1}, ${cx2} ${cy2}, ${p.x} ${p.y}`;
-      }
-      linePath = d;
-      const bottom = height - 10;
-      areaPath = `${d} L ${last.x} ${bottom} L ${first.x} ${bottom} Z`;
-    }
-
-    // Filter incidents
-    const filteredIncidents = incidents.filter(i => {
+    const filtered = incidents.filter(i => {
       const sev = (i.severity || 'low').toLowerCase();
       if (activeSeverityFilter === 'critical') return sev === 'critical';
       if (activeSeverityFilter === 'high') return sev === 'high';
@@ -281,24 +217,63 @@ export function LiveTrafficAlertChart({
       return true;
     });
 
-    // Prioritize critical & high threats and sample cleanly (maximum 16 distinct non-overlapping points)
-    const prioritized = [...filteredIncidents].sort((a, b) => {
-      const sOrder: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
-      return (sOrder[a.severity?.toLowerCase() || 'low'] ?? 4) - (sOrder[b.severity?.toLowerCase() || 'low'] ?? 4);
+    const timed = filtered
+      .map(incident => ({ incident, time: Date.parse(incident.created_at || incident.timestamp) }))
+      .filter(entry => Number.isFinite(entry.time))
+      .sort((a, b) => a.time - b.time);
+
+    const undatedCount = filtered.length - timed.length;
+
+    if (timed.length === 0) {
+      return {
+        buckets: [] as TimelineBucket[],
+        alertNodes: [] as AlertNode[],
+        timeTicks: [] as TimelineTick[],
+        peakBucket: 0,
+        totalCritical,
+        totalHigh,
+        totalMedium,
+        totalLow,
+        timedCount: 0,
+        undatedCount,
+      };
+    }
+
+    const firstTime = timed[0].time;
+    const lastTime = timed[timed.length - 1].time;
+    // A single incident gives no span; pad the window so its marker is visible.
+    const rawSpan = Math.max(lastTime - firstTime, 60000);
+    const pad = rawSpan * 0.06;
+    const minTime = firstTime - pad;
+    const maxTime = lastTime + pad;
+    const windowSpan = maxTime - minTime;
+
+    const bucketSpan = windowSpan / bucketCount;
+    const bucketFor = (time: number) => Math.min(bucketCount - 1, Math.max(0, Math.floor((time - minTime) / bucketSpan)));
+
+    const counts = new Array<number>(bucketCount).fill(0);
+    timed.forEach(entry => {
+      counts[bucketFor(entry.time)] += 1;
     });
-    const displayIncidents = prioritized.slice(0, 16);
 
-    // Initial alert node calculations
-    const rawNodes = displayIncidents.map((inc, index) => {
-      const incTime = Date.parse(inc.created_at || inc.timestamp);
-      const safeTime = Number.isFinite(incTime)
-        ? incTime
-        : minTime + (index / Math.max(displayIncidents.length, 1)) * windowSpan;
+    const peakBucket = Math.max(...counts);
+    const plotWidth = width - paddingX * 2;
+    const plotHeight = chartBottom - chartTop;
+    const slotWidth = plotWidth / bucketCount;
 
-      const rawRatio = Math.max(0, Math.min(1, (safeTime - minTime) / windowSpan));
-      const rawX = paddingX + rawRatio * (width - paddingX * 2);
+    const buckets: TimelineBucket[] = counts.map((count, index) => {
+      const barHeight = count === 0 ? 0 : Math.max(4, (count / Math.max(peakBucket, 1)) * plotHeight);
+      return {
+        x: paddingX + index * slotWidth + slotWidth * 0.15,
+        width: Math.max(slotWidth * 0.7, 2),
+        y: chartBottom - barHeight,
+        height: barHeight,
+        count,
+      };
+    });
 
-      const sev = (inc.severity || 'low').toLowerCase();
+    const alertNodes: AlertNode[] = timed.map(({ incident, time }) => {
+      const sev = (incident.severity || 'low').toLowerCase();
       let color = '#06b6d4';
       let pulse = false;
       let severityLabel = 'Low';
@@ -319,97 +294,33 @@ export function LiveTrafficAlertChart({
         radius = 4;
       }
 
-      return {
-        incident: inc,
-        rawX,
-        x: rawX,
-        rawTime: safeTime,
-        color,
-        pulse,
-        severityLabel,
-        radius,
-      };
+      const x = paddingX + ((time - minTime) / windowSpan) * plotWidth;
+      const bucketTop = chartBottom - (counts[bucketFor(time)] / Math.max(peakBucket, 1)) * plotHeight;
+      const y = Math.max(chartTop + 5, bucketTop - 7);
+
+      return { incident, x, y, color, pulse, severityLabel, radius };
     });
 
-    // Sort chronologically for clean rendering
-    rawNodes.sort((a, b) => a.rawTime - b.rawTime);
-
-    // Collision relaxation: ensure minimum 26px spacing so points never look like teeth
-    const minSpacing = 26;
-
-    if (rawNodes.length > 1) {
-      for (let i = 1; i < rawNodes.length; i++) {
-        if (rawNodes[i].x < rawNodes[i - 1].x + minSpacing) {
-          rawNodes[i].x = rawNodes[i - 1].x + minSpacing;
-        }
-      }
-      const maxX = width - paddingX;
-      if (rawNodes[rawNodes.length - 1].x > maxX) {
-        rawNodes[rawNodes.length - 1].x = maxX;
-        for (let i = rawNodes.length - 2; i >= 0; i--) {
-          if (rawNodes[i].x > rawNodes[i + 1].x - minSpacing) {
-            rawNodes[i].x = rawNodes[i + 1].x - minSpacing;
-          }
-        }
-      }
-    }
-
-    // Map Y position smoothly above baseline
-    const alertNodes: AlertNode[] = rawNodes.map(node => {
-      const xRatio = Math.max(0, Math.min(1, (node.x - paddingX) / (width - paddingX * 2)));
-      const baseIdx = Math.max(0, Math.min(trafficPoints.length - 1, xRatio * (trafficPoints.length - 1)));
-      const floorIdx = Math.floor(baseIdx);
-      const ceilIdx = Math.min(trafficPoints.length - 1, floorIdx + 1);
-      const frac = baseIdx - floorIdx;
-      const trafficLineY = trafficPoints[floorIdx] && trafficPoints[ceilIdx]
-        ? trafficPoints[floorIdx].y * (1 - frac) + trafficPoints[ceilIdx].y * frac
-        : height - paddingY - 20;
-
-      // Position severity cleanly: Critical elevated higher, Medium/Low closer to curve
-      let yOffset = 8;
-      if (node.severityLabel === 'Critical') yOffset = 26;
-      else if (node.severityLabel === 'High') yOffset = 18;
-      else if (node.severityLabel === 'Medium') yOffset = 12;
-
-      const y = Math.max(22, Math.min(height - 24, trafficLineY - yOffset));
-
-      return {
-        incident: node.incident,
-        x: node.x,
-        y,
-        color: node.color,
-        pulse: node.pulse,
-        severityLabel: node.severityLabel,
-        radius: node.radius,
-      };
-    });
-
-    // 5 clean timeline ticks
-    const tickCount = 5;
-    const timeTicks = Array.from({ length: tickCount }, (_, i) => {
-      const t = minTime + (i / (tickCount - 1)) * (maxTime - minTime);
-      const d = new Date(t);
-      const hh = d.getHours().toString().padStart(2, '0');
-      const mm = d.getMinutes().toString().padStart(2, '0');
-      const ss = d.getSeconds().toString().padStart(2, '0');
-      return {
-        label: `${hh}:${mm}:${ss}`,
-        isNow: i === tickCount - 1,
-      };
+    const spanSeconds = windowSpan / 1000;
+    const timeTicks: TimelineTick[] = Array.from({ length: 5 }, (_, index) => {
+      const moment = new Date(minTime + (index / 4) * windowSpan);
+      const hh = moment.getHours().toString().padStart(2, '0');
+      const mm = moment.getMinutes().toString().padStart(2, '0');
+      const ss = moment.getSeconds().toString().padStart(2, '0');
+      return { label: spanSeconds < 3600 ? `${hh}:${mm}:${ss}` : `${hh}:${mm}` };
     });
 
     return {
-      trafficPoints,
+      buckets,
       alertNodes,
       timeTicks,
-      baselineRps: baseRpsValue,
-      peakRps: maxRps,
+      peakBucket,
       totalCritical,
       totalHigh,
       totalMedium,
       totalLow,
-      areaPath,
-      linePath,
+      timedCount: timed.length,
+      undatedCount,
     };
   }, [incidents, activeSeverityFilter]);
 
@@ -427,24 +338,17 @@ export function LiveTrafficAlertChart({
     return match ? match[0] : null;
   };
 
-  const isTier0Asset = (host?: string) => {
-    if (!host) return false;
-    const lower = host.toLowerCase();
-    return lower.includes('dc01') || lower.includes('dc-') || lower.includes('domain') || lower.includes('ledger-prod');
-  };
-
   return (
-    <div className="overview-graph-card live-traffic-card" aria-label="Normal Service Traffic and Live Threat Influx">
-      {/* Header with real-time status and integrated peak metric */}
+    <div className="overview-graph-card live-traffic-card" aria-label="Recorded Incident Volume Timeline">
+      {/* Header summarizes counts from stored records; there is no live feed indicator. */}
       <div className="graph-card-header">
         <div className="graph-card-title">
           <LineChartOutlined style={{ color: 'var(--accent)' }} />
-          <span>Live Service Traffic &amp; Threat Influx</span>
+          <span>Incident Volume Timeline</span>
         </div>
         <div className="graph-card-metric">
-          <span className="live-pulse-dot" title="Live sensor stream online" />
-          <strong>~{baselineRps}</strong>
-          <small>req/s avg · {peakRps} peak</small>
+          <strong>{timedCount}</strong>
+          <small>recorded incidents · peak {peakBucket} per interval</small>
         </div>
       </div>
 
@@ -487,7 +391,7 @@ export function LiveTrafficAlertChart({
         </button>
       </div>
 
-      {/* SVG Canvas with Traffic Baseline and Clean Threat Events */}
+      {/* SVG: interval counts plus one marker per incident at its recorded time */}
       <div className="graph-svg-container live-traffic-svg-wrap" style={{ position: 'relative' }}>
         {/* Floating Hover Preview Card */}
         {(() => {
@@ -514,27 +418,43 @@ export function LiveTrafficAlertChart({
                 <span className="hover-popover-host">{hoveredNode.incident.agent_name || 'unknown'}</span>
               </div>
               <div className="hover-popover-desc">{hoveredNode.incident.rule_description || 'Security Incident'}</div>
-              <div className="hover-popover-hint">⚡ Click node to inspect incident dossier</div>
+              <div className="hover-popover-hint">Click marker to inspect the stored incident record</div>
             </div>
           );
         })()}
 
         <svg viewBox="0 0 500 135" className="velocity-svg" preserveAspectRatio="none">
-          <defs>
-            <linearGradient id="normalTrafficGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#0284c7" stopOpacity="0.22" />
-              <stop offset="100%" stopColor="#0284c7" stopOpacity="0.0" />
-            </linearGradient>
-          </defs>
-
-          {/* Clean Horizontal Grid Lines */}
+          {/* Horizontal grid lines */}
           <line x1="20" y1="28" x2="480" y2="28" stroke="var(--line)" strokeDasharray="4 4" opacity="0.4" />
           <line x1="20" y1="68" x2="480" y2="68" stroke="var(--line)" strokeDasharray="4 4" opacity="0.4" />
           <line x1="20" y1="108" x2="480" y2="108" stroke="var(--line)" opacity="0.7" />
 
-          {/* Normal Traffic Area and Line Curve */}
-          {areaPath && <path d={areaPath} fill="url(#normalTrafficGrad)" />}
-          {linePath && <path d={linePath} fill="none" stroke="#38bdf8" strokeWidth="2.2" strokeLinecap="round" opacity="0.95" />}
+          {/* Bars are counts of incident records, not modeled request throughput. */}
+          {buckets.map((bucket, index) => bucket.count > 0 && (
+            <rect
+              key={`bucket-${index}`}
+              x={bucket.x}
+              y={bucket.y}
+              width={bucket.width}
+              height={bucket.height}
+              rx="2"
+              fill="rgba(56, 189, 248, 0.28)"
+              stroke="rgba(56, 189, 248, 0.6)"
+              strokeWidth="1"
+            >
+              <title>{`${bucket.count} incident${bucket.count === 1 ? '' : 's'} in this interval`}</title>
+            </rect>
+          ))}
+
+          {timedCount === 0 && (
+            <text x="250" y="64" textAnchor="middle" fill="var(--muted)" fontSize="11">
+              {incidents.length === 0
+                ? 'No incidents recorded in this view'
+                : undatedCount > 0
+                  ? 'No incidents with a parseable recorded timestamp'
+                  : 'No incidents match this severity filter'}
+            </text>
+          )}
 
           {/* Vertical indicator stems ONLY for Hovered Node or Critical threats */}
           {alertNodes.map(node => {
@@ -557,7 +477,7 @@ export function LiveTrafficAlertChart({
             );
           })}
 
-          {/* Interactive Colored Alert Threat Nodes */}
+          {/* Interactive markers positioned by recorded timestamp */}
           {alertNodes.map(node => {
             const isHovered = hoveredAlertId === node.incident.id;
             const r = isHovered ? node.radius + 2.5 : node.radius;
@@ -571,7 +491,7 @@ export function LiveTrafficAlertChart({
                 onClick={() => handleNodeClick(node.incident)}
                 style={{ cursor: 'pointer' }}
               >
-                <title>{`${node.severityLabel.toUpperCase()} THREAT: ${node.incident.rule_description || 'Security Alert'} on ${node.incident.agent_name || 'unknown'}`}</title>
+                <title>{`${node.severityLabel.toUpperCase()}: ${node.incident.rule_description || 'Security alert'} on ${node.incident.agent_name || 'unknown'}`}</title>
 
                 {/* Pulse Ring on Critical alerts */}
                 {node.pulse && (
@@ -586,7 +506,7 @@ export function LiveTrafficAlertChart({
                   />
                 )}
 
-                {/* Clean Solid Threat Node */}
+                {/* Marker */}
                 <circle
                   cx={node.x}
                   cy={node.y}
@@ -603,19 +523,19 @@ export function LiveTrafficAlertChart({
         </svg>
       </div>
 
-      {/* Clean 5-Tick Timeline Axis */}
+      {/* Timeline axis labels derived from the plotted record window */}
       <div className="graph-time-axis">
         {timeTicks.map((tick, idx) => (
-          <span key={idx} className={`time-tick ${tick.isNow ? 'live-tick' : ''}`}>
-            {tick.label} {tick.isNow ? '• live' : ''}
+          <span key={idx} className="time-tick">
+            {tick.label}
           </span>
         ))}
       </div>
 
-      {/* Single-Row Clean Legend Bar */}
+      {/* Single-Row Legend Bar */}
       <div className="traffic-legend-bar">
         <span className="legend-item">
-          <span className="legend-line-sample" /> Normal Baseline
+          <span className="legend-line-sample" /> Incidents per interval
         </span>
         <span className="legend-item">
           <span className="legend-dot critical" /> Critical
@@ -629,10 +549,15 @@ export function LiveTrafficAlertChart({
         <span className="legend-item">
           <span className="legend-dot low" /> Low
         </span>
-        <span className="legend-hint">💡 Click node for dossier</span>
+        <span className="legend-hint">Click a marker for the stored incident record</span>
+        {undatedCount > 0 && (
+          <span className="legend-hint">
+            {undatedCount} record{undatedCount === 1 ? '' : 's'} without a parseable timestamp not plotted
+          </span>
+        )}
       </div>
 
-      {/* Interactive Alert & Ticket Dossier Modal */}
+      {/* Interactive Incident Record Modal */}
       {selectedIncident && (
         <Modal
           open={Boolean(selectedIncident)}
@@ -659,7 +584,7 @@ export function LiveTrafficAlertChart({
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingRight: 24 }}>
               <AlertOutlined style={{ color: selectedIncident.severity === 'critical' ? '#ef4444' : '#f97316' }} />
               <span style={{ fontSize: 16, fontWeight: 700 }}>
-                {selectedIncident.rule_description || 'Security Incident Dossier'}
+                {selectedIncident.rule_description || 'Security Incident Record'}
               </span>
             </div>
           }
@@ -684,54 +609,38 @@ export function LiveTrafficAlertChart({
               )}
             </div>
 
-            {/* Key Information Grid */}
+            {/* Key Information Grid: only recorded fields, no inferred host tier or source */}
             <Descriptions size="small" bordered column={2} style={{ marginTop: 14 }}>
               <Descriptions.Item label="Ticket ID">
                 <span className="mono">{selectedIncident.id}</span>
               </Descriptions.Item>
               <Descriptions.Item label="Alert ID">
-                <span className="mono">{selectedIncident.alert_id || 'N/A'}</span>
+                <span className="mono">{selectedIncident.alert_id || 'Not recorded'}</span>
               </Descriptions.Item>
               <Descriptions.Item label="Target Host">
-                <strong>{selectedIncident.agent_name || 'unknown-host'}</strong>
-                {isTier0Asset(selectedIncident.agent_name) && (
-                  <Tag color="volcano" style={{ marginLeft: 6 }}>Tier-0 Protected</Tag>
-                )}
+                <strong>{selectedIncident.agent_name || 'Not recorded'}</strong>
               </Descriptions.Item>
               <Descriptions.Item label="Source IP">
-                <span className="mono">{selectedIncident.source_ip || '127.0.0.1'}</span>
+                <span className="mono">{selectedIncident.source_ip || 'Not recorded'}</span>
               </Descriptions.Item>
-              <Descriptions.Item label="Ingestion Time">
-                {selectedIncident.created_at || selectedIncident.timestamp || 'Just now'}
+              <Descriptions.Item label="Recorded At">
+                {selectedIncident.created_at || selectedIncident.timestamp || 'Not recorded'}
               </Descriptions.Item>
               <Descriptions.Item label="Kill Chain Stage">
-                {selectedIncident.kill_chain_stage || 'Initial Access / Execution'}
+                {selectedIncident.kill_chain_stage || 'Not recorded'}
               </Descriptions.Item>
             </Descriptions>
 
-            {/* Deterministic Guardrail Status Notice */}
-            {isTier0Asset(selectedIncident.agent_name) && (
-              <div className="dossier-guardrail-alert tier0-blocked">
-                <SafetyCertificateOutlined style={{ fontSize: 18, color: '#10b981' }} />
-                <div>
-                  <strong>Deterministic Safety Guardrail (D12/D14) Active:</strong>
-                  <p style={{ margin: 0, fontSize: 12 }}>
-                    Asset <code>{selectedIncident.agent_name}</code> is registered as Tier-0 Infrastructure (Allowlisted Domain Controller / Core Ledger). Autonomous destructive isolation is <strong>BLOCKED</strong> by deterministic policy.
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* AI Forensic Triage Analysis */}
+            {/* Investigation Summary */}
             <div className="dossier-ai-verdict">
               <div className="dossier-section-title">
                 <RobotOutlined style={{ color: 'var(--accent)' }} />
-                <span>AI SOC Triage Verdict</span>
+                <span>Investigation Summary</span>
               </div>
               <p className="dossier-verdict-text">
                 {selectedIncident.summary ||
                   selectedIncident.context_notes ||
-                  'Automated telemetry ingestion processed via sub-millisecond deterministic policy rules. Correlation verified against enterprise threat intelligence feeds.'}
+                  'No investigation summary was recorded for this incident.'}
               </p>
             </div>
 
@@ -752,8 +661,10 @@ export function LiveTrafficAlertChart({
   );
 }
 
-// Alias for backwards compatibility
-export const ThreatVelocityChart = LiveTrafficAlertChart;
+// Backwards-compatible exports for callers that still use the former chart names.
+export const LiveTrafficAlertChart = IncidentTimelineChart;
+export const ThreatVelocityChart = IncidentTimelineChart;
+
 
 export function AttackSurfaceMatrix({ incidents }: { incidents: Incident[] }) {
   const { techniques, topHosts, totalTagged } = useMemo(() => {
@@ -761,13 +672,21 @@ export function AttackSurfaceMatrix({ incidents }: { incidents: Incident[] }) {
     const hostCounts: Record<string, { count: number; critical: number; high: number }> = {};
 
     incidents.forEach(item => {
-      // Extract clean MITRE technique code
+      // Host totals always reflect a recorded incident. Technique totals only
+      // count techniques the record actually carries or quotes in its rule
+      // text; assigning a default technique would invent ATT&CK coverage.
+      const host = item.agent_name || 'unknown-host';
+      if (!hostCounts[host]) hostCounts[host] = { count: 0, critical: 0, high: 0 };
+      hostCounts[host].count++;
+      if (item.severity === 'critical') hostCounts[host].critical++;
+      if (item.severity === 'high') hostCounts[host].high++;
+
       let rawMitre = item.mitre;
       if (!rawMitre && item.rule_description) {
         const match = item.rule_description.match(/T\d{4}(?:\.\d{3})?/i);
         if (match) rawMitre = match[0].toUpperCase();
       }
-      if (!rawMitre) rawMitre = 'T1190';
+      if (!rawMitre) return;
 
       const mList = Array.isArray(rawMitre) ? rawMitre : [rawMitre];
 
@@ -782,13 +701,6 @@ export function AttackSurfaceMatrix({ incidents }: { incidents: Incident[] }) {
         techCounts[cleanCode].count++;
         techCounts[cleanCode].severities[item.severity] = (techCounts[cleanCode].severities[item.severity] || 0) + 1;
       });
-
-      // Host counts
-      const host = item.agent_name || 'unknown-host';
-      if (!hostCounts[host]) hostCounts[host] = { count: 0, critical: 0, high: 0 };
-      hostCounts[host].count++;
-      if (item.severity === 'critical') hostCounts[host].critical++;
-      if (item.severity === 'high') hostCounts[host].high++;
     });
 
     const sortedTech = Object.entries(techCounts)
@@ -819,7 +731,7 @@ export function AttackSurfaceMatrix({ incidents }: { incidents: Incident[] }) {
         </div>
         <div className="graph-card-metric">
           <strong>{topHosts.length}</strong>
-          <small>target hosts</small>
+          <small>affected hosts</small>
         </div>
       </div>
 
@@ -844,6 +756,11 @@ export function AttackSurfaceMatrix({ incidents }: { incidents: Incident[] }) {
 
       {/* MITRE Technique Breakdown Bars */}
       <div className="surface-technique-list">
+        {techniques.length === 0 && (
+          <p className="muted" style={{ margin: 0, fontSize: 11 }}>
+            No MITRE techniques recorded in these incidents.
+          </p>
+        )}
         {techniques.map((t, idx) => {
           const pct = Math.round((t.count / totalTagged) * 100);
           const colors = ['#f43f5e', '#fb923c', '#eab308', '#38bdf8'];
@@ -953,11 +870,11 @@ export function ProtectedEndpointThreatMatrix({
           <ClusterOutlined style={{ color: 'var(--accent)', fontSize: 16 }} />
           <div>
             <h3>Endpoint Threat Distribution by Severity</h3>
-            <p>Independent breakdown of alerts targeting each protected endpoint across four severity tiers.</p>
+            <p>Recorded alerts grouped by affected host within each severity tier.</p>
           </div>
         </div>
         <div className="endpoint-matrix-legend-row">
-          <span className="matrix-legend-pill mono">{incidents.length} Total Measured Alerts</span>
+          <span className="matrix-legend-pill mono">{incidents.length} Recorded Alerts</span>
         </div>
       </div>
 
@@ -1051,7 +968,7 @@ export function ProtectedEndpointThreatMatrix({
                 {totalInSev === 0 ? (
                   <div className="sev-legend-clean">
                     <CheckCircleOutlined style={{ color: '#10b981', marginRight: 4 }} />
-                    <span>0 Active Threats</span>
+                    <span>0 recorded alerts</span>
                   </div>
                 ) : (
                   hostEntries.slice(0, 3).map(item => {

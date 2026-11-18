@@ -1395,6 +1395,7 @@
           "detection",
           "coverage",
           "authentication",
+          "authentication_failure",
           "process",
           "file",
           "network",

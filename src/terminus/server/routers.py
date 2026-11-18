@@ -1,6 +1,6 @@
 # File name: routers.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Revision date: 2026-11-13
 # Version: 0.1.0
 # Purpose: FastAPI route handlers for Auth, Organization, License management, Workflows, Agents, and Wazuh webhooks.
 
@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import secrets
+from hashlib import sha256
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated, Any, Literal
@@ -45,6 +46,7 @@ from terminus.pipeline.nodes.schemas import NODE_REGISTRY_METADATA
 from terminus.pipeline.runner import PipelineRunner
 from terminus.pipeline.validation import validate_workflow
 from terminus.reports.service import generate_daily_report
+from terminus.reports.storage import SqliteReportStore
 from terminus.server.deps import (
     get_action_log_repo,
     get_agent_repo,
@@ -402,9 +404,33 @@ async def wazuh_webhook(
     org_id: Annotated[OrgId, Depends(get_webhook_org)],
     pipeline_runner: Annotated[PipelineRunner, Depends(get_pipeline_runner)],
 ) -> InvestigationReport:
-    """Ingest Wazuh/SIEM alert, execute pipeline investigation, create ticket, notify."""
-    service_sensor.record_telemetry_event(source="siem_webhook", alert_id=str(alert.id))
-    return await pipeline_runner.process_alert(alert, org_id)
+    """Ingest an operator-submitted alert; this does not attest SIEM origin."""
+    service_sensor.record_telemetry_event(source="operator_submission", alert_id=str(alert.id))
+    return await pipeline_runner.process_alert(alert, org_id, source_origin="operator_submission")
+
+
+@webhook_router.post("/sources/wazuh")
+async def authenticated_wazuh_webhook(
+    request: Request,
+    alert: SiemAlert,
+    pipeline_runner: Annotated[PipelineRunner, Depends(get_pipeline_runner)],
+    x_terminus_source_key: Annotated[str | None, Header(alias="X-Terminus-Source-Key")] = None,
+) -> InvestigationReport:
+    """Bind a configured source credential and raw receipt to one organization."""
+    settings = get_settings()
+    expected = settings.wazuh_webhook_key.get_secret_value()
+    if not expected or not settings.wazuh_webhook_org:
+        raise HTTPException(503, "Wazuh source intake is not configured")
+    if not x_terminus_source_key or not secrets.compare_digest(x_terminus_source_key, expected):
+        raise HTTPException(401, "Invalid source credential")
+    receipt_hash = sha256(await request.body()).hexdigest()
+    service_sensor.record_telemetry_event(source="authenticated_wazuh_webhook", alert_id=str(alert.id))
+    return await pipeline_runner.process_alert(
+        alert,
+        OrgId(settings.wazuh_webhook_org),
+        source_origin="wazuh_webhook",
+        source_receipt_sha256=receipt_hash,
+    )
 
 
 @webhook_router.get("/incidents")
@@ -908,53 +934,47 @@ report_router = APIRouter(prefix="/reports", tags=["Reports"])
 @report_router.post("/quick", status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_operator)])
 async def generate_quick_report(
     org_id: Annotated[OrgId, Depends(get_webhook_org)],
-    reports_store: Annotated[dict[str, dict[str, DailyIncidentReport]], Depends(get_reports_store)],
+    reports_store: Annotated[SqliteReportStore, Depends(get_reports_store)],
     pipeline_runner: Annotated[PipelineRunner, Depends(get_pipeline_runner)],
 ) -> DailyIncidentReport:
     """Generate a Quick Report based on all logs from the start of the current day to now."""
     ticket_store = pipeline_runner.deployment.ticket_store
     report = await generate_daily_report(org_id, ReportType.QUICK, ticket_store)
-    if org_id not in reports_store:
-        reports_store[org_id] = {}
-    reports_store[org_id][report.id] = report
+    reports_store.save(report)
     return report
 
 
 @report_router.post("/daily", status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_operator)])
 async def generate_24h_report(
     org_id: Annotated[OrgId, Depends(get_webhook_org)],
-    reports_store: Annotated[dict[str, dict[str, DailyIncidentReport]], Depends(get_reports_store)],
+    reports_store: Annotated[SqliteReportStore, Depends(get_reports_store)],
     pipeline_runner: Annotated[PipelineRunner, Depends(get_pipeline_runner)],
 ) -> DailyIncidentReport:
     """Generate a 24-Hour Daily Operations Summary Report."""
     ticket_store = pipeline_runner.deployment.ticket_store
     report = await generate_daily_report(org_id, ReportType.DAILY_24H, ticket_store)
-    if org_id not in reports_store:
-        reports_store[org_id] = {}
-    reports_store[org_id][report.id] = report
+    reports_store.save(report)
     return report
 
 
 @report_router.get("")
 async def list_reports(
     org_id: Annotated[OrgId, Depends(get_webhook_org)],
-    reports_store: Annotated[dict[str, dict[str, DailyIncidentReport]], Depends(get_reports_store)],
+    reports_store: Annotated[SqliteReportStore, Depends(get_reports_store)],
     pipeline_runner: Annotated[PipelineRunner, Depends(get_pipeline_runner)],
 ) -> list[DailyIncidentReport]:
     """List all daily and quick incident reports for the active tenant."""
-    org_reports = reports_store.get(org_id, {})
-    return sorted(org_reports.values(), key=lambda r: r.created_at, reverse=True)
+    return reports_store.list_for_org(str(org_id))
 
 
 @report_router.get("/{report_id}")
 async def get_report(
     report_id: str,
     org_id: Annotated[OrgId, Depends(get_webhook_org)],
-    reports_store: Annotated[dict[str, dict[str, DailyIncidentReport]], Depends(get_reports_store)],
+    reports_store: Annotated[SqliteReportStore, Depends(get_reports_store)],
 ) -> DailyIncidentReport:
     """Fetch details for a specific daily incident report."""
-    org_reports = reports_store.get(org_id, {})
-    report = org_reports.get(report_id)
+    report = reports_store.get(str(org_id), report_id)
     if not report:
         raise HTTPException(status_code=404, detail=f"Report '{report_id}' not found")
     return report

@@ -1,8 +1,8 @@
 # File name: db.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Revision date: 2026-11-14
 # Version: 0.1.0
-# Purpose: Persistent database engine and table definitions for TERMINUS.
+# Purpose: Persistent database engine and tenant-scoped table definitions for TERMINUS.
 
 """Persistent database engine and table definitions for TERMINUS.
 
@@ -401,6 +401,49 @@ class Database:
                 campaign_id TEXT,
                 raw_event TEXT NOT NULL,
                 PRIMARY KEY (org_id, alert_id)
+            );
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS campaigns (
+                campaign_id TEXT PRIMARY KEY,
+                org_id TEXT NOT NULL,
+                host TEXT NOT NULL,
+                source_ip_key TEXT NOT NULL,
+                source_ip TEXT,
+                first_seen REAL NOT NULL,
+                last_seen REAL NOT NULL,
+                alert_count INTEGER NOT NULL,
+                highest_level INTEGER NOT NULL,
+                tactics_json TEXT NOT NULL
+            );
+            """,
+            """
+            CREATE INDEX IF NOT EXISTS idx_campaigns_active
+            ON campaigns(org_id, host, source_ip_key, last_seen DESC);
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS campaign_alerts (
+                org_id TEXT NOT NULL,
+                alert_id TEXT NOT NULL,
+                campaign_id TEXT NOT NULL,
+                seen_at REAL NOT NULL,
+                payload_json TEXT NOT NULL,
+                PRIMARY KEY (org_id, alert_id),
+                FOREIGN KEY (campaign_id) REFERENCES campaigns(campaign_id)
+            );
+            """,
+            """
+            CREATE INDEX IF NOT EXISTS idx_campaign_alerts_recent
+            ON campaign_alerts(campaign_id, seen_at DESC);
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS daily_reports (
+                org_id TEXT NOT NULL,
+                report_id TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                payload_json TEXT NOT NULL,
+                PRIMARY KEY (org_id, report_id),
+                FOREIGN KEY (org_id) REFERENCES organizations(org_id) ON DELETE CASCADE
             );
             """,
             """

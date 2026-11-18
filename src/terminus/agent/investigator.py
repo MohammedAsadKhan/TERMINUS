@@ -1,6 +1,6 @@
 # File name: investigator.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Revision date: 2026-11-12
 # Version: 0.1.0
 # Purpose: Investigation Agent module for TERMINUS.
 
@@ -79,6 +79,7 @@ class InvestigationAgent:
                     confidence=Confidence.HIGH,
                     summary="Alert filtered into IGNORE tier by deterministic policy engine.",
                     recommended_actions=[],
+                    analysis_mode="policy",
                 ),
                 evidence=Evidence(
                     alert=alert,

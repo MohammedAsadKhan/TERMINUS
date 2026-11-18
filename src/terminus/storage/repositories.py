@@ -1,6 +1,6 @@
 # File name: repositories.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Revision date: 2026-11-12
 # Version: 0.1.0
 # Purpose: Persistence repositories for TERMINUS.
 
@@ -363,6 +363,9 @@ class SqliteIncidentRepository:
             res[key] = alert.get(source)
         res["campaign_id"] = res["report"].get("campaign_id")
         res["campaign_alert_count"] = res["report"].get("campaign_alert_count", 0)
+        res["analysis_mode"] = (res["report"].get("verdict") or {}).get("analysis_mode", "unknown")
+        res["source_origin"] = res["report"].get("source_origin", "unknown")
+        res["source_receipt_sha256"] = res["report"].get("source_receipt_sha256")
         res["external_tickets"] = self.db.fetchall(
             "SELECT provider, external_id, state FROM incident_external_tickets "
             "WHERE org_id = ? AND ticket_id = ?",
@@ -767,7 +770,9 @@ class SqliteAgentRepository:
     def list_for_org(self, org_id: OrgId | str) -> list[SocAgent]:
         sql = "SELECT * FROM soc_agents WHERE org_id = ? ORDER BY created_at ASC"
         rows = self.db.fetchall(sql, (str(org_id),))
-        if not rows:
+        from terminus.config import get_settings
+
+        if not rows and get_settings().demo_seed_enabled and get_settings().deployment_mode == "local":
             for seed in self._default_seeds():
                 self.save(seed, org_id)
             rows = self.db.fetchall(sql, (str(org_id),))

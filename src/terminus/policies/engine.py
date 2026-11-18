@@ -1,6 +1,6 @@
 # File name: engine.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Revision date: 2026-11-12
 # Version: 0.1.0
 # Purpose: Deterministic Sub-Millisecond Multi-Tenant Policy Engine for TERMINUS.
 
@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import ipaddress
 import re
+from typing import ClassVar
 
 from terminus.core.ids import OrgId
 from terminus.models import PolicyResult, SiemAlert, Tier
@@ -24,7 +25,7 @@ class PolicyEngine:
     """Evaluates alerts deterministically before LLM invocation."""
 
     # High-impact MITRE ATT&CK techniques requiring immediate Escalation
-    CRITICAL_MITRE_PREFIXES = {
+    CRITICAL_MITRE_PREFIXES: ClassVar[set[str]] = {
         "T1001",  # Data Obfuscation / C2 Communication
         "T1003",  # OS Credential Dumping (LSASS, SAM)
         "T1486",  # Data Encrypted for Impact (Ransomware)
@@ -38,7 +39,7 @@ class PolicyEngine:
     }
 
     # Low-severity benign discovery techniques
-    BENIGN_DISCOVERY_TECHNIQUES = {
+    BENIGN_DISCOVERY_TECHNIQUES: ClassVar[set[str]] = {
         "T1082",  # System Information Discovery (uname, whoami)
         "T1033",  # System Owner/User Discovery
         "T1016",  # System Network Configuration Discovery (ipconfig)
@@ -51,7 +52,7 @@ class PolicyEngine:
     def set_tenant_profile(self, profile: TenantPolicyProfile) -> None:
         self._profiles[profile.org_id] = profile
 
-    def evaluate(self, alert: SiemAlert, org_id: OrgId | str) -> PolicyResult:
+    def evaluate(self, alert: SiemAlert, org_id: OrgId | str) -> PolicyResult:  # noqa: C901, PLR0912 - ordered policy precedence
         """Sub-millisecond triage evaluation."""
         org_str = str(org_id)
         profile = self._profiles.get(org_str)
@@ -98,16 +99,28 @@ class PolicyEngine:
 
         # 3. MITRE ATT&CK Technique Severity Classification
         mitre_tag = (alert.mitre or "").upper().strip()
-        is_mitre = mitre_tag.startswith("T")
-        is_critical_mitre = any(mitre_tag.startswith(p) for p in self.CRITICAL_MITRE_PREFIXES)
-        is_benign_discovery = any(mitre_tag.startswith(p) for p in self.BENIGN_DISCOVERY_TECHNIQUES)
+        mitre_ids = [
+            tag.strip()
+            for tag in mitre_tag.split(",")
+            if re.fullmatch(r"T\d{4}(?:\.\d{3})?", tag.strip())
+        ]
+        is_mitre = bool(mitre_ids)
+        is_critical_mitre = any(
+            tag.startswith(prefix)
+            for tag in mitre_ids
+            for prefix in self.CRITICAL_MITRE_PREFIXES
+        )
+        is_benign_discovery = bool(mitre_ids) and all(
+            any(tag.startswith(prefix) for prefix in self.BENIGN_DISCOVERY_TECHNIQUES)
+            for tag in mitre_ids
+        )
 
         # 4. Deterministic Multi-Tier Logic
         if level >= min_escalate or is_critical_mitre:
             tier = Tier.ESCALATE
             should_investigate = True
             reason = (
-                f"Critical MITRE technique '{mitre_tag}' detected"
+                f"Priority MITRE mapping '{mitre_tag}' is present in the source rule; verify the event"
                 if is_critical_mitre
                 else f"High alert severity level ({level} >= {min_escalate})"
             )
@@ -122,7 +135,9 @@ class PolicyEngine:
         else:
             tier = Tier.IGNORE
             should_investigate = False
-            reason = f"Low alert level ({level} < {min_triage}), filtered by policy baseline"
+            reason = (
+                f"Low alert level ({level} < {min_triage}), filtered by policy baseline"
+            )
 
         return PolicyResult(
             alert_id=alert.id,

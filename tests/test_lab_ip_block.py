@@ -1,8 +1,10 @@
 # File name: test_lab_ip_block.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-14
 # Version: 0.1.0
 # Purpose: Check the lab nftables script against invalid input and owned-set changes.
+
+# ruff: noqa: ERA001 -- required source header
 
 import importlib.util
 import json
@@ -100,3 +102,86 @@ def test_invalid_scope_before_external_io(changes):
 
     with pytest.raises(ValueError):
         block.execute(message(**changes), runner)
+
+
+def test_cleanup_removes_only_empty_owned_table():
+    _, table, identity, _ = block.plan(message())
+    foreign = "terminus_" + "b" * 24
+    calls = []
+    inventory = {"nftables": [
+        {"metainfo": {"version": "1.0"}},
+        {"table": {"family": "inet", "name": table}},
+        {"table": {"family": "inet", "name": foreign}},
+    ]}
+
+    def observed(comment, elements):
+        return {"nftables": [
+            {"metainfo": {"version": "1.0"}},
+            {"table": {"family": "inet", "name": table, "comment": comment}},
+            {"set": {"family": "inet", "table": table, "name": "blocked", "elem": elements}},
+            {"chain": {"family": "inet", "table": table, "name": "incoming"}},
+            {"rule": {"family": "inet", "table": table, "chain": "incoming"}},
+        ]}
+
+    def runner(args, **kwargs):
+        calls.append(args)
+        if args[-2:] == ["list", "tables"]:
+            payload = inventory
+        elif args[-1] == table and "list" in args:
+            payload = observed(identity, [])
+        elif args[-1] == foreign and "list" in args:
+            payload = observed("f" * 64, [])
+        else:
+            return SimpleNamespace(returncode=0, stdout=b"")
+        return SimpleNamespace(returncode=0, stdout=json.dumps(payload).encode())
+
+    result = block.cleanup_expired(runner)
+    assert result == {"removed": [table], "verified": False}
+    assert [block.NFT, "delete", "table", "inet", table] in calls
+    assert [block.NFT, "delete", "table", "inet", foreign] not in calls
+
+
+@pytest.mark.parametrize("elements", [["10.77.0.10"], [{"elem": {"val": "10.77.0.10"}}]])
+def test_cleanup_never_deletes_active_source(elements):
+    _, table, identity, _ = block.plan(message())
+    calls = []
+
+    def runner(args, **kwargs):
+        calls.append(args)
+        if args[-2:] == ["list", "tables"]:
+            payload = {"nftables": [{"table": {"family": "inet", "name": table}}]}
+        else:
+            payload = {"nftables": [
+                {"table": {"family": "inet", "name": table, "comment": identity}},
+                {"set": {"family": "inet", "table": table, "name": "blocked", "elem": elements}},
+                {"chain": {"family": "inet", "table": table, "name": "incoming"}},
+                {"rule": {"family": "inet", "table": table, "chain": "incoming"}},
+            ]}
+        return SimpleNamespace(returncode=0, stdout=json.dumps(payload).encode())
+
+    assert block.cleanup_expired(runner)["removed"] == []
+    assert not any("delete" in args for args in calls)
+
+
+def test_cleanup_rejects_oversized_inventory_before_table_access():
+    calls = []
+
+    def runner(args, **kwargs):
+        calls.append(args)
+        return SimpleNamespace(returncode=0, stdout=b"x" * (block.MAX_OBSERVATION + 1))
+
+    with pytest.raises(ValueError, match="bound table inventory"):
+        block.cleanup_expired(runner)
+    assert calls == [[block.NFT, "--json", "list", "tables"]]
+
+
+def test_cleanup_rejects_unexpected_table_objects():
+    _, table, identity, _ = block.plan(message())
+    payload = json.dumps({"nftables": [
+        {"table": {"family": "inet", "name": table, "comment": identity}},
+        {"set": {"family": "inet", "table": table, "name": "blocked"}},
+        {"chain": {"family": "inet", "table": table, "name": "incoming"}},
+        {"rule": {"family": "inet", "table": table, "chain": "incoming"}},
+        {"rule": {"family": "inet", "table": table, "chain": "incoming"}},
+    ]}).encode()
+    assert not block._expired_owned_table(table, payload)

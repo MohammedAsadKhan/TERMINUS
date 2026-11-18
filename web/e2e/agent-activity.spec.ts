@@ -1,8 +1,8 @@
 // File: agent-activity.spec.ts
 // Author: Team LARP
-// Date: 2026-11-09
+// Date: 2026-11-12
 // Version: 0.1.0
-// Purpose: Exercise agent activity in browser tests.
+// Purpose: Exercise recorded agent activity and saved definitions in browser tests.
 
 import { expect, test, type Page, type Route } from '@playwright/test';
 
@@ -108,7 +108,7 @@ test('shows durable execution, analysis gaps, provenance, help context, and the 
   await mockConsole(page, 'member', true);
   await page.goto('/console/agents');
 
-  await expect(page.getByRole('heading', { name: 'Follow every admitted investigation.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Inspect recorded orchestration activity.' })).toBeVisible();
   await expect(page.getByText('Auto-refreshes every 2 seconds')).toBeVisible();
   await page.getByRole('button', { name: /network.*Investigate lateral traffic/ }).click();
 
@@ -141,7 +141,7 @@ test('supports operator cancellation and preserves the saved configuration works
   await expect.poll(fixture.wasCancelled).toBe(true);
 
   await page.getByRole('tab', { name: 'Saved configurations' }).click();
-  await expect(page.getByRole('heading', { name: 'Define your investigation team.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Maintain agent definitions.' })).toBeVisible();
   await expect(page.getByText('Forensic investigator')).toBeVisible();
   await expect(page.getByRole('button', { name: 'New agent' })).toBeDisabled();
 });

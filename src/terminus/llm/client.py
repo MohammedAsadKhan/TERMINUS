@@ -1,8 +1,8 @@
 # File name: client.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Revision date: 2026-11-12
 # Version: 0.1.0
-# Purpose: Send legacy model requests to a configured OpenAI-compatible endpoint.
+# Purpose: Send configured model requests and keep offline mode explicit.
 
 from __future__ import annotations
 
@@ -135,6 +135,13 @@ class OpenAiCompatibleLlm(LlmClient):
                     used.append(name)
                     messages.append({"role": "tool", "tool_call_id": call.get("id"), "content": json.dumps(result, default=str)})
         raise LlmError("Tool chat failed to produce an answer")
+
+
+class UnavailableLlm(LlmClient):
+    """Fail visibly when no model was explicitly configured."""
+
+    async def respond_json(self, system: str, user: str) -> dict[str, JsonValue]:
+        raise LlmError("Model unavailable: configure TERMINUS_LLM_API_KEY")
 
 
 class ScriptedLlm(LlmClient):

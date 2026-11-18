@@ -43,7 +43,7 @@ Normal traffic continues during every campaign. The bank screen updates allowed 
 ## Preflight and fallback
 
 - Run `npm run build` from `web` after any UI change. The backend serves the tracked production build.
-- Run `uv run --frozen pytest -q tests/test_bank_demo_defense.py tests/test_demo_scope.py` and the short full-flow check `uv run --frozen python scripts/presentation_rehearsal.py --bank-demo --duration-seconds 16` before presenting. The 16-second version traverses all four campaign phases.
+- Run `uv run --frozen pytest -q tests/test_presentation_network.py tests/test_demo_scope.py` and the short full-flow check `uv run --frozen python scripts/presentation_rehearsal.py --bank-demo --duration-seconds 16` before presenting. The 16-second version traverses all four campaign phases. On Windows, `run_demo.bat --duration-seconds 16` launches the same isolated rehearsal. The separate synthetic stream never approves workflow actions for an analyst.
 - If the live screens fail, the terminal's measured counts and the demo database path provide a fallback record. Do not describe a local block as a Wazuh or firewall action.
 - Port 8766 is reserved for the bank demo so the earlier console rehearsal on 8765 can remain open.
 

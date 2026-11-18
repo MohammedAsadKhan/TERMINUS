@@ -1,0 +1,105 @@
+# File: compose.yaml
+# Author: Team LARP
+# Revision date: 2026-11-12
+# Version: 0.1.0
+# Purpose: Disposable SSH target, attacker, and independent observer for the Terminus nftables response lab.
+
+name: response-target
+
+services:
+  target:
+    build:
+      context: ./target
+      args:
+        WAZUH_AGENT_VERSION: "4.14.10-1"
+    container_name: response-target
+    hostname: terminus-target-a
+    init: true
+    environment:
+      WAZUH_MANAGER: ${WAZUH_MANAGER:-wazuh.manager}
+    networks:
+      # Management address is assigned by single-node_default and resolved as
+      # the service alias "target". The existing network does not accept
+      # operator-supplied static addresses.
+      wazuh: {}
+      attack:
+        ipv4_address: 10.77.0.20
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    volumes:
+      # Read-only mount of the shipped endpoint command. The entrypoint installs
+      # the same bytes at /usr/local/sbin/terminus-ip-block; the repository copy
+      # is never modified.
+      - ../../../scripts/lab/terminus_ip_block.py:/opt/terminus/terminus_ip_block.py:ro
+      - ./target/ossec.conf:/opt/lab/ossec.conf:ro
+      - ./.state/keys/id_ed25519.pub:/run/lab-keys/id_ed25519.pub:ro
+      - ./.state/hostkeys/target_ed25519:/run/lab-hostkeys/ssh_host_ed25519_key:ro
+    healthcheck:
+      # SSH readiness is separate from Wazuh enrollment so the block/recovery
+      # mechanism can be checked even when the manager is unavailable.
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 22"]
+      interval: 5s
+      timeout: 3s
+      retries: 24
+      start_period: 10s
+    restart: "no"
+
+  attacker:
+    build:
+      context: ./attacker
+    container_name: response-attacker
+    hostname: terminus-attacker
+    init: true
+    networks:
+      wazuh: {}
+      attack:
+        ipv4_address: 10.77.0.10
+    cap_add:
+      - NET_RAW
+    volumes:
+      - ./.state/keys/id_ed25519.pub:/run/lab-keys/id_ed25519.pub:ro
+      - ./.state/hostkeys/attacker_ed25519:/run/lab-hostkeys/ssh_host_ed25519_key:ro
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 22"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+    restart: "no"
+
+  observer:
+    build:
+      context: ./observer
+    container_name: response-observer
+    hostname: terminus-observer
+    init: true
+    networks:
+      wazuh: {}
+    volumes:
+      - ./.state/keys:/run/lab-keys:ro
+      - ./observer/observe.py:/opt/lab/observe.py:ro
+    depends_on:
+      target:
+        condition: service_healthy
+      attacker:
+        condition: service_healthy
+    command: ["sleep", "infinity"]
+    restart: "no"
+
+networks:
+  # Existing Disposable Wazuh lab network. The Wazuh agent enrolls here.
+  wazuh:
+    external: true
+    name: single-node_default
+  # Internal attack link. It carries only attacker-to-target traffic, so the
+  # shipped endpoint command's fixed 10.77.0.10 / 10.77.0.20 constants are
+  # exercised without editing product code. It has no external route.
+  attack:
+    name: response-target-attack
+    driver: bridge
+    internal: true
+    ipam:
+      config:
+        - subnet: 10.77.0.0/24
+          gateway: 10.77.0.1

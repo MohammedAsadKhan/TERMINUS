@@ -1,0 +1,66 @@
+#!/usr/bin/env python3
+# File name: custom-terminus
+# Author: Team LARP
+# Revision date: 2026-11-12
+# Version: 0.1.0
+# Purpose: Forward a Wazuh Integrator alert to the credential-bound TERMINUS lab intake.
+
+"""Wazuh Integrator entry point: alert file, source key, webhook URL."""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+from urllib.parse import urlparse
+from urllib.request import Request, urlopen
+
+
+def main(argv: list[str]) -> int:
+    """Forward the exact Wazuh alert bytes so the receipt hash remains auditable."""
+    if len(argv) < 4 or not argv[2] or not argv[3]:
+        print(
+            "TERMINUS integration needs alert file, source key, and URL",
+            file=sys.stderr,
+        )
+        return 2
+    parsed = urlparse(argv[3])
+    if parsed.path != "/sources/wazuh" or parsed.scheme not in {"http", "https"}:
+        print("TERMINUS integration URL must end at /sources/wazuh", file=sys.stderr)
+        return 2
+    if parsed.scheme != "https" and parsed.hostname not in {
+        "127.0.0.1",
+        "localhost",
+        "terminus",
+    }:
+        print(
+            "Plain HTTP is allowed only inside the disposable local lab",
+            file=sys.stderr,
+        )
+        return 2
+    payload = Path(argv[1]).read_bytes()
+    if len(payload) > 1_000_000:
+        print("Wazuh alert exceeds the 1 MB intake limit", file=sys.stderr)
+        return 2
+    request = Request(  # noqa: S310 - URL scheme and lab host are checked above.
+        argv[3],
+        data=payload,
+        method="POST",
+        headers={
+            "Content-Type": "application/json",
+            "X-Terminus-Source-Key": argv[2],
+        },
+    )
+    try:
+        # Fail visibly to Wazuh Integrator; it owns retry and operator logs.
+        with urlopen(request, timeout=10) as response:  # noqa: S310 - validated URL.
+            return 0 if 200 <= response.status < 300 else 1
+    except Exception as exc:
+        print(
+            f"TERMINUS integration delivery failed: {type(exc).__name__}",
+            file=sys.stderr,
+        )
+        return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv))

@@ -1,10 +1,11 @@
 # File name: test_live_response.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-14
 # Version: 0.1.0
 # Purpose: Live decision boundary tests with fake transport, never installed effects.
 
 """Live decision boundary tests with fake transport, never installed effects."""
+# ruff: noqa: ERA001 -- required source header
 
 # pyright: basic
 from datetime import UTC, datetime, timedelta
@@ -211,6 +212,33 @@ async def test_durable_before_send_and_unknown_no_retry(setup):
     assert not transport.calls
     now[0] += timedelta(seconds=80)
     await service.tick("org", transport, observer)
+    assert (
+        service.inspect("org", incident)["intents"][0]["state"]
+        == "recovered_unverified"
+    )
+
+
+@pytest.mark.asyncio
+async def test_unknown_dispatch_can_clear_only_after_independent_table_absence(setup):
+    _, service, incident, _, _, now = setup
+    decide(setup)
+
+    class Crash:
+        async def dispatch(self, request):
+            raise RuntimeError("transport interrupted")
+
+    with pytest.raises(RuntimeError):
+        await service.tick("org", Crash(), observer)
+
+    phases = []
+
+    async def absent_observer(phase, details):
+        phases.append(phase)
+        return phase in {"baseline", "table-absent"}
+
+    now[0] += timedelta(seconds=80)
+    await service.tick("org", Transport(), absent_observer)
+    assert phases[:2] == ["recovered", "table-absent"]
     assert (
         service.inspect("org", incident)["intents"][0]["state"]
         == "recovered_unverified"
@@ -595,3 +623,23 @@ async def test_worker_keeps_healthy_quiet_collector_available(setup, monkeypatch
                 kali_management_ip="192.168.56.102",
             )
         )
+
+
+def test_worker_tls_exception_is_limited_to_fixed_disposable_lab():
+    from argparse import Namespace
+
+    from scripts.run_response_worker import _verify_tls
+
+    manager = "https://wazuh.manager:55000"
+    indexer = "https://wazuh.indexer:9200"
+    assert _verify_tls(Namespace(), manager, indexer, "docker")
+    assert not _verify_tls(Namespace(insecure_lab_tls=True), manager, indexer, "docker")
+    for manager_url, indexer_url, observer in (
+        (manager, indexer, "ssh"),
+        ("https://example.com:55000", indexer, "docker"),
+        (manager, "https://example.com:9200", "docker"),
+    ):
+        with pytest.raises(ValueError, match="disposable Docker observer"):
+            _verify_tls(
+                Namespace(insecure_lab_tls=True), manager_url, indexer_url, observer
+            )

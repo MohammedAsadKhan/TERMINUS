@@ -131,14 +131,11 @@ def test_agents_and_workflows_api(client: TestClient) -> None:
         "X-Org-ID": org_id,
     }
 
-    # 1. List pre-seeded agents
+    # 1. A new operational organization starts without presentation agents.
     res = client.get("/agents", headers=headers)
     assert res.status_code == 200
     agents = res.json()
-    assert len(agents) >= 4
-    agent_ids = [a["id"] for a in agents]
-    assert "agent-triage" in agent_ids
-    assert "agent-forensic" in agent_ids
+    assert agents == []
 
     # 2. Create new agent
     res = client.post(

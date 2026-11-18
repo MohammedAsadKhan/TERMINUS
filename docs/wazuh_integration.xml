@@ -1,16 +1,20 @@
 <!--
   File: wazuh_integration.xml
   Author: Team LARP
-  Date: 2026-11-09
+  Revision date: 2026-11-12
   Version: 0.1.0
-  Purpose: Provide an example Wazuh integration stanza for the TERMINUS webhook.
+  Purpose: Show the credential-bound Wazuh Integrator lab configuration.
 -->
 
-<!-- Terminus 2.0 Wazuh SIEM Webhook Integration Block -->
-<!-- Paste this block inside <ossec_config> in /var/ossec/etc/ossec.conf -->
+<!-- Copy scripts/lab/custom-terminus to /var/ossec/integrations/custom-terminus,
+     chmod 750, chown root:wazuh, then place this block in ossec.conf.
+     Replace the key with an independent 32+ character secret and configure the
+     same value as TERMINUS_WAZUH_WEBHOOK_KEY and the bound org in TERMINUS_WAZUH_WEBHOOK_ORG.
+     The terminus hostname is valid only on the private disposable Docker network. -->
 <integration>
   <name>custom-terminus</name>
-  <hook_url>http://127.0.0.1:8000/webhook/wazuh</hook_url>
+  <hook_url>http://terminus:8000/sources/wazuh</hook_url>
+  <api_key>REPLACE_WITH_32_PLUS_CHARACTER_LAB_SECRET</api_key>
   <level>5</level>
   <alert_format>json</alert_format>
 </integration>

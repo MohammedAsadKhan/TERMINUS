@@ -1,8 +1,8 @@
 # File name: models.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Revision date: 2026-11-12
 # Version: 0.1.0
-# Purpose: Domain models and trust-boundary types for the agentic SOC pipeline.
+# Purpose: Domain models with explicit analysis provenance for the SOC pipeline.
 
 """Domain models and trust-boundary types for the agentic SOC pipeline.
 
@@ -14,9 +14,16 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import Any
+from typing import Any, Literal, cast
 
-from pydantic import AliasChoices, AliasPath, BaseModel, ConfigDict, Field
+from pydantic import (
+    AliasChoices,
+    AliasPath,
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_validator,
+)
 
 from terminus.core.ids import AgentId, RuleId
 
@@ -89,6 +96,7 @@ class SiemAlert(BaseModel):
     @property
     def rule_description(self) -> str:
         return self.description
+
     mitre: str | None = Field(
         validation_alias=AliasChoices(
             AliasPath("rule", "mitre", "id"),
@@ -116,6 +124,21 @@ class SiemAlert(BaseModel):
         default="",
     )
 
+    @field_validator("mitre", mode="before")
+    @classmethod
+    def normalize_mitre_ids(cls, value: object) -> str | None:
+        """Wazuh emits a list of MITRE IDs; keep all IDs without weakening typing."""
+        if isinstance(value, list):
+            ids: list[str] = []
+            for item in cast(list[object], value):
+                if not isinstance(item, str):
+                    raise ValueError("MITRE IDs must be strings")
+                ids.append(item)
+            return ", ".join(ids) or None
+        if isinstance(value, str) or value is None:
+            return value
+        raise ValueError("MITRE ID must be a string or list of strings")
+
 
 class Verdict(BaseModel):
     """Structured output produced by the LLM investigation. Validated at the LLM boundary."""
@@ -126,6 +149,9 @@ class Verdict(BaseModel):
     confidence: Confidence
     summary: str
     recommended_actions: list[str] = Field(default_factory=list)
+    analysis_mode: Literal[
+        "provider", "scripted", "offline", "fallback", "policy", "unknown"
+    ] = "unknown"
 
 
 class PolicyResult(BaseModel):
@@ -181,6 +207,8 @@ class InvestigationReport:
     campaign_alert_count: int = 0
     evidence_citations: list[dict[str, Any]] = field(default_factory=list)
     incident_id: str | None = None
+    source_origin: str = "operator_submission"
+    source_receipt_sha256: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -192,6 +220,8 @@ class InvestigationReport:
             "campaign_alert_count": self.campaign_alert_count,
             "evidence_citations": self.evidence_citations,
             "incident_id": self.incident_id,
+            "source_origin": self.source_origin,
+            "source_receipt_sha256": self.source_receipt_sha256,
         }
 
     @classmethod
@@ -205,6 +235,8 @@ class InvestigationReport:
             campaign_alert_count=d.get("campaign_alert_count", 0),
             evidence_citations=d.get("evidence_citations") or [],
             incident_id=d.get("incident_id"),
+            source_origin=d.get("source_origin", "operator_submission"),
+            source_receipt_sha256=d.get("source_receipt_sha256"),
         )
 
 

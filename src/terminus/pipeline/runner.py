@@ -1,6 +1,6 @@
 # File name: runner.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Revision date: 2026-11-14
 # Version: 0.1.0
 # Purpose: Pipeline Runner orchestrator for TERMINUS.
 
@@ -51,7 +51,7 @@ class PipelineRunner:
         self.deployment = deployment
         self.db = db
         self.workflow_engine = workflow_engine or WorkflowEngine(db=db)
-        self.stitcher = stitcher or CampaignStitcher()
+        self.stitcher = stitcher or CampaignStitcher(db=db)
         self.graph_store = GraphEventStore(db=db)
         self.claim_repo = claim_repo or SqliteAlertClaimRepository(db=db)
         self.workflow_repo = workflow_repo or SqliteWorkflowRepository(db=db)
@@ -60,6 +60,9 @@ class PipelineRunner:
         self,
         alert: SiemAlert,
         org_id: OrgId | str,
+        *,
+        source_origin: str = "operator_submission",
+        source_receipt_sha256: str | None = None,
     ) -> InvestigationReport:
         org_str = str(org_id)
         alert_id = str(alert.id)
@@ -70,6 +73,14 @@ class PipelineRunner:
             # Check if we can atomically re-claim after safe failure (D5)
             reclaimed, claim_record = self.claim_repo.reclaim_alert_if_failed_before_side_effects(org_str, alert_id)
             if not reclaimed:
+                if source_receipt_sha256:
+                    prior = (claim_record or existing_claim or {}).get("report")
+                    if prior is None and (claim_record or existing_claim or {}).get("report_json"):
+                        import json
+
+                        prior = json.loads((claim_record or existing_claim)["report_json"])
+                    if not isinstance(prior, dict) or prior.get("source_receipt_sha256") != source_receipt_sha256:
+                        raise ConflictError("Duplicate alert ID has a different or unknown source receipt")
                 # Duplicate alert or active run - return stored report if available
                 if claim_record and claim_record.get("report"):
                     try:
@@ -104,7 +115,13 @@ class PipelineRunner:
         except Exception:
             self.claim_repo.update_claim_status(org_str, alert_id, "FAILED", "FAILED_BEFORE_SIDE_EFFECTS", 0, None)
             raise
-        report = replace(base_report, campaign_id=campaign.campaign_id, campaign_alert_count=campaign.alert_count)
+        report = replace(
+            base_report,
+            campaign_id=campaign.campaign_id,
+            campaign_alert_count=campaign.alert_count,
+            source_origin=source_origin,
+            source_receipt_sha256=source_receipt_sha256,
+        )
 
         # Persist the authoritative incident before a workflow can reference it.
         incident_id: str | None = None
@@ -127,8 +144,15 @@ class PipelineRunner:
                 if trigger_matches(trigger_cfg, alert):
                     matching_workflow = wf
                     break
-        except Exception as e:
-            logger.warning(f"Error querying workflows for org {org_str}: {e}")
+        except Exception:
+            # An incident may already exist. The workflow decision is unknown, so
+            # stop here and prevent an automatic retry that could duplicate effects.
+            logger.exception("Workflow selection failed for org %s", org_str)
+            self.claim_repo.update_claim_status(
+                org_str, alert_id, "FAILED", "FAILED_AFTER_SIDE_EFFECTS", 1, report,
+                incident_id=incident_id,
+            )
+            raise
 
         # 5. Execute Matched Workflow (if any) (D2, D3, D6)
         wf_ctx: WorkflowExecutionContext | None = None
@@ -145,8 +169,15 @@ class PipelineRunner:
                 )
                 if wf_ctx.report:
                     report = wf_ctx.report
-            except Exception as e:
-                logger.error(f"Unexpected workflow execution error: {e}")
+            except Exception:
+                # Execution may have crossed an external action boundary before
+                # raising. Keep the claim failed and non-retryable for review.
+                logger.exception("Workflow execution failed for alert %s", alert_id)
+                self.claim_repo.update_claim_status(
+                    org_str, alert_id, "FAILED", "FAILED_AFTER_SIDE_EFFECTS", 1, report,
+                    incident_id=incident_id,
+                )
+                raise
 
         # 6. Gap-Filling for Incident Ticketing and Notifications (D4)
         ticket_already_created = bool(wf_ctx and wf_ctx.ticket_created)

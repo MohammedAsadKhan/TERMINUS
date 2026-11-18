@@ -1,6 +1,6 @@
 # File name: models.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Revision date: 2026-11-13
 # Version: 0.1.0
 # Purpose: Strict, non-executing contracts for the defensive toolkit roadmap.
 
@@ -108,6 +108,7 @@ class ReadQuery(Contract):
         "detection",
         "coverage",
         "authentication",
+        "authentication_failure",
         "process",
         "file",
         "network",

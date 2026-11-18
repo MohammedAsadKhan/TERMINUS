@@ -112,7 +112,7 @@ Local mode supports the first-run demo login: `admin@terminus.local` / `Password
 ### Windows evaluation
 
 1. **`run_service.bat`**: Launches the clean, unconfigured standalone TERMINUS service daemon and opens the web console (`http://127.0.0.1:8000/console/`).
-2. **`run_demo.bat`**: Full 1-click presentation demo. Starts the backend service, opens the console, connects simulated enterprise services, and streams continuous service traffic alongside multi-stage simulated cyberattacks and guardrail validations.
+2. **`run_demo.bat`**: Disposable bank and SOC presentation rehearsal. It delegates to `scripts/presentation_rehearsal.py --bank-demo`, creates a separate temporary database, and serves simulated traffic on loopback. It does not reset the operational database or prove a live attack or response.
 
 [Evaluation walkthrough](docs/GRADING_GUIDE.md) · [Installation manual](docs/INSTALLATION.md) · [SDD-to-code map](docs/IMPLEMENTATION_MAP.md)
 
@@ -120,7 +120,7 @@ For a first hands-on check with clearly labeled synthetic data, follow the [loca
 
 ### Configuration and storage
 
-Use [.env.example](.env.example) for current settings. The runtime uses Python `sqlite3` and local `terminus.db`; PostgreSQL, MySQL, MongoDB and Redis are not active storage backends. A database URL entered in the setup wizard does not switch the runtime backend.
+Use [.env.example](.env.example) for current settings. The runtime uses Python `sqlite3` and local `terminus.db`; PostgreSQL, MySQL, MongoDB and Redis are not active storage backends. The supported `terminus-setup` command and optional Windows GUI launcher configure only settings the local runtime uses.
 
 For hosting, configure `TERMINUS_DEPLOYMENT_MODE=hosted`, a stable `TERMINUS_LICENSE_SECRET` and HTTPS. Optional first-run owner bootstrap uses the paired `TERMINUS_BOOTSTRAP_ADMIN_EMAIL` and `TERMINUS_BOOTSTRAP_ADMIN_PASSWORD` settings. Preserve the database on persistent storage and use SQLite's backup API for live backups.
 

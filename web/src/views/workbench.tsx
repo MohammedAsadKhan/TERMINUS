@@ -1,13 +1,12 @@
 // File: workbench.tsx
 // Author: Team LARP
-// Date: 2026-11-09
+// Date: 2026-11-12
 // Version: 0.1.0
-// Purpose: Render the security overview, incident queue, and incident detail routes.
+// Purpose: Render the security overview, incident queue, incident detail routes, and approval gates.
 
 import { useMemo, useState } from 'react';
 import { Alert, App, Button, Descriptions, Empty, Input, Modal, Segmented, Select, Spin, Tag } from 'antd';
 import {
-  AlertOutlined,
   AppstoreOutlined,
   AuditOutlined,
   CheckCircleOutlined,
@@ -36,7 +35,7 @@ import { useSession } from '../context';
 import { date, ErrorPanel } from '../components';
 import { ChatText, CopilotPanel } from '../copilot-ui';
 import { NetworkCanvas, type NetworkEvent, type NetworkSelection } from '../network-canvas';
-import { LiveTrafficAlertChart, AttackSurfaceMatrix, SeverityEndpointPieCharts } from './overview-charts';
+import { IncidentTimelineChart, AttackSurfaceMatrix, SeverityEndpointPieCharts } from './overview-charts';
 import IncidentResponse from './incident-response';
 import type { AgentAction, Approval, Incident } from '../types';
 
@@ -215,49 +214,120 @@ function ActionsLogList() {
 }
 
 function getApprovalDetails(approval: Approval) {
-  const pMsg = (approval.prompt_message || '').toLowerCase();
-  const wfId = (approval.workflow_id || '').toLowerCase();
-
-  const isRansomware = wfId.includes('ransomware') || pMsg.includes('ransomware') || pMsg.includes('isolation') || pMsg.includes('workstation');
-  const targetHost = isRansomware ? 'workstation-88.corp.internal' : 'api-gateway.terminus.bank';
-  const targetIp = isRansomware ? '192.168.1.188' : '10.0.4.12';
-  const assetTier = isRansomware ? 'Tier-2 Corporate Finance Workstation' : 'Tier-1 Perimeter API Gateway';
-  const actionType = isRansomware ? 'TOOL_ISOLATE (Host Network Interface Quarantine)' : 'TOOL_FIREWALL (Edge Perimeter IP Drop)';
-  const incidentRef = isRansomware ? 'INC-8821' : 'INC-8819';
-  const mitreCode = isRansomware ? 'T1486' : 'T1190';
-  const threatTitle = isRansomware
-    ? 'T1486 (Data Encrypted for Impact) / High-Velocity Ransomware'
-    : 'T1190 (Exploit Public-Facing App) / Inbound Automated CVE Probe';
-
-  const actionHeadline = isRansomware
-    ? `Isolate Host Network Interface: ${targetHost}`
-    : `Block Ingress Traffic from Source IP: 198.51.100.42`;
-
-  const forensicEvidence = isRansomware
-    ? `Active ransomware binary 'enc_worker.exe' (PID: 4912) detected rapidly encrypting files in C:\\Finance\\Ledgers with extension '.locked' at 420 files/sec. Process spawned encoded PowerShell attempting lateral SMB connection to Domain Controller dc01.corp.internal.`
-    : `Inbound HTTP exploitation flood detected from external IP 198.51.100.42 targeting API gateway authentication endpoint. Automated WAF signature matched CVE-2024-3400 exploit pattern with 180 req/sec probe burst.`;
-
-  const policyRationale = isRansomware
-    ? `Deterministic Safety Guardrail (D14 Fail-Closed) mandates human operator authorization before executing destructive host network disconnect. Authorizing immediately severs remote connectivity on ${targetHost}, drops active C2 sockets, and prevents worm-like lateral spread to core domain servers.`
-    : `Deterministic Security Policy (D12) requires operator confirmation to block ingress traffic at the edge firewall to prevent false-positive service disruption to legitimate banking customers.`;
-
-  const containmentImpact = isRansomware
-    ? `Disables NIC on ${targetHost}, severs active SMB/TCP sessions, halts active file encryption, and preserves memory state for forensic triage.`
-    : `Adds IP 198.51.100.42 to perimeter drop filter for 24 hours and terminates active exploit streams.`;
-
   return {
-    targetHost,
-    targetIp,
-    assetTier,
-    actionType,
-    incidentRef,
-    mitreCode,
-    threatTitle,
-    actionHeadline,
-    forensicEvidence,
-    policyRationale,
-    containmentImpact,
+    workflowId: approval.workflow_id || 'Not recorded',
+    nodeId: approval.node_id || 'Not recorded',
+    runId: approval.run_id || 'Not recorded',
+    prompt: (approval.prompt_message || '').trim(),
+    expiresAt: approval.expires_at,
   };
+}
+
+function ApprovalDetailsModal({
+  approval,
+  canWrite,
+  resolving,
+  onResolve,
+  onClose,
+}: {
+  approval: Approval;
+  canWrite: boolean;
+  resolving: boolean;
+  onResolve: (approvalId: string, decision: 'APPROVED' | 'REJECTED') => Promise<void> | void;
+  onClose: () => void;
+}) {
+  const details = getApprovalDetails(approval);
+  const pending = approval.status === 'PENDING';
+
+  return (
+    <Modal
+      open
+      onCancel={onClose}
+      width={680}
+      title={
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <SafetyCertificateOutlined style={{ color: '#ef4444', fontSize: 18 }} />
+          <span style={{ fontSize: 15, fontWeight: 700 }}>Human Authorization Gate</span>
+        </div>
+      }
+      footer={[
+        <Button key="close" onClick={onClose}>
+          Close
+        </Button>,
+        pending && (
+          <Button
+            key="reject"
+            loading={resolving}
+            disabled={!canWrite}
+            onClick={async () => {
+              await onResolve(approval.approval_id, 'REJECTED');
+              onClose();
+            }}
+          >
+            Reject
+          </Button>
+        ),
+        pending && (
+          <Button
+            key="approve"
+            type="primary"
+            icon={<CheckCircleOutlined />}
+            loading={resolving}
+            disabled={!canWrite}
+            onClick={async () => {
+              await onResolve(approval.approval_id, 'APPROVED');
+              onClose();
+            }}
+          >
+            Authorize gate
+          </Button>
+        ),
+      ].filter(Boolean)}
+    >
+      <div className="approval-modal-body">
+        <div className="approval-modal-ribbon">
+          <Tag color="volcano">ROLE: {approval.required_role?.toUpperCase() || 'NOT RECORDED'}</Tag>
+          <Tag color="blue">STATUS: {approval.status}</Tag>
+        </div>
+
+        {/* Only the recorded gate fields are shown; targets, hosts and source
+            IPs are not part of this approval record and must not be inferred. */}
+        <div className="approval-modal-section">
+          <div className="approval-modal-section-title">
+            <ThunderboltOutlined style={{ color: '#f59e0b' }} />
+            <span>Recorded Request</span>
+          </div>
+          <p className="approval-modal-prompt">
+            {details.prompt || 'No request text was recorded for this gate.'}
+          </p>
+          <div className="approval-target-grid">
+            <div><strong>Workflow Playbook:</strong> <span className="mono">{details.workflowId}</span></div>
+            <div><strong>Approval Node:</strong> <span className="mono">{details.nodeId}</span></div>
+            <div><strong>Workflow Run:</strong> <span className="mono">{details.runId}</span></div>
+            <div><strong>Gate ID:</strong> <span className="mono">{approval.approval_id}</span></div>
+          </div>
+        </div>
+
+        <div className="approval-modal-section">
+          <div className="approval-modal-section-title">
+            <SafetyCertificateOutlined style={{ color: '#10b981' }} />
+            <span>What Approval Does</span>
+          </div>
+          <p style={{ margin: 0, fontSize: 12.5, lineHeight: 1.5, color: 'var(--ink)' }}>
+            Approving records the human authorization on this gate. The workflow resumes separately,
+            and this screen does not confirm that any subsequent action or containment effect
+            succeeded. Check the workflow run and actions log for the recorded outcome.
+          </p>
+        </div>
+
+        <Descriptions size="small" bordered column={2} style={{ marginTop: 8 }}>
+          <Descriptions.Item label="Requested At">{formatTime(approval.created_at)}</Descriptions.Item>
+          <Descriptions.Item label="Expires At">{details.expiresAt ? formatTime(details.expiresAt) : 'Not recorded'}</Descriptions.Item>
+          <Descriptions.Item label="Resolved By" span={2}>{approval.resolved_by || 'Not resolved'}</Descriptions.Item>
+        </Descriptions>
+      </div>
+    </Modal>
+  );
 }
 
 function ApprovalsList() {
@@ -284,7 +354,13 @@ function ApprovalsList() {
           decision: decision === 'APPROVED' ? 'approve' : 'reject',
         })
       );
-      message.success(`Approval gate ${decision === 'APPROVED' ? 'authorized & containment enforced' : 'rejected'}`);
+      // The resolve endpoint records the decision; it does not execute or
+      // confirm the downstream workflow effect. The toast must not imply it did.
+      message.success(
+        decision === 'APPROVED'
+          ? 'Authorization recorded; effect pending. Review the workflow run and actions log for the outcome.'
+          : 'Approval rejected; no action will be dispatched.'
+      );
       query.invalidateQueries({ queryKey: ['approvals', orgId] });
       query.invalidateQueries({ queryKey: ['agent-actions', orgId] });
       query.invalidateQueries({ queryKey: ['incidents', orgId] });
@@ -310,8 +386,8 @@ function ApprovalsList() {
               <tr style={{ background: 'var(--raised)', borderBottom: '1px solid var(--line)', textAlign: 'left', color: 'var(--subtle)' }}>
                 <th style={{ padding: '8px 12px' }}>Gate ID</th>
                 <th style={{ padding: '8px 12px' }}>Workflow Playbook</th>
-                <th style={{ padding: '8px 12px' }}>Target Host</th>
-                <th style={{ padding: '8px 12px' }}>Action / Trigger</th>
+                <th style={{ padding: '8px 12px' }}>Approval Node</th>
+                <th style={{ padding: '8px 12px' }}>Recorded Request</th>
                 <th style={{ padding: '8px 12px' }}>Status</th>
                 <th style={{ padding: '8px 12px', textAlign: 'right' }}>Authorization</th>
               </tr>
@@ -322,13 +398,13 @@ function ApprovalsList() {
                 return (
                   <tr key={a.approval_id} style={{ borderBottom: '1px solid var(--line)' }}>
                     <td style={{ padding: '10px 12px', fontFamily: 'var(--font-mono, monospace)', fontWeight: 600 }}>{a.approval_id}</td>
-                    <td style={{ padding: '10px 12px' }}>{a.workflow_id}</td>
-                    <td style={{ padding: '10px 12px' }}>
-                      <Tag color="volcano" className="mono">{details.targetHost}</Tag>
-                    </td>
+                    <td style={{ padding: '10px 12px' }}>{details.workflowId}</td>
+                    <td style={{ padding: '10px 12px' }} className="mono">{details.nodeId}</td>
                     <td style={{ padding: '10px 12px', maxWidth: '300px' }}>
-                      <strong style={{ color: '#f8fafc', display: 'block' }}>{details.actionHeadline}</strong>
-                      <small style={{ color: '#94a3b8' }}>{details.incidentRef}: {details.mitreCode}</small>
+                      <strong style={{ color: '#f8fafc', display: 'block' }}>
+                        {details.prompt || 'No request text recorded'}
+                      </strong>
+                      <small style={{ color: '#94a3b8' }}>Run: {details.runId}</small>
                     </td>
                     <td style={{ padding: '10px 12px' }}>
                       <Tag color={a.status === 'APPROVED' ? 'green' : a.status === 'REJECTED' ? 'red' : 'volcano'}>
@@ -389,141 +465,19 @@ function ApprovalsList() {
         <Empty description="No human approval gates pending" image={Empty.PRESENTED_IMAGE_SIMPLE} />
       )}
 
-      {/* Inspect Approval Modal */}
-      {inspectApproval && (() => {
-        const d = getApprovalDetails(inspectApproval);
-        return (
-          <Modal
-            open={!!inspectApproval}
-            onCancel={() => setInspectApproval(null)}
-            width={680}
-            title={
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <SafetyCertificateOutlined style={{ color: '#ef4444', fontSize: 18 }} />
-                <span style={{ fontSize: 15, fontWeight: 700 }}>
-                  Containment Authorization Gate Analysis
-                </span>
-              </div>
-            }
-            footer={[
-              <Button key="close" onClick={() => setInspectApproval(null)}>
-                Close
-              </Button>,
-              inspectApproval.status === 'PENDING' && (
-                <Button
-                  key="reject"
-                  loading={resolvingId === inspectApproval.approval_id}
-                  disabled={!canWrite}
-                  onClick={async () => {
-                    await resolveApproval(inspectApproval.approval_id, 'REJECTED');
-                    setInspectApproval(null);
-                  }}
-                >
-                  Reject
-                </Button>
-              ),
-              inspectApproval.status === 'PENDING' && (
-                <Button
-                  key="approve"
-                  type="primary"
-                  danger
-                  icon={<CheckCircleOutlined />}
-                  loading={resolvingId === inspectApproval.approval_id}
-                  disabled={!canWrite}
-                  onClick={async () => {
-                    await resolveApproval(inspectApproval.approval_id, 'APPROVED');
-                    setInspectApproval(null);
-                  }}
-                >
-                  Authorize Containment
-                </Button>
-              ),
-            ].filter(Boolean)}
-          >
-            <div className="approval-modal-body">
-              <div className="approval-modal-ribbon">
-                <Tag color="volcano">ROLE: {inspectApproval.required_role?.toUpperCase() || 'ADMIN'}</Tag>
-                <Tag color="red">RISK: CRITICAL CONTAINMENT</Tag>
-                <Tag color="gold">GATE: FAIL-CLOSED (D14)</Tag>
-                <Tag color={inspectApproval.status === 'APPROVED' ? 'green' : inspectApproval.status === 'REJECTED' ? 'red' : 'blue'}>
-                  STATUS: {inspectApproval.status}
-                </Tag>
-              </div>
-
-              {/* Target & Action Requested */}
-              <div className="approval-modal-section">
-                <div className="approval-modal-section-title">
-                  <ThunderboltOutlined style={{ color: '#f59e0b' }} />
-                  <span>Containment Action Requested</span>
-                </div>
-                <p className="approval-modal-prompt">
-                  {d.actionHeadline}
-                </p>
-                <div className="approval-target-grid">
-                  <div><strong>Target Host:</strong> <span className="mono">{d.targetHost}</span> ({d.assetTier})</div>
-                  <div><strong>Target IP:</strong> <span className="mono">{d.targetIp}</span></div>
-                  <div><strong>Action:</strong> <span className="mono">{d.actionType}</span></div>
-                  <div><strong>Incident Ref:</strong> <span className="mono">{d.incidentRef}</span> ({d.mitreCode})</div>
-                </div>
-              </div>
-
-              {/* Forensic Telemetry Evidence */}
-              <div className="approval-modal-section">
-                <div className="approval-modal-section-title">
-                  <AlertOutlined style={{ color: '#ef4444' }} />
-                  <span>Forensic Telemetry Evidence</span>
-                </div>
-                <p style={{ margin: 0, fontSize: 12.5, lineHeight: 1.5, color: 'var(--ink)' }}>
-                  {d.forensicEvidence}
-                </p>
-              </div>
-
-              {/* AI SOC Policy & Security Reasoning */}
-              <div className="approval-modal-section approval-ai-reasoning">
-                <div className="approval-modal-section-title">
-                  <RobotOutlined style={{ color: 'var(--accent)' }} />
-                  <span>AI SOC Policy &amp; Security Reasoning</span>
-                </div>
-                <p style={{ margin: 0, fontSize: 12.5, lineHeight: 1.5, color: 'var(--ink)' }}>
-                  {d.policyRationale}
-                </p>
-              </div>
-
-              {/* Immediate Containment Impact */}
-              <div className="approval-modal-section">
-                <div className="approval-modal-section-title">
-                  <SafetyCertificateOutlined style={{ color: '#10b981' }} />
-                  <span>Immediate Containment Impact</span>
-                </div>
-                <p style={{ margin: 0, fontSize: 12, lineHeight: 1.45, color: 'var(--muted)' }}>
-                  {d.containmentImpact}
-                </p>
-              </div>
-
-              <Descriptions size="small" bordered column={2} style={{ marginTop: 8 }}>
-                <Descriptions.Item label="Gate Approval ID">
-                  <span className="mono">{inspectApproval.approval_id}</span>
-                </Descriptions.Item>
-                <Descriptions.Item label="Workflow Playbook">
-                  <span className="mono">{inspectApproval.workflow_id}</span>
-                </Descriptions.Item>
-                <Descriptions.Item label="Pipeline Node ID">
-                  <span className="mono">{inspectApproval.node_id}</span>
-                </Descriptions.Item>
-                <Descriptions.Item label="Workflow Execution Run">
-                  <span className="mono">{inspectApproval.run_id}</span>
-                </Descriptions.Item>
-                <Descriptions.Item label="Requested At" span={2}>
-                  {formatTime(inspectApproval.created_at)}
-                </Descriptions.Item>
-              </Descriptions>
-            </div>
-          </Modal>
-        );
-      })()}
+      {inspectApproval && (
+        <ApprovalDetailsModal
+          approval={inspectApproval}
+          canWrite={canWrite}
+          resolving={resolvingId === inspectApproval.approval_id}
+          onResolve={resolveApproval}
+          onClose={() => setInspectApproval(null)}
+        />
+      )}
     </div>
   );
 }
+
 
 function IncidentPanel({ id, onClose }: { id: string; onClose: () => void }) {
   const { orgId, detail } = useSession();
@@ -671,14 +625,14 @@ function IncidentPanel({ id, onClose }: { id: string; onClose: () => void }) {
                     </dl>
                   </section>
                 )}
-                <p className="work-note">Timestamps verified directly against the incident database record.</p>
+                <p className="work-note">Times come from the stored incident record; source clock synchronization is not verified.</p>
               </div>
             )}
             {tab === 'Assistant' && (
               <div className="work-detail-content">
                 <section>
                   <h3>Investigate with Copilot</h3>
-                  <p className="work-note">Assistant reasoning is grounded strictly in this incident context and correlated evidence.</p>
+                  <p className="work-note">Assistant responses are generated from this incident's context. Verify claims against the stored evidence.</p>
                   <div className="work-chat">
                     {conversation.length === 0 ? (
                       <p className="work-note">Ask a question below to analyze payload artifacts, deobfuscate scripts, or draft containment actions.</p>
@@ -730,16 +684,17 @@ function HumanApprovalSection({
 
   if (pendingApprovals.length === 0) {
     return (
-      <div className="human-approval-card all-clear" aria-label="Containment Safety Gates Status">
+      <div className="human-approval-card all-clear" aria-label="Human Authorization Gates Status">
         <div className="approval-card-head">
           <div className="approval-head-title">
             <SafetyCertificateOutlined style={{ color: '#10b981', fontSize: 15 }} />
-            <span>CONTAINMENT SAFETY GATES</span>
+            <span>HUMAN AUTHORIZATION GATES</span>
           </div>
-          <Tag color="success" style={{ margin: 0, fontSize: 10 }}>ACTIVE</Tag>
+          <Tag color="default" style={{ margin: 0, fontSize: 10 }}>0 PENDING</Tag>
         </div>
         <p className="approval-clean-note">
-          0 pending human authorizations. Deterministic fail-closed guardrails active across all Tier-0 &amp; Tier-1 assets.
+          No pending human authorizations. Workflow execution is held at configured approval gates
+          until an admin records a decision.
         </p>
       </div>
     );
@@ -750,41 +705,42 @@ function HumanApprovalSection({
 
   return (
     <>
-      <div className="human-approval-card pending-action" aria-label="Pending Human Containment Authorization">
+      <div className="human-approval-card pending-action" aria-label="Pending Human Authorization">
         <div className="approval-card-head">
           <div className="approval-head-title">
             <SafetyCertificateOutlined style={{ color: '#ef4444', fontSize: 15 }} />
             <span>HUMAN AUTHORIZATION</span>
             <span className="approval-count-badge mono">{pendingApprovals.length} PENDING</span>
           </div>
-          <Tag color="volcano" style={{ margin: 0, fontSize: 10 }}>{topApproval.required_role?.toUpperCase() || 'ADMIN'}</Tag>
+          <Tag color="volcano" style={{ margin: 0, fontSize: 10 }}>{topApproval.required_role?.toUpperCase() || 'NOT RECORDED'}</Tag>
         </div>
 
+        {/* Only fields present on the approval record are shown. Host, IP,
+            incident and forensic details are not inferred from the prompt. */}
         <div className="approval-card-body">
           <div className="approval-target-badge-row" style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 4 }}>
-            <Tag color="error" style={{ fontWeight: 750, margin: 0, fontSize: 10 }}>CONTAINMENT GATE</Tag>
-            <span className="mono" style={{ color: '#f8fafc', fontWeight: 650, fontSize: 12 }}>{details.targetHost}</span>
-            <span className="mono" style={{ color: '#94a3b8', fontSize: 11 }}>({details.targetIp})</span>
+            <Tag color="error" style={{ fontWeight: 750, margin: 0, fontSize: 10 }}>APPROVAL REQUIRED</Tag>
+            <span className="mono" style={{ color: '#f8fafc', fontWeight: 650, fontSize: 12 }}>{details.workflowId}</span>
+            <span className="mono" style={{ color: '#94a3b8', fontSize: 11 }}>node {details.nodeId}</span>
           </div>
           <p className="approval-prompt-text">
-            {details.actionHeadline}
+            {details.prompt || 'No request text was recorded for this gate.'}
           </p>
           <div className="approval-meta-line">
-            <span style={{ color: '#f59e0b', fontWeight: 600 }}>{details.incidentRef} ({details.mitreCode})</span> · Gate: <span className="mono">{topApproval.approval_id}</span>
+            Gate: <span className="mono">{topApproval.approval_id}</span> · Run: <span className="mono">{details.runId}</span>
           </div>
         </div>
 
         <div className="approval-card-actions">
           <Button
             type="primary"
-            danger
             icon={<CheckCircleOutlined />}
             className="shake-approval-btn"
             loading={resolvingId === topApproval.approval_id}
             disabled={!canWrite}
             onClick={() => onResolve(topApproval.approval_id, 'APPROVED')}
           >
-            Authorize Containment
+            Authorize gate
           </Button>
           <Button
             icon={<InfoCircleOutlined />}
@@ -803,132 +759,19 @@ function HumanApprovalSection({
         </div>
       </div>
 
-      {/* Containment Approval Details Mini Window (Modal) */}
-      <Modal
-        open={detailModalOpen}
-        onCancel={() => setDetailModalOpen(false)}
-        width={680}
-        title={
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <SafetyCertificateOutlined style={{ color: '#ef4444', fontSize: 18 }} />
-            <span style={{ fontSize: 15, fontWeight: 700 }}>
-              Containment Authorization Gate Analysis
-            </span>
-          </div>
-        }
-        footer={[
-          <Button key="close" onClick={() => setDetailModalOpen(false)}>
-            Close
-          </Button>,
-          <Button
-            key="reject"
-            loading={resolvingId === topApproval.approval_id}
-            disabled={!canWrite}
-            onClick={async () => {
-              await onResolve(topApproval.approval_id, 'REJECTED');
-              setDetailModalOpen(false);
-            }}
-          >
-            Reject
-          </Button>,
-          <Button
-            key="approve"
-            type="primary"
-            danger
-            icon={<CheckCircleOutlined />}
-            loading={resolvingId === topApproval.approval_id}
-            disabled={!canWrite}
-            onClick={async () => {
-              await onResolve(topApproval.approval_id, 'APPROVED');
-              setDetailModalOpen(false);
-            }}
-          >
-            Authorize Containment
-          </Button>,
-        ]}
-      >
-        <div className="approval-modal-body">
-          {/* Status and Gate Ribbon */}
-          <div className="approval-modal-ribbon">
-            <Tag color="volcano">ROLE: {topApproval.required_role?.toUpperCase() || 'ADMIN'}</Tag>
-            <Tag color="red">RISK: CRITICAL CONTAINMENT</Tag>
-            <Tag color="gold">GATE: FAIL-CLOSED (D14)</Tag>
-            <Tag color="blue">STATUS: PENDING</Tag>
-          </div>
-
-          {/* Action Requested */}
-          <div className="approval-modal-section">
-            <div className="approval-modal-section-title">
-              <ThunderboltOutlined style={{ color: '#f59e0b' }} />
-              <span>Containment Action Requested</span>
-            </div>
-            <p className="approval-modal-prompt">
-              {details.actionHeadline}
-            </p>
-            <div className="approval-target-grid" style={{ marginTop: 8 }}>
-              <div><strong>Target Host:</strong> <span className="mono">{details.targetHost}</span> ({details.assetTier})</div>
-              <div><strong>Target IP:</strong> <span className="mono">{details.targetIp}</span></div>
-              <div><strong>Action:</strong> <span className="mono">{details.actionType}</span></div>
-              <div><strong>Incident Ref:</strong> <span className="mono">{details.incidentRef}</span> ({details.mitreCode})</div>
-            </div>
-          </div>
-
-          {/* Forensic Telemetry Evidence */}
-          <div className="approval-modal-section">
-            <div className="approval-modal-section-title">
-              <AlertOutlined style={{ color: '#ef4444' }} />
-              <span>Forensic Telemetry Evidence</span>
-            </div>
-            <p style={{ margin: 0, fontSize: 12.5, lineHeight: 1.5, color: 'var(--ink)' }}>
-              {details.forensicEvidence}
-            </p>
-          </div>
-
-          {/* AI SOC Policy & Security Reasoning */}
-          <div className="approval-modal-section approval-ai-reasoning">
-            <div className="approval-modal-section-title">
-              <RobotOutlined style={{ color: 'var(--accent)' }} />
-              <span>AI SOC Policy &amp; Security Reasoning</span>
-            </div>
-            <p style={{ margin: 0, fontSize: 12.5, lineHeight: 1.5, color: 'var(--ink)' }}>
-              {details.policyRationale}
-            </p>
-          </div>
-
-          {/* Immediate Containment Impact */}
-          <div className="approval-modal-section">
-            <div className="approval-modal-section-title">
-              <SafetyCertificateOutlined style={{ color: '#10b981' }} />
-              <span>Immediate Containment Impact</span>
-            </div>
-            <p style={{ margin: 0, fontSize: 12, lineHeight: 1.45, color: 'var(--muted)' }}>
-              {details.containmentImpact}
-            </p>
-          </div>
-
-          {/* Execution Metadata Table */}
-          <Descriptions size="small" bordered column={2} style={{ marginTop: 8 }}>
-            <Descriptions.Item label="Gate Approval ID">
-              <span className="mono">{topApproval.approval_id}</span>
-            </Descriptions.Item>
-            <Descriptions.Item label="Workflow Playbook">
-              <span className="mono">{topApproval.workflow_id}</span>
-            </Descriptions.Item>
-            <Descriptions.Item label="Pipeline Node ID">
-              <span className="mono">{topApproval.node_id}</span>
-            </Descriptions.Item>
-            <Descriptions.Item label="Workflow Execution Run">
-              <span className="mono">{topApproval.run_id}</span>
-            </Descriptions.Item>
-            <Descriptions.Item label="Requested At" span={2}>
-              {formatTime(topApproval.created_at)}
-            </Descriptions.Item>
-          </Descriptions>
-        </div>
-      </Modal>
+      {detailModalOpen && (
+        <ApprovalDetailsModal
+          approval={topApproval}
+          canWrite={canWrite}
+          resolving={resolvingId === topApproval.approval_id}
+          onResolve={onResolve}
+          onClose={() => setDetailModalOpen(false)}
+        />
+      )}
     </>
   );
 }
+
 
 export default function Workbench({ incidentView = false }: { incidentView?: boolean }) {
   const { orgId, detail } = useSession();
@@ -945,7 +788,8 @@ export default function Workbench({ incidentView = false }: { incidentView?: boo
   const [overviewTab, setOverviewTab] = useState<'queue' | 'approvals' | 'actions'>('queue');
   const [resolvingGateId, setResolvingGateId] = useState<string | null>(null);
 
-  // Real-time 3s background refetch for live presentation demo
+  // Poll every 3 seconds so lab seed changes appear. This is polling of stored
+  // records, not a live sensor or traffic feed.
   const incidents = useQuery({ queryKey: ['incidents', orgId], queryFn: () => api<Incident[]>('/incidents', orgId), refetchInterval: 3000 });
   const network = useQuery({
     queryKey: ['investigation-network-stable', orgId],
@@ -970,7 +814,11 @@ export default function Workbench({ incidentView = false }: { incidentView?: boo
           decision: decision === 'APPROVED' ? 'approve' : 'reject',
         })
       );
-      message.success(`Containment action ${decision === 'APPROVED' ? 'authorized & enforced' : 'rejected'}`);
+      message.success(
+        decision === 'APPROVED'
+          ? 'Authorization recorded; effect pending. Review the workflow run and actions log for the outcome.'
+          : 'Approval rejected; no action will be dispatched.'
+      );
       queryClient.invalidateQueries({ queryKey: ['approvals', orgId] });
       queryClient.invalidateQueries({ queryKey: ['agent-actions', orgId] });
       queryClient.invalidateQueries({ queryKey: ['incidents', orgId] });
@@ -1100,7 +948,7 @@ export default function Workbench({ incidentView = false }: { incidentView?: boo
 
             {/* Bottom: 2 Visualizers side by side */}
             <div className="work-overview-visualizers">
-              <LiveTrafficAlertChart incidents={all} />
+              <IncidentTimelineChart incidents={all} />
               <AttackSurfaceMatrix incidents={all} />
             </div>
           </div>
@@ -1122,7 +970,7 @@ export default function Workbench({ incidentView = false }: { incidentView?: boo
           </div>
         </div>
 
-        <p className="work-footer-note">Showing {all.length} recorded incident{all.length === 1 ? '' : 's'}. Real-time synchronization active.</p>
+        <p className="work-footer-note">Showing {all.length} recorded incident{all.length === 1 ? '' : 's'}. Values reflect the last successful poll of stored records.</p>
       </div>
     );
   }
@@ -1244,7 +1092,7 @@ export default function Workbench({ incidentView = false }: { incidentView?: boo
         <section className="work-col-queue" aria-label="Incident Logs">
           <div className="work-queue-heading">
             <strong>{visible.length} incident{visible.length === 1 ? '' : 's'} {selectedEntity ? `matching ${selectedEntity.label}` : ''}</strong>
-            <span>{incidents.isFetching ? 'Refreshing records…' : 'Stored records · refreshes every 30 seconds'}</span>
+            <span>{incidents.isFetching ? 'Refreshing records…' : 'Stored records · polled every 3 seconds'}</span>
           </div>
           <div className="work-rows">
             {visible.length ? (

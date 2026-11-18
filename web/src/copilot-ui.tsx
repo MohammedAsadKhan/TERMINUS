@@ -1,6 +1,6 @@
 // File: copilot-ui.tsx
 // Author: Team LARP
-// Date: 2026-11-09
+// Revision date: 2026-11-12
 // Version: 0.1.0
 // Purpose: Render the Copilot conversation panel and shared conversation state.
 
@@ -404,7 +404,7 @@ export function CopilotPanel({ compact = false, ticketId }: { compact?: boolean;
               <RobotOutlined style={{ fontSize: 32, color: 'var(--accent)', opacity: 0.8, marginBottom: 10 }} />
               <h3>Autonomous SOC Assistant</h3>
               <p>
-                Grounded on live Wazuh telemetry, MITRE ATT&amp;CK correlation, and active containment guardrails across your workspace.
+                Answers use available stored incidents and configured model access. Verify source telemetry and response effects in their own records.
               </p>
               <div className="copilot-suggestions">
                 <button type="button" onClick={() => void send('Summarize active incidents by severity.', ticketId)}>
@@ -444,7 +444,7 @@ export function CopilotPanel({ compact = false, ticketId }: { compact?: boolean;
           {pending && (
             <div className="copilot-working">
               <span className="copilot-spinner-pulse" />
-              <span>Analyzing live incident dossier &amp; querying threat intelligence...</span>
+              <span>Preparing an answer from available incident records...</span>
             </div>
           )}
 

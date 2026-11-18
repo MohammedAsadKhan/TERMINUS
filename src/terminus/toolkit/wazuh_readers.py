@@ -1,6 +1,6 @@
 # File name: wazuh_readers.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Revision date: 2026-11-13
 # Version: 0.1.0
 # Purpose: Bounded, read-only Wazuh manager and indexer adapters.
 
@@ -224,10 +224,10 @@ def _indexer_observation(
     if identity in seen:
         raise _InvalidResponseError("Indexer repeated an event")
     seen.add(identity)
-    if query.event_kind == "authentication":
+    if query.event_kind in {"authentication", "authentication_failure"}:
         groups = _object(source.get("rule")).get("groups")
         if not isinstance(groups, list) or not any(
-            group in ("authentication_failed", "authentication_success")
+            group in (("authentication_failed",) if query.event_kind == "authentication_failure" else ("authentication_failed", "authentication_success"))
             for group in groups
         ):
             raise _InvalidResponseError("Indexer returned a non-authentication event")
@@ -438,7 +438,7 @@ class WazuhIndexerReader(_Reader):
     async def _read(
         self, query: ReadQuery, resource: EndpointResource, budget: _WireBudget
     ) -> ReadCollection:
-        if query.event_kind not in {"detection", "authentication", "file"}:
+        if query.event_kind not in {"detection", "authentication", "authentication_failure", "file"}:
             return ReadCollection(
                 status="unsupported",
                 gaps=("Indexer supports detection, authentication and file integrity only",),
@@ -454,14 +454,11 @@ class WazuhIndexerReader(_Reader):
                 }
             },
         ]
-        if query.event_kind == "authentication":
+        if query.event_kind in {"authentication", "authentication_failure"}:
             filters.append(
                 {
                     "terms": {
-                        "rule.groups": [
-                            "authentication_failed",
-                            "authentication_success",
-                        ]
+                        "rule.groups": (["authentication_failed"] if query.event_kind == "authentication_failure" else ["authentication_failed", "authentication_success"])
                     }
                 }
             )

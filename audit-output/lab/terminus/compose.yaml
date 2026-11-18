@@ -1,0 +1,83 @@
+# File: compose.yaml
+# Author: Team LARP
+# Revision date: 2026-11-14
+# Version: 0.1.0
+# Purpose: Run TERMINUS only on the private disposable Wazuh Docker network.
+services:
+  terminus:
+    build: .
+    image: terminus-disposable-lab:0.1.0
+    working_dir: /app
+    command:
+      - sh
+      - -ec
+      - |
+        uv sync --frozen --no-dev --project /app
+        cd /data
+        exec /data/.venv/bin/uvicorn terminus.server.app:create_app --factory --host 0.0.0.0 --port 8000
+    env_file: .env
+    environment:
+      PYTHONPATH: /app/src
+      UV_PROJECT_ENVIRONMENT: /data/.venv
+      UV_CACHE_DIR: /data/uv-cache
+      UV_LINK_MODE: copy
+    volumes:
+      # Point this at the extracted source folder before starting the lab.
+      - ${TERMINUS_SOURCE_ROOT:?Set_TERMINUS_SOURCE_ROOT}:/app:ro
+      - terminus_db:/data
+    ports:
+      - 127.0.0.1:8000:8000
+    networks:
+      wazuh:
+        aliases:
+          - terminus
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 6
+      start_period: 120s
+    restart: "no"
+
+  response-worker:
+    profiles: ["response"]
+    image: terminus-disposable-lab:0.1.0
+    working_dir: /data
+    command:
+      - sh
+      - -ec
+      - |
+        cp /run/lab-keys/id_ed25519 /tmp/lab_ed25519
+        chmod 0600 /tmp/lab_ed25519
+        exec /data/.venv/bin/python /app/scripts/run_response_worker.py \
+          --database /data/terminus.db \
+          --org "$$TERMINUS_WAZUH_WEBHOOK_ORG" \
+          --actor "$$TERMINUS_RESPONSE_ACTOR" \
+          --manager-url https://wazuh.manager:55000 \
+          --indexer-url https://wazuh.indexer:9200 \
+          --observer docker \
+          --insecure-lab-tls \
+          --agent-id "$$TERMINUS_RESPONSE_AGENT_ID"
+    env_file: .env
+    environment:
+      PYTHONPATH: /app/src
+    volumes:
+      - ${TERMINUS_SOURCE_ROOT:?Set_TERMINUS_SOURCE_ROOT}:/app:ro
+      - terminus_db:/data
+      - ../response-target/observer/observe.py:/opt/lab/observe.py:ro
+      - ../response-target/.state/keys:/run/lab-keys:ro
+    networks:
+      - wazuh
+    depends_on:
+      terminus:
+        condition: service_healthy
+    # Docker can restart this service before the external target/observer after
+    # a host reboot; baseline then fails repeatedly. Start it explicitly only
+    # after those services and the management binding have been checked.
+    restart: "no"
+networks:
+  wazuh:
+    external: true
+    name: single-node_default
+volumes:
+  terminus_db:

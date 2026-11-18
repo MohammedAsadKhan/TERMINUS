@@ -1,0 +1,30 @@
+{
+  "attack_probe_output": "PROBE_STATUS:0",
+  "attacker_management": "attacker",
+  "checks": {
+    "attack_path_reachable": true,
+    "management_ssh": true,
+    "observer_can_probe_attacker": true,
+    "owned_set_empty": true,
+    "owned_table": true
+  },
+  "digest": "3b2045955b8b64c323aba93d6897749f66b41389b34a280d43f3dc20bc750e84",
+  "identity": "3914ba972f85cf4173b0c203ae8f7e3f655467e7464f89f19d502acb8999a3cb",
+  "intent": "6af9fe25-b7bb-4432-9dc8-5f8f666ab995",
+  "management_hostname": "terminus-target-a",
+  "nft": {
+    "element_count": 0,
+    "owned": true,
+    "read_status": 0,
+    "set_present": true,
+    "source_element_present": false,
+    "table_present": true
+  },
+  "observed_at": "2026-11-13T07:35:03.936778+00:00",
+  "source": "10.77.0.10",
+  "stage": "recovered",
+  "table": "terminus_3914ba972f85cf4173b0c203",
+  "target_attack": "10.77.0.20",
+  "target_management": "target",
+  "verified": true
+}

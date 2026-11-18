@@ -1,8 +1,8 @@
 // File: shell.tsx
 // Author: Team LARP
-// Date: 2026-11-09
+// Date: 2026-11-12
 // Version: 0.1.0
-// Purpose: Render authentication, organization selection, navigation, and console routes.
+// Purpose: Render authentication, organization selection, navigation, and console routes with accurate workspace copy.
 
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { App, Alert, Avatar, Button, Dropdown, Form, Input, Modal, Spin, Tag } from 'antd';
@@ -79,7 +79,7 @@ function Login() {
           <p className="login-toggle">
             {register ? 'Already have an account?' : 'New to this terminal?'} <Button type="link" onClick={() => { setRegister(!register); mutation.reset(); }}>{register ? 'Sign in' : 'Create an account'}</Button>
           </p>
-          <div className="quiet-note"><SafetyCertificateOutlined /> Protected session · Role based access</div>
+          <div className="quiet-note"><SafetyCertificateOutlined /> HttpOnly session · Role based access</div>
         </div>
       </main>
     </div>
@@ -259,7 +259,7 @@ export function ConsoleApp() {
             <div className="onboarding panel">
               <span className="eyebrow">YOUR FIRST WORKSPACE</span>
               <h1>Welcome to TERMINUS AI SOC.</h1>
-              <p>Create an organization to start ingesting and investigating live telemetry.</p>
+              <p>Create an organization to start submitting alerts and reviewing the resulting records.</p>
               <Form layout="vertical" onFinish={values => create.mutate(values)}>
                 <Form.Item name="name" label="Organization name" rules={[{ required: true }]}><Input placeholder="Acme Security Operations" /></Form.Item>
                 <Button type="primary" htmlType="submit" loading={create.isPending} block>Create Organization</Button>

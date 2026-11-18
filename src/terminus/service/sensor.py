@@ -1,6 +1,6 @@
 # File name: sensor.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Revision date: 2026-11-12
 # Version: 0.1.0
 # Purpose: Service Connection Sensor and Dynamic Auto-Configuration Engine for TERMINUS.
 
@@ -186,7 +186,7 @@ class ServiceConnectionSensor:
 
         return {
             "status": overall_status,
-            "service_mode": "Autonomous SOC / SOAR Standalone Service",
+            "service_mode": "API service; source and worker readiness are separate",
             "uptime_seconds": uptime_seconds,
             "service_started_at": self.service_started_at.isoformat(),
             "last_telemetry_at": self.last_telemetry_at.isoformat() if self.last_telemetry_at else None,

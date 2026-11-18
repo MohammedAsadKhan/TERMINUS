@@ -1,8 +1,8 @@
 // File: agents.tsx
 // Author: Team LARP
-// Date: 2026-11-09
+// Date: 2026-11-12
 // Version: 0.1.0
-// Purpose: Present specialist roles, runs, and operation activity.
+// Purpose: Present saved agent definitions and recorded orchestration activity without implying live execution.
 
 import { useEffect, useState } from 'react';
 import { Alert, App, Button, Dropdown, Form, Input, Modal, Select, Space, Tabs, Tag } from 'antd';
@@ -89,7 +89,7 @@ function AgentsWorkspace() {
   }
 
   const configurations = <>
-    <Alert className="context-alert" type="info" showIcon title="Agent Configuration Workspace" description="Manage specialized SOC subagent personas, prompt templates, and execution parameters utilized across multi-stage investigation workflows." />
+    <Alert className="context-alert" type="info" showIcon title="Agent Definition Workspace" description="Manage saved agent names, role descriptions, system prompts, and status labels used by workflow definitions. These records do not start agents or prove execution." />
     <ErrorPanel error={agents.error} retry={() => void agents.refetch()} />
     {agents.isPending ? <Loading /> : agents.data?.length ? <div className="agent-grid">{agents.data.map((agent, index) => <article className="panel agent-card" key={agent.id}>
       <div className="agent-top"><span className="agent-icon"><ThunderboltOutlined /></span><Tag bordered={false} className="mono">AGENT {String(index + 1).padStart(2, '0')}</Tag><Dropdown menu={{ items: [{ key: 'edit', label: 'Edit configuration', icon: <EditOutlined />, disabled: !canWrite, onClick: () => edit(agent) }, { key: 'delete', label: 'Delete', danger: true, icon: <DeleteOutlined />, disabled: !canWrite, onClick: () => remove(agent) }] }}><Button type="text" aria-label={`Actions for ${agent.name}`} icon={<MoreOutlined />} /></Dropdown></div>
@@ -102,8 +102,8 @@ function AgentsWorkspace() {
   return <>
     <PageTitle
       eyebrow="OPERATE / AGENTS"
-      title={activeTab === 'activity' ? 'Follow every admitted investigation.' : 'Define your investigation team.'}
-      description={activeTab === 'activity' ? 'Inspect durable task execution, evidence coverage, model provenance, and specialist collaboration.' : "Manage agent descriptions and prompts for your organization's workflow definitions."}
+      title={activeTab === 'activity' ? 'Inspect recorded orchestration activity.' : 'Maintain agent definitions.'}
+      description={activeTab === 'activity' ? 'Review saved orchestration tasks, run details, evidence links, and specialist definitions. Status values come from stored records.' : "Manage saved agent names, role descriptions, and system prompts for your organization's workflow definitions."}
       actions={activeTab === 'configurations' ? <Button type="primary" icon={<PlusOutlined />} disabled={!canWrite} onClick={() => edit('new')}>New agent</Button> : undefined}
     />
     <Tabs

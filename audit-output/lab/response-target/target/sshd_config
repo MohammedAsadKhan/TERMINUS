@@ -1,0 +1,28 @@
+# File: target/sshd_config
+# Author: Team LARP
+# Revision date: 2026-11-12
+# Version: 0.1.0
+# Purpose: sshd policy for the disposable SSH response target.
+#
+# Password authentication stays enabled so failed password attempts produce the
+# authentication_failed events used by the Wazuh sshd ruleset. No SSH port is
+# published to the host; only the private Docker networks can reach it.
+
+Port 22
+AddressFamily inet
+ListenAddress 0.0.0.0
+PermitRootLogin no
+PubkeyAuthentication yes
+PasswordAuthentication yes
+KbdInteractiveAuthentication no
+PermitEmptyPasswords no
+UsePAM yes
+X11Forwarding no
+AllowAgentForwarding no
+AllowTcpForwarding no
+PermitTunnel no
+PrintMotd no
+UseDNS no
+LogLevel VERBOSE
+MaxAuthTries 6
+LoginGraceTime 20

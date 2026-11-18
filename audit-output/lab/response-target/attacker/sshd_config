@@ -1,0 +1,23 @@
+# File: attacker/sshd_config
+# Author: Team LARP
+# Revision date: 2026-11-12
+# Version: 0.1.0
+# Purpose: Key-only sshd policy for the attacker/probe host.
+
+Port 22
+AddressFamily inet
+ListenAddress 0.0.0.0
+PermitRootLogin no
+PubkeyAuthentication yes
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PermitEmptyPasswords no
+UsePAM yes
+X11Forwarding no
+AllowAgentForwarding no
+AllowTcpForwarding no
+PermitTunnel no
+PrintMotd no
+UseDNS no
+LogLevel VERBOSE
+AllowUsers probe

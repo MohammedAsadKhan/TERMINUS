@@ -1,6 +1,6 @@
 # File name: presentation_rehearsal.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Revision date: 2026-11-14
 # Version: 0.1.0
 # Purpose: Isolated synthetic demo of intake, durable triage, and honest gaps.
 
@@ -80,7 +80,7 @@ def _start_bank_demo(demo_dir: Path, org_id: str, duration_seconds: int) -> None
             if server.poll() is not None:
                 raise RuntimeError("Demo server stopped during startup")
             try:
-                with urllib.request.urlopen(f"{base_url}/bank/api/demo/status", timeout=1) as response:  # noqa: S310 - fixed loopback URL
+                with urllib.request.urlopen(f"{base_url}/bank/", timeout=1) as response:  # noqa: S310 - fixed loopback URL
                     if response.status == 200:
                         break
             except (urllib.error.URLError, TimeoutError):
@@ -162,7 +162,9 @@ def main(*, serve: bool = False, bank_demo: bool = False, duration_seconds: int 
             report = checked(client, "post", "/wazuh", expected=200, headers=headers, json=alert)
             incident_id = report["incident_id"]
             require(bool(incident_id), "No incident ID returned")
-            require("OFFLINE DEMO MODE" in report["verdict"]["summary"], "Offline mode was not disclosed")
+            require(report["verdict"]["analysis_mode"] == "offline", "Offline mode was not disclosed")
+            require(report["verdict"]["confidence"] == "low", "Offline confidence was overstated")
+            require("unknown" in report["verdict"]["summary"].lower(), "Unknown threat was not disclosed")
             require("45 failed" not in report["verdict"]["summary"], "Verdict invented a failure count")
             incidents = checked(client, "get", "/incidents", expected=200, headers=headers)
             require(any(item["id"] == incident_id for item in incidents), "Incident was not persisted")

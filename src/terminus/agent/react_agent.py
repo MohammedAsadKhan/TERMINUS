@@ -1,6 +1,6 @@
 # File name: react_agent.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Revision date: 2026-11-12
 # Version: 0.1.0
 # Purpose: Stateful Multi-Turn ReAct Autonomous Investigation Agent for TERMINUS.
 
@@ -18,6 +18,7 @@ from typing import Any
 from terminus.core.ids import OrgId
 from terminus.ingestion.ioc import IocExtractor
 from terminus.llm.base import LlmClient
+from terminus.llm.client import ScriptedLlm, UnavailableLlm
 from terminus.models import (
     Confidence,
     Evidence,
@@ -187,44 +188,44 @@ Respond ONLY with a JSON object containing:
 
         try:
             raw_response = await self.llm.respond_json(system_prompt, user_prompt)
-            verdict = Verdict.model_validate(raw_response)
+            verdict = Verdict.model_validate(raw_response).model_copy(
+                update={"analysis_mode": "scripted" if isinstance(self.llm, ScriptedLlm) else "provider"}
+            )
+            if verdict.analysis_mode == "provider" and not any(
+                item.get("queried") is True for item in citations
+            ):
+                # A model reply and a locally decoded string are interpretations,
+                # not independent corroboration of compromise or containment need.
+                verdict = verdict.model_copy(
+                    update={
+                        "confidence": Confidence.LOW,
+                        "summary": "Uncorroborated model interpretation: " + verdict.summary,
+                        "recommended_actions": [
+                            "Review the original event and obtain corroborating telemetry"
+                        ],
+                    }
+                )
         except Exception as e:
             logger.warning(f"LLM parsing fallback: {e}")
-            # Deterministic high-reliability verdict synthesis
-            verdict = self._fallback_verdict(alert, citations)
+            # Missing or failed model access cannot establish a threat from alert text.
+            mode = "offline" if isinstance(self.llm, UnavailableLlm) else "fallback"
+            verdict = self._fallback_verdict(alert, citations, mode)
 
         return verdict, citations, evidence
 
     def _fallback_verdict(
-        self, alert: SiemAlert, citations: list[dict[str, Any]]
+        self, alert: SiemAlert, citations: list[dict[str, Any]], mode: str = "fallback"
     ) -> Verdict:
-        malicious_hits = sum(1 for c in citations if c.get("malicious") is True)
-        if alert.level >= 10 or malicious_hits > 0:
-            sev = Severity.CRITICAL
-            conf = Confidence.HIGH if malicious_hits else Confidence.MEDIUM
-            summary = f"High-priority alert on host '{alert.agent_name}' (rule level {alert.level}): {alert.description}. Confirm impact from source telemetry before treating this as a compromise."
-            actions = [
-                "Review the raw event and affected host",
-                "Validate whether the attempt succeeded",
-                "Consider containment only after impact review",
-            ]
-        elif alert.level >= 6:
-            sev = Severity.HIGH
-            conf = Confidence.MEDIUM
-            summary = f"Alert on host '{alert.agent_name}' (rule level {alert.level}): {alert.description}. Review the event to determine whether this is malicious activity."
-            actions = [
-                "Inspect the associated raw event",
-                "Check related host and authentication activity",
-            ]
-        else:
-            sev = Severity.MEDIUM
-            conf = Confidence.MEDIUM
-            summary = f"TRIAGE FINDING: Routine operational alert '{alert.description}' evaluated."
-            actions = [
-                "Monitor endpoint activity",
-                "Verify normal administrative execution",
-            ]
-
+        """Preserve source priority while refusing to infer an unsupported attack."""
+        severity = Severity.HIGH if alert.level >= 10 else Severity.MEDIUM
         return Verdict(
-            severity=sev, confidence=conf, summary=summary, recommended_actions=actions
+            severity=severity,
+            confidence=Confidence.LOW,
+            summary=(
+                f"Unverified alert (source rule level {alert.level}). "
+                "Model analysis is unavailable or failed. Threat and impact are unknown; "
+                "inspect the original event and corroborating telemetry."
+            ),
+            recommended_actions=["Review the original event and verify source telemetry"],
+            analysis_mode="offline" if mode == "offline" else "fallback",
         )

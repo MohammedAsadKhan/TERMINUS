@@ -1,8 +1,8 @@
 # File name: config.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Revision date: 2026-11-12
 # Version: 0.1.0
-# Purpose: Application settings loaded from environment variables.
+# Purpose: Application settings with explicit model credentials and safe local defaults.
 
 """Application settings loaded from environment variables.
 
@@ -49,6 +49,9 @@ class Settings(BaseSettings):
     wazuh_url: str = ""
     wazuh_user: str = ""
     wazuh_password: str = ""
+    wazuh_webhook_key: SecretStr = Field(default=SecretStr(""), repr=False, exclude=True)
+    wazuh_webhook_org: str = ""
+    demo_seed_enabled: bool = False
 
     # ── Notifications ──────────────────────────────────────────────────────────
     sms_to: str = "9364992155"
@@ -69,30 +72,16 @@ class Settings(BaseSettings):
     _generated_license_secret: bool = PrivateAttr(default=False)
 
     def model_post_init(self, __context: object) -> None:
-        """Auto-generate ephemeral secrets and resolve environment aliases."""
-        import os
-
-        # Resolve LLM API key from various common environment aliases
-        if not self.llm_api_key:
-            env_key = (
-                os.environ.get("TERMINUS_LLM_API_KEY")
-                or os.environ.get("LLM_API_KEY")
-                or os.environ.get("GROQ_API_KEY")
-                or os.environ.get("OPENAI_API_KEY")
-                or ""
-            ).strip()
-            if env_key:
-                object.__setattr__(self, "llm_api_key", env_key)
-
-        if not self.llm_model or self.llm_model == "openai/gpt-oss-20b":
-            env_model = (os.environ.get("TERMINUS_LLM_MODEL") or os.environ.get("LLM_MODEL") or "").strip()
-            if env_model:
-                object.__setattr__(self, "llm_model", env_model)
+        """Auto-generate local secrets without importing unrelated provider keys."""
 
         if bool(self.bootstrap_admin_email) != bool(self.bootstrap_admin_password):
             raise ValueError(
                 "Bootstrap admin email and password must be configured together"
             )
+        if bool(self.wazuh_webhook_key.get_secret_value()) != bool(self.wazuh_webhook_org.strip()):
+            raise ValueError("Wazuh webhook key and organization must be configured together")
+        if self.wazuh_webhook_key.get_secret_value() and len(self.wazuh_webhook_key.get_secret_value()) < 32:
+            raise ValueError("Wazuh webhook key must contain at least 32 characters")
         if self.bootstrap_admin_password and len(self.bootstrap_admin_password) < 12:
             raise ValueError(
                 "Configured bootstrap password must have at least 12 characters"

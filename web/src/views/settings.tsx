@@ -1,8 +1,8 @@
 // File: settings.tsx
 // Author: Team LARP
-// Date: 2026-11-09
+// Date: 2026-11-12
 // Version: 0.1.0
-// Purpose: Manage console integrations and workspace settings.
+// Purpose: Manage saved console configuration and distinguish it from verified connectivity or enforced containment.
 
 import { useEffect, useState } from 'react';
 import {
@@ -65,7 +65,7 @@ export default function Settings({ section = 'settings' }: { section?: 'organiza
 
   const canWrite = detail?.role === 'admin';
 
-  // Fetch full live platform configuration
+  // Fetch the configuration currently held by this server process.
   const configQuery = useQuery({
     queryKey: ['platform-config', orgId],
     queryFn: () => api<Record<string, any>>('/settings/config', orgId),
@@ -127,19 +127,21 @@ export default function Settings({ section = 'settings' }: { section?: 'organiza
     onSuccess: () => {
       query.invalidateQueries({ queryKey: ['platform-config', orgId] });
       query.invalidateQueries({ queryKey: ['system'] });
-      message.success('Platform configuration saved and applied.');
+      message.success('Configuration saved for this server process. External connectivity was not verified.');
     },
     onError: (err: Error) => message.error(`Failed to save configuration: ${err.message}`),
   });
 
-  // Mutation to test connection
+  // The current endpoint reports configuration state only; never present it as a passed connectivity test.
   const testConn = useMutation({
     mutationFn: (payload: { service: string; target_url?: string; api_key?: string; model?: string }) =>
       api<{ success: boolean; latency_ms: number; message: string }>('/settings/test-connection', orgId, body('POST', payload)),
     onSuccess: res => {
-      message.success(`[${res.latency_ms}ms] ${res.message}`);
+      const text = `[${res.latency_ms}ms] ${res.message}`;
+      if (res.success) message.success(text);
+      else message.warning(text);
     },
-    onError: (err: Error) => message.error(`Connection failed: ${err.message}`),
+    onError: (err: Error) => message.error(`Connection check failed: ${err.message}`),
   });
 
   const add = useMutation({
@@ -301,8 +303,8 @@ export default function Settings({ section = 'settings' }: { section?: 'organiza
         </section>
         <div className="role-guide">
           <div><Tag color="red">ADMIN</Tag><p>Manage access, licenses, API keys, and platform policies.</p></div>
-          <div><Tag color="blue">MEMBER</Tag><p>Submit alerts, investigate root causes, and execute containment.</p></div>
-          <div><Tag color="default">VIEWER</Tag><p>Review live telemetry, incident dossiers, and executive reports.</p></div>
+          <div><Tag color="blue">MEMBER</Tag><p>Submit alerts and review stored investigation records.</p></div>
+          <div><Tag color="default">VIEWER</Tag><p>Review stored telemetry, incident dossiers, and executive reports.</p></div>
         </div>
         <Modal
           title="Add an existing user"
@@ -337,7 +339,7 @@ export default function Settings({ section = 'settings' }: { section?: 'organiza
       <PageTitle
         eyebrow="GOVERN / SETTINGS"
         title="Platform Configuration &amp; API Keys"
-        description="Manage AI engine providers, API keys, SIEM connectors, threat intelligence feeds, and autonomous containment guardrails."
+        description="Manage model, SIEM, threat-intelligence, and notification settings. Saved values configure this server process; they do not verify a provider, prove ingestion, or authorize containment."
         actions={activeTab === 'model' ? undefined :
           <Space>
             <Button
@@ -353,7 +355,7 @@ export default function Settings({ section = 'settings' }: { section?: 'organiza
               loading={saveConfig.isPending}
               onClick={() => configForm.submit()}
             >
-              Save Changes
+              Save configuration
             </Button>
           </Space>
         }
@@ -391,7 +393,7 @@ export default function Settings({ section = 'settings' }: { section?: 'organiza
                     <div className="settings-section-header">
                       <div>
                         <h3>AI Model &amp; Reasoning Parameters</h3>
-                        <p className="muted">Configure the LLM endpoint that drives autonomous triage, script de-obfuscation, and Copilot investigations.</p>
+                        <p className="muted">Configure the LLM endpoint used by the legacy investigation and Copilot paths. Saving does not contact a provider or verify a credential.</p>
                       </div>
                       <Button
                         icon={<ExperimentOutlined />}
@@ -406,7 +408,7 @@ export default function Settings({ section = 'settings' }: { section?: 'organiza
                           });
                         }}
                       >
-                        Test LLM Connection
+                        Check LLM configuration
                       </Button>
                     </div>
 
@@ -434,13 +436,13 @@ export default function Settings({ section = 'settings' }: { section?: 'organiza
                       <Form.Item
                         name="llm_api_key"
                         label="LLM API Key"
-                        extra={cfg?.llm?.has_api_key ? `Current Key: ${cfg.llm.api_key_masked} (Leave empty to keep existing key)` : 'No API key currently set. In-memory demo fallback active.'}
+                        extra={cfg?.llm?.has_api_key ? `Current Key: ${cfg.llm.api_key_masked} (Leave empty to keep existing key)` : 'No model key configured. Investigations run offline; no provider request is made.'}
                       >
                         <Input.Password placeholder="gsk_... or sk-..." prefix={<KeyOutlined />} />
                       </Form.Item>
 
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                        <Form.Item name="llm_temperature" label="Temperature" tooltip="Lower values yield deterministic SOC verdicts">
+                        <Form.Item name="llm_temperature" label="Temperature" tooltip="Stored preference; model behavior and provider access are not verified here.">
                           <InputNumber min={0} max={1.5} step={0.05} style={{ width: '100%' }} />
                         </Form.Item>
                         <Form.Item name="llm_max_tokens" label="Max Output Tokens">
@@ -451,12 +453,19 @@ export default function Settings({ section = 'settings' }: { section?: 'organiza
 
                     <Divider style={{ margin: '12px 0 18px' }} />
 
-                    <h4>Forensic Reasoning Capabilities</h4>
+                    <h4>Stored forensic preferences</h4>
+                    <Alert
+                      className="context-alert"
+                      type="info"
+                      showIcon
+                      title="These switches do not control live behavior"
+                      description="Values are saved to this server process. The current investigation path does not read them, so they do not enable autonomous tool use, de-obfuscation, or threat-intelligence lookups."
+                    />
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 10 }}>
                       <div className="toggle-row">
                         <div>
-                          <strong>Autonomous ReAct Forensics</strong>
-                          <p className="muted">Allow the agent to autonomously query SIEM logs, IOC databases, and attack topology graphs.</p>
+                          <strong>ReAct forensics preference</strong>
+                          <p className="muted">Stored preference. No autonomous tool loop is started from this switch.</p>
                         </div>
                         <Form.Item name="enable_react_forensics" valuePropName="checked" noStyle>
                           <Switch />
@@ -465,8 +474,8 @@ export default function Settings({ section = 'settings' }: { section?: 'organiza
 
                       <div className="toggle-row">
                         <div>
-                          <strong>Automatic Payload De-obfuscation</strong>
-                          <p className="muted">Automatically unpack Base64, Hex, URL-encoded commands, and strip cloud secrets before analysis.</p>
+                          <strong>Payload de-obfuscation preference</strong>
+                          <p className="muted">Stored preference. De-obfuscation support in the legacy path is not controlled here.</p>
                         </div>
                         <Form.Item name="enable_deobfuscation" valuePropName="checked" noStyle>
                           <Switch />
@@ -475,8 +484,8 @@ export default function Settings({ section = 'settings' }: { section?: 'organiza
 
                       <div className="toggle-row">
                         <div>
-                          <strong>Real-Time CTI Intelligence Enrichment</strong>
-                          <p className="muted">Correlate extracted IOCs (IPs, hashes, domains) against VirusTotal and AlienVault OTX knowledge base.</p>
+                          <strong>Threat-intelligence lookup preference</strong>
+                          <p className="muted">Stored preference. Provider keys and reputation lookups are not verified or executed from this page.</p>
                         </div>
                         <Form.Item name="enable_cti_lookup" valuePropName="checked" noStyle>
                           <Switch />
@@ -496,14 +505,14 @@ export default function Settings({ section = 'settings' }: { section?: 'organiza
                     <div className="settings-section-header">
                       <div>
                         <h3>Wazuh SIEM Manager &amp; Ingestion Pipeline</h3>
-                        <p className="muted">Connect your Wazuh manager API for live host inventory, agent statuses, and real-time rule telemetry.</p>
+                        <p className="muted">Save a Wazuh manager endpoint for configuration. This console does not read host inventory, agent health, or rule telemetry from that URL.</p>
                       </div>
                       <Space>
                         <Button
                           icon={<SendOutlined />}
                           onClick={() => setIngest(true)}
                         >
-                          Simulate Alert
+                          Synthetic test alert
                         </Button>
                         <Button
                           icon={<ExperimentOutlined />}
@@ -516,7 +525,7 @@ export default function Settings({ section = 'settings' }: { section?: 'organiza
                             });
                           }}
                         >
-                          Test Wazuh Connection
+                          Check Wazuh configuration
                         </Button>
                       </Space>
                     </div>
@@ -526,17 +535,24 @@ export default function Settings({ section = 'settings' }: { section?: 'organiza
                         <Input placeholder="https://wazuh.soc.internal:55000" prefix={<LinkOutlined />} />
                       </Form.Item>
 
-                      <Form.Item name="polling_interval_sec" label="Live Polling Sync Interval">
+                      <Form.Item name="polling_interval_sec" label="Requested polling interval">
                         <Select
                           options={[
-                            { value: 5, label: '5 seconds (High Frequency / Testing)' },
-                            { value: 15, label: '15 seconds (Standard SOC)' },
-                            { value: 30, label: '30 seconds (Balanced - Recommended)' },
-                            { value: 60, label: '60 seconds (Low Bandwidth)' },
+                            { value: 5, label: '5 seconds' },
+                            { value: 15, label: '15 seconds' },
+                            { value: 30, label: '30 seconds (default)' },
+                            { value: 60, label: '60 seconds' },
                           ]}
                         />
                       </Form.Item>
                     </div>
+                    <Alert
+                      className="context-alert"
+                      type="info"
+                      showIcon
+                      title="Polling preference only"
+                      description="The current service stores this value but does not start a polling loop from the console."
+                    />
 
                     <div className="settings-form-grid">
                       <Form.Item name="wazuh_user" label="API Username">
@@ -554,9 +570,9 @@ export default function Settings({ section = 'settings' }: { section?: 'organiza
 
                     <Divider style={{ margin: '12px 0 18px' }} />
 
-                    <h4>Direct Ingestion Webhook Endpoint</h4>
-                    <p className="muted">Forward alerts directly from Wazuh `ossec.conf` or external SIEM forwarders using authenticated JSON webhooks:</p>
-                    <Code>{`curl -X POST '${window.location.origin}/wazuh' \\\n  -H 'Authorization: Bearer <SESSION_TOKEN>' \\\n  -H 'X-Org-ID: ${orgId}' \\\n  -H 'Content-Type: application/json' \\\n  -d '{"id":"test-001","rule":{"id":100100,"level":12,"description":"Privilege Escalation"},"agent":{"name":"db-core-01"},"full_log":"sudo: exploit attempt"}'`}</Code>
+                    <h4>Source-bound Wazuh intake</h4>
+                    <p className="muted">A Wazuh integrator can post to the source endpoint with the server-side key configured by <code>TERMINUS_WAZUH_WEBHOOK_KEY</code> (at least 32 characters), bound to one organization by <code>TERMINUS_WAZUH_WEBHOOK_ORG</code>. Missing or mismatched keys are rejected, and the raw receipt is hashed. Manual console submissions use the synthetic test alert button above and are recorded as operator submissions, not Wazuh-origin events.</p>
+                    <Code>{`curl -X POST '${window.location.origin}/sources/wazuh' \\\n  -H 'X-Terminus-Source-Key: <configured-source-key>' \\\n  -H 'Content-Type: application/json' \\\n  -d '{"id":"test-001","rule":{"id":100100,"level":12,"description":"Privilege Escalation"},"agent":{"name":"db-core-01"},"full_log":"sudo: exploit attempt"}'`}</Code>
                   </div>
                 ),
               },
@@ -570,15 +586,22 @@ export default function Settings({ section = 'settings' }: { section?: 'organiza
                     <div className="settings-section-header">
                       <div>
                         <h3>Cyber Threat Intelligence (CTI) API Keys</h3>
-                        <p className="muted">Provide API keys for automated indicator reputation checks, malware hash lookups, and adversary infrastructure correlation.</p>
+                        <p className="muted">Store indicator-lookup keys for this server process. The console does not verify these keys or run reputation lookups from this page.</p>
                       </div>
                     </div>
+                    <Alert
+                      className="context-alert"
+                      type="info"
+                      showIcon
+                      title="Stored credentials only"
+                      description="Saving a key does not make a provider request. A configured key is not evidence of provider access or successful enrichment."
+                    />
 
                     <div className="settings-form-grid">
                       <Form.Item
                         name="virustotal_api_key"
                         label="VirusTotal API Key"
-                        extra={cfg?.cti?.has_virustotal_key ? `Configured: ${cfg.cti.virustotal_key_masked}` : 'Free or Enterprise API key for hash & domain telemetry'}
+                        extra={cfg?.cti?.has_virustotal_key ? `Configured: ${cfg.cti.virustotal_key_masked}` : 'Stored for connector configuration; not verified here'}
                       >
                         <Input.Password placeholder="Enter VirusTotal API key" prefix={<KeyOutlined />} />
                       </Form.Item>
@@ -586,7 +609,7 @@ export default function Settings({ section = 'settings' }: { section?: 'organiza
                       <Form.Item
                         name="abuseipdb_api_key"
                         label="AbuseIPDB API Key"
-                        extra={cfg?.cti?.has_abuseipdb_key ? `Configured: ${cfg.cti.abuseipdb_key_masked}` : 'IP reputation and reported malicious confidence scores'}
+                        extra={cfg?.cti?.has_abuseipdb_key ? `Configured: ${cfg.cti.abuseipdb_key_masked}` : 'Stored for connector configuration; not verified here'}
                       >
                         <Input.Password placeholder="Enter AbuseIPDB API key" prefix={<KeyOutlined />} />
                       </Form.Item>
@@ -596,12 +619,12 @@ export default function Settings({ section = 'settings' }: { section?: 'organiza
                       <Form.Item
                         name="otx_api_key"
                         label="AlienVault OTX Key"
-                        extra={cfg?.cti?.has_otx_key ? `Configured: ${cfg.cti.otx_key_masked}` : 'Open Threat Exchange adversary campaign intelligence'}
+                        extra={cfg?.cti?.has_otx_key ? `Configured: ${cfg.cti.otx_key_masked}` : 'Stored for connector configuration; not verified here'}
                       >
                         <Input.Password placeholder="Enter AlienVault OTX API key" prefix={<KeyOutlined />} />
                       </Form.Item>
 
-                      <Form.Item name="cti_cache_ttl_hours" label="CTI Cache Expiration (Hours)" tooltip="Prevent duplicate API consumption for known indicators">
+                      <Form.Item name="cti_cache_ttl_hours" label="CTI cache expiration (hours)" tooltip="Stored preference; no live lookup path currently reads it.">
                         <InputNumber min={1} max={168} style={{ width: '100%' }} />
                       </Form.Item>
                     </div>
@@ -618,7 +641,7 @@ export default function Settings({ section = 'settings' }: { section?: 'organiza
                     <div className="settings-section-header">
                       <div>
                         <h3>Jira Ticketing &amp; Urgent Alert Dispatch</h3>
-                        <p className="muted">Synchronize incidents with enterprise issue tracking and broadcast high-severity escalations.</p>
+                        <p className="muted">Save ticketing and notification connector values. Saving does not create a ticket or send a message.</p>
                       </div>
                       <Space>
                         <Button
@@ -632,7 +655,7 @@ export default function Settings({ section = 'settings' }: { section?: 'organiza
                             });
                           }}
                         >
-                          Test Jira
+                          Check Jira configuration
                         </Button>
                         <Button
                           icon={<SendOutlined />}
@@ -645,10 +668,17 @@ export default function Settings({ section = 'settings' }: { section?: 'organiza
                             });
                           }}
                         >
-                          Test Slack
+                          Check Slack configuration
                         </Button>
                       </Space>
                     </div>
+                    <Alert
+                      className="context-alert"
+                      type="info"
+                      showIcon
+                      title="Connector configuration only"
+                      description="These fields are stored for this server process. Saving does not contact Jira, Slack, or Twilio, and a successful save is not a delivery receipt."
+                    />
 
                     <div className="settings-form-grid">
                       <Form.Item name="jira_url" label="Jira Instance URL">
@@ -676,17 +706,17 @@ export default function Settings({ section = 'settings' }: { section?: 'organiza
 
                     <Divider style={{ margin: '12px 0 18px' }} />
 
-                    <h4>Urgent Notification Webhooks</h4>
+                    <h4>Notification connector values</h4>
                     <div className="settings-form-grid">
                       <Form.Item
                         name="slack_webhook"
-                        label="Slack Incident Webhook URL"
-                        extra={cfg?.ticketing?.slack_webhook_configured ? `Active: ${cfg.ticketing.slack_webhook_masked}` : 'Incoming webhook for Tier-1 SOC broadcast channel'}
+                        label="Slack incident webhook URL"
+                        extra={cfg?.ticketing?.slack_webhook_configured ? `Configured: ${cfg.ticketing.slack_webhook_masked}` : 'Stored webhook; no notification is sent from this page'}
                       >
                         <Input.Password placeholder="https://hooks.slack.com/services/..." prefix={<LinkOutlined />} />
                       </Form.Item>
 
-                      <Form.Item name="sms_to" label="On-Call SMS Notification Number">
+                      <Form.Item name="sms_to" label="SMS notification number (stored)" extra="Requires a configured Twilio connector on the server; no SMS is sent from this page.">
                         <Input placeholder="9364992155" prefix={<ThunderboltOutlined />} />
                       </Form.Item>
                     </div>
@@ -702,30 +732,37 @@ export default function Settings({ section = 'settings' }: { section?: 'organiza
                   <div className="settings-section-card">
                     <div className="settings-section-header">
                       <div>
-                        <h3>Autonomous Containment &amp; Blast Radius Policies</h3>
-                        <p className="muted">Control active response execution boundaries, blast radius limits, and deterministic triage rule levels.</p>
+                        <h3>Containment Policy Preferences (Not Enforced)</h3>
+                        <p className="muted">These values configure this server process only. The console does not authorize or execute containment, and generic isolate/block actions return 501.</p>
                       </div>
                     </div>
+                    <Alert
+                      className="context-alert"
+                      type="warning"
+                      showIcon
+                      title="No response is executed from these settings"
+                      description="A real response requires a separate scoped proposal, approval, and response worker. Changing this mode does not isolate a host or block an address."
+                    />
 
-                    <Form.Item name="containment_mode" label="Containment Execution Mode">
+                    <Form.Item name="containment_mode" label="Containment mode preference">
                       <Radio.Group style={{ width: '100%' }}>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
                           <Card size="small" className="mode-card">
                             <Radio value="observation_only">
-                              <strong>Observation Only</strong>
-                              <p className="muted" style={{ fontSize: 11, margin: '4px 0 0' }}>Proposes actions without executing containment scripts.</p>
+                              <strong>Observation only</strong>
+                              <p className="muted" style={{ fontSize: 11, margin: '4px 0 0' }}>Stored preference. No action is proposed or executed from this page.</p>
                             </Radio>
                           </Card>
                           <Card size="small" className="mode-card">
                             <Radio value="human_in_the_loop">
-                              <strong>Human in the Loop (Default)</strong>
-                              <p className="muted" style={{ fontSize: 11, margin: '4px 0 0' }}>Requires explicit analyst review and confirmation in console.</p>
+                              <strong>Human in the loop (default)</strong>
+                              <p className="muted" style={{ fontSize: 11, margin: '4px 0 0' }}>Stored preference. Any real response still needs a separate approval and worker.</p>
                             </Radio>
                           </Card>
                           <Card size="small" className="mode-card">
                             <Radio value="autonomous">
-                              <strong>Autonomous Active Response</strong>
-                              <p className="muted" style={{ fontSize: 11, margin: '4px 0 0' }}>Automatically isolates confirmed compromised endpoints &amp; blocks attacker IPs.</p>
+                              <strong>Autonomous preference (inactive)</strong>
+                              <p className="muted" style={{ fontSize: 11, margin: '4px 0 0' }}>Stored preference only. This build does not automatically isolate endpoints or block IPs.</p>
                             </Radio>
                           </Card>
                         </div>
@@ -734,16 +771,16 @@ export default function Settings({ section = 'settings' }: { section?: 'organiza
 
                     <Form.Item
                       name="protected_subnets"
-                      label="Protected Subnets &amp; Critical Asset Whitelist"
-                      tooltip="Comma-separated CIDRs or hostnames that guardrails will NEVER isolate or block"
+                      label="Protected subnets preference"
+                      tooltip="Stored list; the console does not enforce it today."
                     >
                       <Input.TextArea rows={2} placeholder="10.0.0.0/8, 192.168.1.0/24, 127.0.0.0/8, domain-controller-01, core-banking" />
                     </Form.Item>
 
                     <Divider style={{ margin: '12px 0 18px' }} />
 
-                    <h4>Deterministic Triage Engine Thresholds</h4>
-                    <p className="muted" style={{ marginBottom: 14 }}>Alerts below Level 5 are ignored; Level 5–9 triggers forensic triage; Level 10+ or MITRE tags trigger immediate escalation.</p>
+                    <h4>Triage threshold preferences (not applied)</h4>
+                    <p className="muted" style={{ marginBottom: 14 }}>Stored values only. The current policy engine uses its own server-side thresholds; these fields are not read during evaluation.</p>
 
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
                       <Form.Item name="policy_ignore_threshold" label="IGNORE Threshold (< Level)">
@@ -813,7 +850,7 @@ export default function Settings({ section = 'settings' }: { section?: 'organiza
                                 </Button>
                               ),
                             },
-                            { key: 'session', label: 'Session Type', children: 'HttpOnly secure cookie · 12-hour expiration' },
+                            { key: 'session', label: 'Session Type', children: 'HttpOnly cookie · SameSite=Strict · 12-hour expiry' },
                           ]}
                         />
                       </section>

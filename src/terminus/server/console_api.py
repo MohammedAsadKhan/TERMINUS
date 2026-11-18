@@ -1,6 +1,6 @@
 # File name: console_api.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Revision date: 2026-11-12
 # Version: 0.1.0
 # Purpose: Additional authenticated APIs used by the React console.
 
@@ -148,9 +148,9 @@ _RUNTIME_CONFIG: dict[str, Any] = {
 @router.get("/system")
 async def system_status(user: CurrentUser, settings: Annotated[Settings, Depends(get_settings)]) -> dict[str, Any]:
     return {
-        "version": "0.2.0", "storage": "memory", "transport": "polling",
-        "llm_mode": "remote" if settings.llm_api_key else "scripted",
-        "llm_model": settings.llm_model if settings.llm_api_key else "Scripted development responses",
+        "version": "0.2.0", "storage": "sqlite", "transport": "polling",
+        "llm_mode": "remote" if settings.llm_api_key else "offline",
+        "llm_model": settings.llm_model if settings.llm_api_key else "No model configured",
         "live_response": False, "workflow_execution": False,
         "integrations": [
             {"id": "wazuh", "name": "Wazuh", "category": "SIEM", "configured": bool(settings.wazuh_url), "description": "Alert ingestion and host context", "setting": "TERMINUS_WAZUH_URL"},
@@ -351,45 +351,33 @@ async def test_connection(
     if req.service == "llm":
         key = req.api_key or settings.llm_api_key
         model = req.model or settings.llm_model
-        if not key:
-            return {
-                "success": True,
-                "latency_ms": 12,
-                "message": f"Verified offline/scripted fallback mode for '{model}'. To enable cloud AI forensics, provide a valid API key.",
-            }
-        latency = int((time.perf_counter() - start) * 1000) + 85
         return {
-            "success": True,
-            "latency_ms": latency,
-            "message": f"LLM API handshake verified with {model} via {req.target_url or settings.llm_base_url}. Model ready for autonomous investigations.",
+            "success": False,
+            "latency_ms": int((time.perf_counter() - start) * 1000),
+            "message": (
+                f"Model '{model}' is configured but not verified; no provider request was made."
+                if key else "No model key is configured; offline analysis only."
+            ),
         }
 
     if req.service == "wazuh":
         url = req.target_url or settings.wazuh_url
         if not url:
             raise HTTPException(400, "Wazuh API URL is not specified")
-        if "invalid" in url or "example" in url or not (url.startswith("http://") or url.startswith("https://")):
-            return {
-                "success": False,
-                "latency_ms": int((time.perf_counter() - start) * 1000),
-                "message": f"Wazuh endpoint '{url}' is unreachable or invalid.",
-            }
-        latency = int((time.perf_counter() - start) * 1000) + 45
         return {
-            "success": True,
-            "latency_ms": latency,
-            "message": f"Wazuh manager endpoint '{url}' reachable. Telemetry pipeline active.",
+            "success": False,
+            "latency_ms": int((time.perf_counter() - start) * 1000),
+            "message": "Wazuh URL is saved but no authenticated read or source event was verified.",
         }
 
     if req.service == "jira":
         url = req.target_url or settings.jira_url
         if not url:
             raise HTTPException(400, "Jira instance URL is required")
-        latency = int((time.perf_counter() - start) * 1000) + 120
         return {
-            "success": True,
-            "latency_ms": latency,
-            "message": f"Jira REST API endpoint '{url}' verified for project '{settings.jira_project or 'SEC'}'.",
+            "success": False,
+            "latency_ms": int((time.perf_counter() - start) * 1000),
+            "message": "Jira URL is configured but no authenticated request or ticket was verified.",
         }
 
     if req.service == "slack":
@@ -397,9 +385,9 @@ async def test_connection(
         if not url:
             raise HTTPException(400, "Slack webhook URL is required")
         return {
-            "success": True,
-            "latency_ms": 65,
-            "message": "Slack incident notification webhook verified.",
+            "success": False,
+            "latency_ms": int((time.perf_counter() - start) * 1000),
+            "message": "Slack URL is configured but no notification was sent or verified.",
         }
 
     raise HTTPException(400, f"Unknown service '{req.service}'")

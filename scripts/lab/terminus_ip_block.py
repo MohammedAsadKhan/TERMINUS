@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 # File name: terminus_ip_block.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-14
 # Version: 0.1.0
 # Purpose: Wazuh endpoint command for the isolated Scenario A lab only.
 
@@ -9,8 +9,10 @@
 
 Install root-owned on terminus-target-a. No model arguments, shell, arbitrary
 targets or credentials. nftables expires the blocked set element independently
-of the Windows worker. Empty tables remain until an ownership-checked delete.
+of the Windows worker. A bounded maintenance pass removes only empty owned tables.
 """
+
+# ruff: noqa: ERA001 -- required source header
 
 from __future__ import annotations
 
@@ -20,11 +22,27 @@ import re
 import subprocess
 import sys
 from collections.abc import Callable
+from contextlib import suppress
+from pathlib import Path
 from typing import Any
 
 NFT = "/usr/sbin/nft"
 SOURCE = "10.77.0.10"
 MAX_INPUT = 8192
+MAX_OBSERVATION = 65536
+MAX_CLEANUP_TABLES = 64
+OWNED_TABLE = re.compile(r"terminus_[a-f0-9]{24}\Z")
+IDENTITY = re.compile(r"[a-f0-9]{64}\Z")
+
+
+def log_status(state: str) -> None:
+    # Wazuh's API acknowledges delivery before this endpoint runs. A bounded
+    # local line makes endpoint failures diagnosable without logging alert data.
+    with (
+        suppress(OSError),
+        Path("/var/ossec/logs/active-responses.log").open("a", encoding="utf-8") as log,
+    ):
+        log.write(f"terminus-ip-block: {state[:160]}\n")
 
 
 def plan(message: dict) -> tuple[str, str, str, int]:
@@ -67,7 +85,7 @@ def execute(message: dict, runner: Callable[..., Any] = subprocess.run) -> dict:
         check=False,
     )
     if observed.returncode == 0:
-        if len(observed.stdout) > 65536:
+        if len(observed.stdout) > MAX_OBSERVATION:
             raise ValueError("Oversized ownership observation")
         records = json.loads(observed.stdout).get("nftables", [])
         owned = any(
@@ -106,16 +124,128 @@ def execute(message: dict, runner: Callable[..., Any] = subprocess.run) -> dict:
     }
 
 
+def cleanup_expired(runner: Callable[..., Any] = subprocess.run) -> dict[str, object]:
+    """Delete only bounded, empty tables whose full comment matches their name."""
+    listed = runner(
+        [NFT, "--json", "list", "tables"],
+        capture_output=True,
+        timeout=5,
+        check=False,
+    )
+    if listed.returncode != 0 or len(listed.stdout) > MAX_OBSERVATION:
+        raise ValueError("Cannot bound table inventory")
+    inventory = json.loads(listed.stdout)
+    if not isinstance(inventory, dict):
+        raise ValueError("Invalid table inventory")
+    records = inventory.get("nftables", [])
+    if not isinstance(records, list):
+        raise ValueError("Invalid table inventory")
+    candidates = [
+        item["table"]["name"]
+        for item in records
+        if isinstance(item, dict)
+        and isinstance(item.get("table"), dict)
+        and item["table"].get("family") == "inet"
+        and isinstance(item["table"].get("name"), str)
+        and OWNED_TABLE.fullmatch(item["table"]["name"])
+    ]
+    if len(candidates) > MAX_CLEANUP_TABLES:
+        raise ValueError("Too many owned table candidates")
+    removed: list[str] = []
+    for table in candidates:
+        observed = runner(
+            [NFT, "--json", "list", "table", "inet", table],
+            capture_output=True,
+            timeout=5,
+            check=False,
+        )
+        if observed.returncode != 0 or len(observed.stdout) > MAX_OBSERVATION:
+            continue
+        if not _expired_owned_table(table, observed.stdout):
+            continue
+        # The endpoint never renews an existing table. Once its only element
+        # expires, no authorized path can add an element to this identity.
+        result = runner(
+            [NFT, "delete", "table", "inet", table],
+            capture_output=True,
+            timeout=5,
+            check=False,
+        )
+        if result.returncode == 0:
+            removed.append(table)
+    return {"removed": removed, "verified": False}
+
+
+def _expired_owned_table(table: str, payload: bytes) -> bool:  # noqa: PLR0911 -- fail closed at each malformed boundary
+    try:
+        records = json.loads(payload).get("nftables", [])
+    except (ValueError, AttributeError):
+        return False
+    if not isinstance(records, list):
+        return False
+    if any(not isinstance(item, dict) or len(item) != 1 for item in records):
+        return False
+    objects = [item for item in records if isinstance(item, dict) and "metainfo" not in item]
+    if len(objects) != 4 or any(len(item) != 1 for item in objects):
+        return False
+    by_type = {next(iter(item)): next(iter(item.values())) for item in objects}
+    if set(by_type) != {"table", "set", "chain", "rule"}:
+        return False
+    root = by_type["table"]
+    owned_set = by_type["set"]
+    chain = by_type["chain"]
+    rule = by_type["rule"]
+    if not all(isinstance(item, dict) for item in (root, owned_set, chain, rule)):
+        return False
+    identity = root.get("comment")
+    if (
+        not isinstance(identity, str)
+        or not IDENTITY.fullmatch(identity)
+        or table != f"terminus_{identity[:24]}"
+        or root.get("family") != "inet"
+        or root.get("name") != table
+    ):
+        return False
+    return (
+        owned_set.get("family") == "inet"
+        and owned_set.get("table") == table
+        and owned_set.get("name") == "blocked"
+        and owned_set.get("elem", []) == []
+        and chain.get("family") == "inet"
+        and chain.get("table") == table
+        and chain.get("name") == "incoming"
+        and rule.get("family") == "inet"
+        and rule.get("table") == table
+        and rule.get("chain") == "incoming"
+    )
+
+
 def main() -> int:
     try:
+        if len(sys.argv) == 2 and sys.argv[1] == "--cleanup-expired":
+            result = cleanup_expired()
+            if result["removed"]:
+                log_status(f"expired tables removed: {len(result['removed'])}")
+                print(json.dumps(result))
+            return 0
+        if len(sys.argv) != 1:
+            raise ValueError("Unsupported arguments")
         raw = sys.stdin.buffer.readline(MAX_INPUT + 1)
         if len(raw) > MAX_INPUT or not raw.endswith(b"\n"):
             raise ValueError("Invalid message size")
         result = execute(json.loads(raw))
+        log_status(result["state"])
         # Wazuh captures command output; this is not independent verification.
         print(json.dumps(result))
         return 0 if result["state"] in {"accepted", "already_owned"} else 1
-    except (ValueError, KeyError, TypeError, OSError, subprocess.SubprocessError):
+    except (
+        ValueError,
+        KeyError,
+        TypeError,
+        OSError,
+        subprocess.SubprocessError,
+    ) as exc:
+        log_status(f"unknown ({type(exc).__name__}: {str(exc)[:100]})")
         print('{"state":"unknown","verified":false}')
         return 1
 

@@ -1,6 +1,6 @@
 # File name: live.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Revision date: 2026-11-13
 # Version: 0.1.0
 # Purpose: Live response decisions, isolated from fixture approvals and provider receipts.
 
@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
+import re
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 from ipaddress import IPv4Address
@@ -41,6 +43,17 @@ class LiveResponseService:
     ) -> None:
         self.db = db
         self.clock = clock or (lambda: datetime.now(UTC))
+        # The fixed response target remains deployment-bound. Docker assigns a
+        # management IP and agent ID at enrollment, which must be pinned by the
+        # operator rather than inferred from the alert or model output.
+        self.agent_id = os.environ.get("TERMINUS_RESPONSE_AGENT_ID", "001")
+        if not re.fullmatch(r"[0-9]{3,8}", self.agent_id) or int(self.agent_id) == 0:
+            raise ValueError("Invalid bound response agent ID")
+        self.agent_management_ip = str(
+            IPv4Address(
+                os.environ.get("TERMINUS_RESPONSE_AGENT_MANAGEMENT_IP", "10.77.0.20")
+            )
+        )
         with db.transaction() as conn:
             conn.execute(
                 "CREATE TABLE IF NOT EXISTS live_response_source_receipts (org_id TEXT NOT NULL, incident_id TEXT NOT NULL, evidence_id TEXT PRIMARY KEY, content_hash TEXT NOT NULL)"
@@ -216,7 +229,7 @@ class LiveResponseService:
                 agent.get("id"),
                 agent.get("ip"),
                 alert.get("data", {}).get("srcip"),
-            ) != ("001", "10.77.0.20", "10.77.0.10"):
+            ) != (self.agent_id, self.agent_management_ip, "10.77.0.10"):
                 continue
             if not {"sshd", "authentication_failed"} <= set(rule.get("groups", [])):
                 continue
@@ -259,7 +272,7 @@ class LiveResponseService:
             "rationale": "Repeated failed SSH authentication; compromise is not established."
             if executable
             else "Confirm authorization and preserve evidence before choosing a connected response.",
-            "agent_id": "001" if executable else None,
+            "agent_id": self.agent_id if executable else None,
             "target_ip": "10.77.0.20" if executable else None,
             "source_ip": "10.77.0.10" if executable else None,
             "duration_seconds": 60,
@@ -277,7 +290,7 @@ class LiveResponseService:
             "impact": "Inbound traffic from 10.77.0.10 to this target is denied for 60 seconds; management must remain reachable."
             if executable
             else "Review only; no executable adapter is available for this recommendation.",
-            "verification": "Independent Kali SSH probe, Windows management SSH, and action-owned nftables set."
+            "verification": "Independent attacker SSH probe, separate management SSH, and action-owned nftables set."
             if executable
             else "Review the cited records and trusted baseline.",
             "recovery": "Kernel timeout followed by independent recovery checks."
@@ -360,7 +373,7 @@ class LiveResponseService:
                     alert.get("agent", {}).get("id"),
                     alert.get("agent", {}).get("ip"),
                     alert.get("data", {}).get("srcip"),
-                ) != ("001", "10.77.0.20", "10.77.0.10"):
+                ) != (self.agent_id, self.agent_management_ip, "10.77.0.10"):
                     continue
                 if not {"sshd", "authentication_failed"} <= set(
                     alert.get("rule", {}).get("groups", [])
@@ -384,7 +397,7 @@ class LiveResponseService:
                 self.db,
                 org_id=org,
                 actor=actor,
-                agent_id="001",
+                agent_id=self.agent_id,
                 collection=ReadCollection(
                     status="ok", coverage="complete", observations=tuple(selected)
                 ),
@@ -450,7 +463,7 @@ class LiveResponseService:
                     alert.get("agent", {}).get("id"),
                     alert.get("agent", {}).get("ip"),
                     alert.get("data", {}).get("srcip"),
-                ) != ("001", "10.77.0.20", "10.77.0.10"):
+                ) != (self.agent_id, self.agent_management_ip, "10.77.0.10"):
                     continue
                 if not {"sshd", "authentication_failed"} <= set(
                     alert.get("rule", {}).get("groups", [])
@@ -955,9 +968,20 @@ class LiveResponseService:
             (org,),
         ):
             details = json.loads(row["payload"])
-            if self.clock() >= datetime.fromisoformat(row["created_at"]) + timedelta(
+            if self.clock() < datetime.fromisoformat(row["created_at"]) + timedelta(
                 seconds=details["duration_seconds"] + 15
-            ) and await self.observe(observer, "recovered", details):
+            ):
+                continue
+            recovered = await self.observe(observer, "recovered", details)
+            # A manager acknowledgement can precede a script that never ran.
+            # Confirm the exact table is absent and the source path works before
+            # clearing an unknown intent; preserve its unverified audit state.
+            absent = (
+                row["state"] == "unknown"
+                and not recovered
+                and await self.observe(observer, "table-absent", details)
+            )
+            if recovered or absent:
                 verified = self.db.fetchone(
                     "SELECT 1 FROM live_response_events WHERE intent_id=? AND state='verified_blocked'",
                     (row["intent_id"],),
@@ -1005,7 +1029,7 @@ class LiveResponseService:
                         org_id=org,
                         intent_id=details["intent_id"],
                         proposal_digest=row["digest"],
-                        agent_id="001",
+                        agent_id=self.agent_id,
                         source_ip=IPv4Address("10.77.0.10"),
                         duration_seconds=details["duration_seconds"],
                     )

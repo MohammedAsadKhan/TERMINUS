@@ -1,18 +1,16 @@
 # File name: live_interactive_flood.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Revision date: 2026-11-14
 # Version: 0.1.0
-# Purpose: Terminus - Live Interactive SOC Flood & Defense Simulation.
+# Purpose: Synthetic presentation traffic for an isolated loopback rehearsal.
 
-"""Terminus - Live Interactive SOC Flood & Defense Simulation.
+"""Send synthetic presentation traffic only to a loopback TERMINUS service.
 
-Connects to the running TERMINUS Autonomous Service at http://127.0.0.1:8000 (or specified base URL).
-Streams continuous normal service traffic requests alongside phased, multi-stage cyberattacks
-(Credential Stuffing, Canary Honeytokens, LockBit Ransomware Detonation, Active Directory DCSync),
-demonstrates AI Agent investigations, exercises Visual DAG workflows with mandatory Human Approvals,
-and validates Deterministic Safety Containment Guardrails in real time across the ~10-minute demo.
+The caller must provide a disposable workspace. This script does not clear or
+reset existing records and does not establish live adversary or response proof.
 """
 
+# ruff: noqa: INP001 -- this presentation entry point is a standalone script
 from __future__ import annotations
 
 import argparse
@@ -25,7 +23,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from typing import Any
+from typing import Any, override
 
 # ANSI colors for rich terminal logging
 CYAN = "\033[96m"
@@ -36,6 +34,36 @@ MAGENTA = "\033[95m"
 BOLD = "\033[1m"
 DIM = "\033[2m"
 RESET = "\033[0m"
+
+
+def loopback_origin(base_url: str) -> str:
+    """Reject external, credential-bearing, or path-prefixed demo targets."""
+    try:
+        parsed = urllib.parse.urlsplit(base_url)
+        port = parsed.port
+    except ValueError as exc:
+        raise ValueError("Invalid demo URL") from exc
+    if (
+        parsed.scheme not in {"http", "https"}
+        or parsed.hostname not in {"127.0.0.1", "localhost", "::1"}
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.path not in {"", "/"}
+        or parsed.query
+        or parsed.fragment
+        or port is None
+        or port is None
+        or port == 0
+    ):
+        raise ValueError("Demo URL must be a loopback origin with an explicit port")
+    return f"{parsed.scheme}://{parsed.netloc}"
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    @override
+    def redirect_request(self, *args: object, **kwargs: object) -> None:
+        """Keep session tokens and demo requests on the validated origin."""
+        return
 
 
 def banner(text: str, color: str = CYAN) -> None:
@@ -52,14 +80,27 @@ def http_req(
     data: dict[str, Any] | None = None,
     headers: dict[str, str] | None = None,
 ) -> tuple[int, Any]:
-    url = f"{base_url}{path}"
+    if not path.startswith("/") or path.startswith("//"):
+        raise ValueError("Demo request path must be local")
+    url = f"{loopback_origin(base_url)}{path}"
     req_headers = {"Content-Type": "application/json"}
     if headers:
         req_headers.update(headers)
+    if path == "/wazuh" and data is not None:
+        # Presentation alerts reach the operator intake route. Keep their
+        # synthetic origin visible in the stored description and raw log.
+        data = dict(data)
+        for field in ("description", "full_log"):
+            value = data.get(field)
+            if isinstance(value, str) and not value.startswith("[SYNTHETIC]"):
+                data[field] = f"[SYNTHETIC] {value}"
     encoded = json.dumps(data).encode("utf-8") if data is not None else None
-    req = urllib.request.Request(url, data=encoded, headers=req_headers, method=method)
+    req = urllib.request.Request(  # noqa: S310 -- validated loopback origin
+        url, data=encoded, headers=req_headers, method=method
+    )
     try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
+        opener = urllib.request.build_opener(_NoRedirect)
+        with opener.open(req, timeout=15) as resp:
             code = resp.status
             body = resp.read().decode("utf-8")
             try:
@@ -104,49 +145,9 @@ async def register_heartbeat(base_url: str, status: str = "connected", metrics: 
         pass
 
 
-def clear_alert_databases(db_path: str = "terminus.db") -> None:
-    """Purge previous transient alerts, incidents, workflow runs, action records, and graph events."""
-    if not os.path.exists(db_path):
-        return
-    try:
-        import sqlite3
-        conn = sqlite3.connect(db_path)
-        tables_to_clear = [
-            "incidents",
-            "alert_claims",
-            "workflow_runs",
-            "node_runs",
-            "workflow_approvals",
-            "action_logs",
-            "audit_logs",
-            "graph_events",
-            "incident_alert_links",
-            "incident_external_tickets",
-            "orchestration_tasks",
-            "orchestration_agent_runs",
-            "orchestration_evidence",
-            "orchestration_help_requests",
-            "orchestration_action_attempts",
-            "orchestration_action_events",
-        ]
-        cur = conn.cursor()
-        cleared_count = 0
-        for table in tables_to_clear:
-            try:
-                cur.execute(f"DELETE FROM {table}")
-                cleared_count += cur.rowcount if cur.rowcount > 0 else 0
-            except Exception:
-                pass
-        conn.commit()
-        conn.close()
-        print(f"{GREEN}[+] Purged previous alert and incident records ({cleared_count} stale entries cleared) for clean demo start.{RESET}")
-    except Exception as e:
-        print(f"{YELLOW}[!] Notice: Local database cleanup note: {e}{RESET}")
-
-
 async def seed_initial_demo_telemetry(base_url: str, headers: dict[str, str]) -> int:
-    """Immediately populates a realistic baseline of active security incidents at demo startup."""
-    print(f"{CYAN}[*] Ingesting initial baseline enterprise threat telemetry...{RESET}")
+    """Populate the isolated rehearsal with visibly synthetic baseline alerts."""
+    print(f"{CYAN}[*] Sending synthetic baseline alerts...{RESET}")
     now_ms = int(time.time() * 1000)
 
     initial_alerts = [
@@ -229,14 +230,15 @@ async def seed_initial_demo_telemetry(base_url: str, headers: dict[str, str]) ->
             seeded_count += 1
         await asyncio.sleep(0.15)
 
-    print(f"{GREEN}[+] Ingested {seeded_count} active baseline incidents across key infrastructure.{RESET}\n")
+    print(f"{GREEN}[+] API accepted {seeded_count} synthetic baseline alerts.{RESET}\n")
     return seeded_count
 
 
-async def run_simulation(base_url: str = "http://127.0.0.1:8000", duration_seconds: int = 600) -> None:
-    base_url = base_url.rstrip("/")
-    clear_alert_databases()
-    print(f"{BOLD}{CYAN}Connecting to Terminus Autonomous SOC Service at {base_url}...{RESET}")
+async def run_simulation(base_url: str = "http://127.0.0.1:8766", duration_seconds: int = 600) -> None:
+    if os.environ.get("TERMINUS_BANK_DEMO_MODE") != "1":
+        raise ValueError("Synthetic stream requires the isolated bank demo launcher")
+    base_url = loopback_origin(base_url)
+    print(f"{BOLD}{CYAN}Connecting synthetic demo stream to {base_url}...{RESET}")
 
     # 1. Health check with retry loop (up to 15 seconds)
     health_ok = False
@@ -335,12 +337,12 @@ async def run_simulation(base_url: str = "http://127.0.0.1:8000", duration_secon
     # 4. Register initial active connection heartbeat
     await register_heartbeat(base_url, "connected", {"target_org": org_id, "duration": duration_seconds})
 
-    banner("TERMINUS - 10-MINUTE LIVE ADVERSARY ATTACK STREAM & AUTONOMOUS SOC DEFENSE", CYAN)
+    banner("TERMINUS SYNTHETIC BANK AND SOC PRESENTATION STREAM", CYAN)
     print(f"  * Web Console: {BOLD}{base_url}/console/{RESET}")
     print(f"  * Authenticated Operator: {BOLD}{user_email}{RESET}")
     print(f"  * Active Workspace: {BOLD}{org_id}{RESET}")
     print(f"  * Presentation Demo Duration: {duration_seconds}s (~{duration_seconds // 60} minutes)")
-    print(f"  * Live Service Traffic & Attack Feed: {GREEN}ONLINE & STREAMING{RESET}\n")
+    print(f"  * Synthetic traffic stream: {GREEN}RUNNING{RESET}; no live threat or response proof\n")
 
     # 5. Immediately Seed Initial Telemetry Baseline
     seeded_count = await seed_initial_demo_telemetry(base_url, headers)
@@ -445,14 +447,14 @@ async def run_simulation(base_url: str = "http://127.0.0.1:8000", duration_secon
                     code, _ = await req_async(base_url, "POST", "/wazuh", alert_payload, headers=headers)
                     if code == 200:
                         triaged_count += 1
-                        print(f"    {YELLOW}[+] Triaged High-Volume Credential Stuffing Ticket: {alert_payload['id']}{RESET}")
+                        print(f"    {YELLOW}[+] Synthetic credential alert accepted: {alert_payload['id']}{RESET}")
                     await asyncio.sleep(0.35)
 
             # ─── WAVE 2: Web App SQLi Exploit & Honeytoken Canary Tripwire (T ~ 45s or 15% - 30%) ───
             elif (elapsed >= 45 or progress_ratio >= 0.15) and not wave2_done:
                 wave2_done = True
                 banner(f"{time_str} WAVE 2: WEB APP SQL INJECTION & CORE BANKING HONEYTOKEN TRIPWIRE (T1190 / T1552)", RED)
-                print(f"  {RED}[*] Adversary exploiting public banking search endpoint with SQLi payload...{RESET}")
+                print(f"  {RED}[*] Sending a synthetic SQL injection query to the demo bank...{RESET}")
 
                 # 1. SQL Injection on Bank Search
                 code, search_resp = await req_async(
@@ -463,7 +465,7 @@ async def run_simulation(base_url: str = "http://127.0.0.1:8000", duration_secon
                 )
                 if code == 200 and isinstance(search_resp, dict) and search_resp.get("threat_detected"):
                     triaged_count += 1
-                    print(f"    {GREEN}[+] SQL Injection Intercepted by Terminus SOC! Ticket Created: {search_resp.get('ticket_created')}{RESET}")
+                    print(f"    {GREEN}[+] Demo bank reported threat_detected; ticket: {search_resp.get('ticket_created')}{RESET}")
 
                 await asyncio.sleep(1.0)
 
@@ -479,7 +481,7 @@ async def run_simulation(base_url: str = "http://127.0.0.1:8000", duration_secon
             # ─── WAVE 3: LockBit 3.0 Ransomware Detonation & Human Approval Gate (T ~ 90s or 30% - 50%) ───
             elif (elapsed >= 90 or progress_ratio >= 0.30) and not wave3_done:
                 wave3_done = True
-                banner(f"{time_str} WAVE 3: CRITICAL RANSOMWARE DETONATION & HUMAN APPROVAL GATE (T1486)", RED)
+                banner(f"{time_str} WAVE 3: SYNTHETIC RANSOMWARE ALERT AND APPROVAL SCENARIO (T1486)", RED)
                 critical_count += 1
 
                 ransomware_alert = {
@@ -495,34 +497,18 @@ async def run_simulation(base_url: str = "http://127.0.0.1:8000", duration_secon
 
                 print(f"  {RED}{BOLD}[!] Ingesting Critical Ransomware Alert on workstation-88.corp.internal...{RESET}")
                 code, _ = await req_async(base_url, "POST", "/wazuh", ransomware_alert, headers=headers)
-                print(f"  {GREEN}[+] Alert Ingested. AI Investigation & DAG Workflow Spawned.{RESET}")
+                print(f"  {GREEN}[+] Synthetic alert POST returned HTTP {code}; investigation status unverified.{RESET}")
 
-                # Poll and handle Human Approval for Workstation Containment
-                print(f"  {CYAN}[*] Checking DAG Human-in-the-Loop Approval Queue...{RESET}")
-                await asyncio.sleep(1.5)
-                code, approvals = await req_async(base_url, "GET", "/workflows/approvals/pending", headers=headers)
-                if code == 200 and isinstance(approvals, list) and approvals:
-                    pending_appr = approvals[0]
-                    appr_id = pending_appr.get("approval_id") or pending_appr.get("id")
-                    if appr_id:
-                        print(f"  {YELLOW}[*] Pending Approval Found: {BOLD}{appr_id}{RESET} (Action: {pending_appr.get('action_type') or pending_appr.get('action')})")
-                        print(f"  {GREEN}[+] Lead Analyst Approves Host Isolation for workstation-88.corp.internal...{RESET}")
-                        code, _ = await req_async(
-                            base_url,
-                            "POST",
-                            f"/workflows/approvals/{appr_id}/resolve",
-                            {"decision": "approve"},
-                            headers=headers,
-                        )
-                        if code == 200:
-                            print(f"  {GREEN}{BOLD}[+] Workstation Isolation Approved & Enforced via Compensating EDR Actions!{RESET}\n")
+                # A presentation must never approve an action on behalf of an
+                # analyst. The queue can be reviewed separately in the console.
+                print(f"  {YELLOW}[*] Approval is reserved for an authorized analyst; no action was submitted.{RESET}")
 
                 await asyncio.sleep(1.5)
 
             # ─── WAVE 4: Active Directory DCSync Attack & Deterministic Guardrails (T ~ 180s or 50% - 70%) ───
             elif (elapsed >= 180 or progress_ratio >= 0.50) and not wave4_done:
                 wave4_done = True
-                banner(f"{time_str} WAVE 4: ACTIVE DIRECTORY DCSYNC ATTACK & DETERMINISTIC SAFETY GUARDRAIL (T1003.006)", RED)
+                banner(f"{time_str} WAVE 4: SYNTHETIC DCSYNC INDICATOR (T1003.006)", RED)
                 critical_count += 1
 
                 dc_alert = {
@@ -542,8 +528,7 @@ async def run_simulation(base_url: str = "http://127.0.0.1:8000", duration_secon
                 print(f"  {CYAN}[*] Assessing Deterministic Safety Guardrail (D12/D14) for DC01 Isolation...{RESET}")
                 await asyncio.sleep(1.5)
 
-                print(f"  {GREEN}{BOLD}[+] DETERMINISTIC BLAST-RADIUS SAFETY INVARIANT ENFORCED:{RESET}")
-                print(f"  {GREEN}    'dc01.corp.internal' is protected by Organizational Allowlist. Autonomous isolation BLOCKED.{RESET}\n")
+                print(f"  {YELLOW}[*] No containment requested; allowlist effect is not verified by this stream.{RESET}\n")
 
                 await asyncio.sleep(1.5)
 
@@ -560,8 +545,8 @@ async def run_simulation(base_url: str = "http://127.0.0.1:8000", duration_secon
                     headers=headers,
                 )
                 if code == 200 and isinstance(copilot_res, dict):
-                    answer = copilot_res.get("response") or copilot_res.get("summary") or "Campaign synthesized."
-                    print(f"  {BOLD}Copilot Verdict:{RESET} {answer[:220]}...\n")
+                    answer = copilot_res.get("response") or copilot_res.get("summary") or "No campaign answer returned."
+                    print(f"  {BOLD}Demo copilot response (unverified):{RESET} {answer[:220]}...\n")
 
                 await asyncio.sleep(1.5)
 
@@ -609,7 +594,7 @@ async def run_simulation(base_url: str = "http://127.0.0.1:8000", duration_secon
             else:
                 normal_requests_count += 1
 
-                # Every 4th cycle (~8-10 seconds), inject a real actionable security threat to keep live UI pulsing
+                # Every fourth cycle, add another synthetic alert to the demo UI.
                 if normal_requests_count % 4 == 0:
                     threat_template = random.choice(rolling_threat_pool)
                     now_ms = int(time.time() * 1000)
@@ -629,7 +614,7 @@ async def run_simulation(base_url: str = "http://127.0.0.1:8000", duration_secon
                             triaged_count += 1
                             if threat_template["level"] >= 10:
                                 critical_count += 1
-                            sys.stdout.write(f"\r{DIM}{time_str}{RESET} {YELLOW}[LIVE THREAT PULSE]{RESET} {threat_template['mitre']} on {threat_template['agent_name']} (Triage OK)")
+                            sys.stdout.write(f"\r{DIM}{time_str}{RESET} {YELLOW}[SYNTHETIC ALERT]{RESET} {threat_template['mitre']} on {threat_template['agent_name']} (intake accepted)")
                             sys.stdout.flush()
                     except Exception:
                         pass
@@ -648,7 +633,7 @@ async def run_simulation(base_url: str = "http://127.0.0.1:8000", duration_secon
                         )
                     except Exception:
                         pass
-                    sys.stdout.write(f"\r{DIM}{time_str}{RESET} {GREEN}[NORMAL SERVICE TRAFFIC]{RESET} Bank customer login processed (Baseline: ~220 req/s)")
+                    sys.stdout.write(f"\r{DIM}{time_str}{RESET} {GREEN}[SYNTHETIC BANK TRAFFIC]{RESET} Customer login request attempted")
                     sys.stdout.flush()
 
                 elif normal_requests_count % 4 == 2:
@@ -657,7 +642,7 @@ async def run_simulation(base_url: str = "http://127.0.0.1:8000", duration_secon
                         await req_async(base_url, "GET", f"/bank/api/search?q={q_term}", headers=headers)
                     except Exception:
                         pass
-                    sys.stdout.write(f"\r{DIM}{time_str}{RESET} {GREEN}[NORMAL SERVICE TRAFFIC]{RESET} Public branch search '{q_term}' evaluated (200 OK)")
+                    sys.stdout.write(f"\r{DIM}{time_str}{RESET} {GREEN}[SYNTHETIC BANK TRAFFIC]{RESET} Public branch search '{q_term}' requested")
                     sys.stdout.flush()
 
                 else:
@@ -685,33 +670,32 @@ async def run_simulation(base_url: str = "http://127.0.0.1:8000", duration_secon
                             noise_suppressed += 1
                     except Exception:
                         pass
-                    sys.stdout.write(f"\r{DIM}{time_str}{RESET} {CYAN}[LIVE TELEMETRY]{RESET} Benign Event #{normal_requests_count:03d} -> Filtered (0 Token Cost)")
+                    sys.stdout.write(f"\r{DIM}{time_str}{RESET} {CYAN}[SYNTHETIC ALERT]{RESET} Low-level event #{normal_requests_count:03d} submitted")
                     sys.stdout.flush()
 
                 await asyncio.sleep(2.0)
 
     finally:
         # Register disconnected heartbeat
-        await register_heartbeat(base_url, "disconnected", {"total_requests": normal_requests_count, "critical": critical_count})
+        await register_heartbeat(base_url, "disconnected", {"synthetic_cycles": normal_requests_count})
 
     # Final presentation summary
-    banner("LIVE ATTACK & NORMAL TRAFFIC SIMULATION COMPLETE", GREEN)
-    print(f"  * Total Normal Service Transactions: {normal_requests_count}")
-    print(f"  * Tier-0 Sub-millisecond Filtered Noise: {noise_suppressed}")
-    print(f"  * Triaged Security Incidents: {triaged_count}")
-    print(f"  * Critical Threats Defended: {critical_count}")
+    banner("SYNTHETIC PRESENTATION STREAM COMPLETE", GREEN)
+    print(f"  * Synthetic bank-traffic cycles attempted: {normal_requests_count}")
+    print(f"  * Synthetic low-level alerts returned ignore tier: {noise_suppressed}")
+    print("  * No live attack, containment effect, or analyst benefit was verified.")
     print(f"  * Terminus Web Console: {BOLD}{base_url}/console/{RESET}\n")
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Terminus Live Attack Simulation & Service Traffic Stream")
+    parser = argparse.ArgumentParser(description="TERMINUS synthetic loopback presentation stream")
     parser.add_argument(
         "--base-url",
         "--base_url",
         dest="base_url",
         type=str,
-        default=os.environ.get("TERMINUS_BASE_URL", "http://127.0.0.1:8000"),
-        help="Base URL of running Terminus service (default: http://127.0.0.1:8000)",
+        default=os.environ.get("TERMINUS_BASE_URL", "http://127.0.0.1:8766"),
+        help="Base URL of the isolated bank demo (default: http://127.0.0.1:8766)",
     )
     parser.add_argument(
         "--duration",
@@ -722,6 +706,12 @@ def main() -> None:
         help="Duration of simulation in seconds (default: 600s / 10 minutes)",
     )
     args = parser.parse_args()
+    try:
+        args.base_url = loopback_origin(args.base_url)
+        if os.environ.get("TERMINUS_BANK_DEMO_MODE") != "1":
+            raise ValueError("Synthetic stream requires the isolated bank demo launcher")
+    except ValueError as exc:
+        parser.error(str(exc))
 
     try:
         asyncio.run(run_simulation(base_url=args.base_url, duration_seconds=args.duration_seconds))

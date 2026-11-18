@@ -1,6 +1,6 @@
 # File name: app.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Revision date: 2026-11-13
 # Version: 0.1.0
 # Purpose: FastAPI application factory and server entrypoint for TERMINUS.
 
@@ -66,9 +66,7 @@ async def _daily_report_scheduler_task() -> None:
                     ReportType.DAILY_24H,
                     pipeline_runner.deployment.ticket_store,
                 )
-                if org.org_id not in reports_store:
-                    reports_store[org.org_id] = {}
-                reports_store[org.org_id][report.id] = report
+                reports_store.save(report)
         except asyncio.CancelledError:
             break
         except Exception as e:
@@ -87,19 +85,17 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     )
     from terminus.service.sensor import service_sensor
 
-    for default_org in ["org-default", "org-terminus-demo"]:
-        service_sensor.auto_configure_baseline(
-            default_org,
-            _sqlite_agent_repo,
-            _sqlite_workflow_repo,
-            _sqlite_allowlist_repo,
-        )
-        try:
+    if settings.demo_seed_enabled and settings.deployment_mode == "local":
+        for default_org in ["org-default", "org-terminus-demo"]:
+            service_sensor.auto_configure_baseline(
+                default_org,
+                _sqlite_agent_repo,
+                _sqlite_workflow_repo,
+                _sqlite_allowlist_repo,
+            )
             from terminus.demos.seed_data import seed_presentation_demo_data
 
             seed_presentation_demo_data(org_id=default_org)
-        except Exception:
-            pass
 
     # Sweep stale repo scans from prior crash/restart
     try:

@@ -1,6 +1,6 @@
 # File name: deps.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Revision date: 2026-11-14
 # Version: 0.1.0
 # Purpose: FastAPI dependency injection module for services, authentication, and multi-tenant authorization.
 
@@ -24,10 +24,9 @@ from terminus.core.ids import OrgId, SessionToken
 from terminus.correlation.stitcher import CampaignStitcher
 from terminus.licensing.service import LicenseService
 from terminus.llm.base import LlmClient
-from terminus.llm.client import OpenAiCompatibleLlm, ScriptedLlm
+from terminus.llm.client import OpenAiCompatibleLlm, UnavailableLlm
 from terminus.models import (
     AgentStatus,
-    DailyIncidentReport,
     SocAgent,
     Workflow,
 )
@@ -41,6 +40,7 @@ from terminus.orgs.storage import SqliteMembershipStore, SqliteOrganizationStore
 from terminus.orgs.store import MembershipStore, OrganizationStore
 from terminus.pipeline.deployment import PipelineDeployment
 from terminus.pipeline.runner import PipelineRunner
+from terminus.reports.storage import SqliteReportStore
 from terminus.pipeline.specialist_bridge import (
     DATABASE_ENV,
     ROLES_ENV,
@@ -81,15 +81,13 @@ _sqlite_alert_claim_repo = SqliteAlertClaimRepository()
 _sqlite_allowlist_repo = SqliteAllowlistRepository()
 _sqlite_action_log_repo = SqliteActionLogRepository()
 
-# Persistent identity stores; campaign aggregation/report history remain in memory.
+# Persistent identity, report history and campaign aggregation share SQLite.
 _identity_db = Database.get_instance()
 _user_store = SqliteUserStore(_identity_db)
 _org_store = SqliteOrganizationStore(_identity_db)
 _membership_store = SqliteMembershipStore(_identity_db)
 _ticket_store = _sqlite_incident_repo
-_campaign_stitcher = CampaignStitcher()
 _auth_service = AuthService(_user_store, session_store=SqliteSessionStore(_identity_db))
-_reports_store: dict[str, dict[str, DailyIncidentReport]] = {}
 
 
 def bootstrap_default_admin() -> None:
@@ -167,9 +165,10 @@ _default_seed_agents = [
     ),
 ]
 
-for seed_agent in _default_seed_agents:
-    _sqlite_agent_repo.save(seed_agent, "org-default")
-    _sqlite_agent_repo.save(seed_agent, "org-terminus-demo")
+if get_settings().demo_seed_enabled and get_settings().deployment_mode == "local":
+    for seed_agent in _default_seed_agents:
+        _sqlite_agent_repo.save(seed_agent, "org-default")
+        _sqlite_agent_repo.save(seed_agent, "org-terminus-demo")
 
 
 def get_sqlite_workflow_repo() -> SqliteWorkflowRepository:
@@ -269,7 +268,7 @@ def get_llm_client(
             api_key=settings.llm_api_key,
             model=settings.llm_model,
         )
-    return ScriptedLlm()
+    return UnavailableLlm()
 
 
 def get_pipeline_runner(
@@ -323,7 +322,11 @@ def get_pipeline_runner(
         external_ticket_store=external_ticket_store,
     )
     workflow_engine = WorkflowEngine(specialist_bridge=_specialist_bridge())
-    return PipelineRunner(deployment, workflow_engine=workflow_engine, stitcher=_campaign_stitcher)
+    return PipelineRunner(
+        deployment,
+        workflow_engine=workflow_engine,
+        stitcher=CampaignStitcher(db=Database.get_instance()),
+    )
 
 
 _BRIDGE_CACHE: dict[tuple[int, str], SpecialistBridge | None] = {}
@@ -433,8 +436,10 @@ def require_admin(
         )
 
 
-def get_reports_store() -> dict[str, dict[str, DailyIncidentReport]]:
-    return _reports_store
+def get_reports_store() -> SqliteReportStore:
+    # Tests and isolated instances can reset the singleton after module import;
+    # bind report history to the same active database as tenant repositories.
+    return SqliteReportStore(Database.get_instance())
 
 
 def require_operator(
