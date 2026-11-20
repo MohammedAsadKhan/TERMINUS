@@ -1,6 +1,6 @@
 # File name: live.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Explicitly configured, pinned, bounded provider I/O behind model admission.
 
@@ -80,6 +80,11 @@ async def resolve_addresses(host: str) -> tuple[str, ...]:
 async def _destination(
     connection: ModelConnectionView, call: PreparedModelCall
 ) -> tuple[str, str]:
+    """Return the canonical endpoint and the single pinned IP to connect to.
+
+    Local endpoints must still resolve to the addresses verified at admission; hosted
+    ones must resolve only to public addresses.
+    """
     endpoint = normalize_base_url(connection.provider, connection.base_url)
     canonical, host = _canonical_endpoint(endpoint)
     if connection.provider == "local":
@@ -88,6 +93,8 @@ async def _destination(
         if call.destination is None or fresh.addresses != call.destination.addresses:
             raise ModelTransportError("Model destination changed")
         return canonical, fresh.addresses[0]
+    # Hosted providers: HTTPS only, and every resolved address must be a public
+    # global one, so DNS cannot steer a credentialed request at an internal host.
     if urlsplit(canonical).scheme != "https":
         raise ModelTransportError("Hosted models require HTTPS")
     async with asyncio.timeout(2):
@@ -128,6 +135,8 @@ class _LivePermit:
 
 @dataclass(frozen=True)
 class LiveExecutionResult:
+    """Provider response paired with the reservation settled (or left ambiguous) for it."""
+
     response: ModelResponse
     reservation: ModelReservation
 
@@ -145,6 +154,7 @@ class ProductionModelTransport:
         timeout_seconds: float = 30,
         response_limit: int = 262144,
     ) -> None:
+        """Validate timeout and response bounds and keep a private deep copy of the connection."""
         if (
             isinstance(timeout_seconds, bool)
             or not math.isfinite(timeout_seconds)
@@ -167,8 +177,15 @@ class ProductionModelTransport:
         raise ModelTransportError("Model transport requires gated execution")
 
     async def _execute(self, permit: _LivePermit) -> ModelResponse:  # noqa: C901  # pyright: ignore[reportUnusedFunction] - consumed only by the private admission gate
+        """Perform the gated provider call, mapping every failure to a safe error response.
+
+        The permit is single use. Ownership is rechecked before and after DNS and TLS,
+        and the credential is resolved only after those checks.
+        """
         if type(permit) is not _LivePermit or permit.used:
             raise ModelTransportError("Model execution permit is unavailable")
+        # Single use: the permit is burned before any work, so a retry cannot
+        # send the same admitted request (and charge) twice.
         permit.used = True
         request = permit.call.request
         codec = (
@@ -204,6 +221,7 @@ class ProductionModelTransport:
                     value = secret.get_secret_value()
                     if any(ord(char) < 33 or ord(char) > 126 for char in value):
                         raise ModelTransportError("Model credential is invalid")
+                    # Never send a credential over plaintext, even to a local host.
                     if urlsplit(endpoint).scheme != "https":
                         raise ModelTransportError(
                             "Credential transmission requires HTTPS"
@@ -237,6 +255,8 @@ class ProductionModelTransport:
                     raw.decode("utf-8"), limit=self.response_limit
                 )
                 return validate_response(codec.decode(payload, request), request)
+        # From here on, errors are returned as *_unknown_usage codes rather than
+        # raised: the request may have reached the provider, so billing is unknown.
         except asyncio.CancelledError:
             raise
         except _ResponseTooLargeError:
@@ -300,6 +320,11 @@ class ProductionModelTransport:
         body: bytes,
         permit: _LivePermit,
     ) -> tuple[int, bytes]:
+        """Send one HTTP/1.1 request to the pinned IP and read the bounded response.
+
+        TLS validates the hostname, and the last permit check runs before any payload is
+        written.
+        """
         parsed = urlsplit(endpoint)
         host = parsed.hostname
         if (
@@ -329,6 +354,8 @@ class ProductionModelTransport:
         ).encode("ascii") + body
         literal = ipaddress.ip_address(address)
         family = socket.AF_INET if literal.version == 4 else socket.AF_INET6
+        # Connect to the pinned numeric address chosen after the destination
+        # checks; the hostname is used only for the Host header and TLS name.
         sock = socket.socket(family, socket.SOCK_STREAM)
         sock.setblocking(False)  # noqa: FBT003
         writer: asyncio.StreamWriter | None = None
@@ -356,6 +383,7 @@ class ProductionModelTransport:
                 writer.close()
 
     async def _read_response(self, reader: asyncio.StreamReader) -> tuple[int, bytes]:  # noqa: C901, PLR0912
+        """Parse a bounded HTTP response, rejecting redirects, compression and bad framing."""
         try:
             header = await reader.readuntil(b"\r\n\r\n")
         except (asyncio.LimitOverrunError, asyncio.IncompleteReadError):
@@ -423,6 +451,7 @@ class ProductionModelTransport:
         return status, raw
 
     async def _read_chunks(self, reader: asyncio.StreamReader) -> bytes:
+        """Read a chunked body within the size limit, rejecting malformed framing and trailers."""
         output = bytearray()
         chunks = 0
         while True:
@@ -455,6 +484,7 @@ class LiveModelExecutor:
     def __init__(
         self, admission: ModelAdmissionService, budgets: ModelBudgetStore
     ) -> None:
+        """Require admission and budgets to share one database."""
         if admission.scheduler.db is not budgets.db:
             raise ModelTransportError("Model services require one database")
         self.admission = admission
@@ -466,6 +496,11 @@ class LiveModelExecutor:
         transport: ProductionModelTransport,
         actor_user_id: str,
     ) -> LiveExecutionResult:
+        """Authorize, reserve budget, run the live call and settle its usage.
+
+        If the outcome is uncertain, the reservation stays ambiguous so the full reserve
+        keeps counting.
+        """
         await self.admission.authorize(call)
         reservation = self.budgets.reserve(
             call.org_id,
@@ -489,9 +524,13 @@ class LiveModelExecutor:
                 call, transport, reservation_id=rid
             )
         except BaseException:
+            # Any failure or cancellation after reserving may have spent money,
+            # so the reservation is marked ambiguous instead of being released.
             with contextlib.suppress(Exception):
                 _ = self.budgets.mark_ambiguous(call.org_id, rid)
             raise
+        # An error response reports no usage (all None = unknown), so it is
+        # settled with an empty report rather than any assumed token count.
         usage = response.usage
         try:
             settled = self.budgets.settle(
@@ -507,6 +546,7 @@ class LiveModelExecutor:
                 else UsageReport(),
             )
         except Exception:
+            # If settlement itself fails, keep the reserved exposure as ambiguous.
             settled = self.budgets.mark_ambiguous(
                 call.org_id, rid, reason_code="settle_failed"
             )

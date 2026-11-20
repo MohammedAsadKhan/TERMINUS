@@ -1,6 +1,6 @@
 # File name: bank.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: First Heritage Community Bank — Interactive Retail Banking Honeypot & Decoy Gateway.
 
@@ -53,11 +53,13 @@ def _get_request_timestamp(request: Request) -> str:
 
 
 class BankLoginRequest(BaseModel):
+    # Credentials submitted to the fictional bank demo login.
     username: str
     password: str
 
 
 class TransferRequest(BaseModel):
+    # Transfer request for the fictional bank demo; no real money moves.
     to_account: str
     amount: float
     memo: str = "Online Payment"

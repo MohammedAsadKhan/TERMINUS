@@ -1,12 +1,11 @@
 # File name: lab_observer.py
 # Author: Team LARP
-# Date: 2026-11-13
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Fixed read-only SSH observations for the isolated autonomous lab controller.
 
 """Fixed read-only SSH observations for the isolated autonomous lab controller."""
 
-# ruff: noqa: ERA001 -- required source header
 from __future__ import annotations
 
 import asyncio
@@ -23,6 +22,10 @@ class LabSSHObserver:
     def __init__(
         self, kali_management_ip: str, target_management_ip: str = "192.168.56.103"
     ) -> None:
+        """Accept only addresses on the lab management network (excluding network,
+        gateway and broadcast hosts), so the observer can never be pointed at a non- lab
+        machine.
+        """
         for address in (kali_management_ip, target_management_ip):
             parsed = IPv4Address(address)
             if str(parsed).rsplit(".", 1)[0] != "192.168.56" or parsed.packed[-1] in {
@@ -34,6 +37,10 @@ class LabSSHObserver:
         self.kali, self.target = kali_management_ip, target_management_ip
 
     async def _read(self, user: str, host: str, command: str) -> tuple[int, str]:
+        """Run one read-only command over SSH with key-only auth, strict host-key
+        checking and a 6 second cap, returning (1, '') on timeout, oversized output or
+        missing output so callers fail closed.
+        """
         process = await asyncio.create_subprocess_exec(
             "ssh",
             "-i",
@@ -69,6 +76,13 @@ class LabSSHObserver:
                 await process.wait()
 
     async def __call__(self, stage: str, details: dict[str, Any]) -> bool:  # noqa: C901, PLR0911 -- independent verification gates
+        """Independently verify one lifecycle stage (baseline, table-absent, blocked or
+        recovered) from the target's nftables state and a probe from the source host.
+        Returns True only when every check passes; any error or ambiguity returns False.
+        """
+        # Order of gates: first confirm the management path reaches the expected target
+        # (so results are not read from the wrong machine), then probe from the source
+        # host, and only then inspect firewall state for the requested stage.
         management, name = await self._read("labadmin", self.target, "hostname")
         if management != 0 or name.strip() != "terminus-target-a":
             return False
@@ -83,6 +97,8 @@ class LabSSHObserver:
                 "labadmin", self.target, "sudo -n /usr/sbin/nft --json list tables"
             )
             return reachable and status == 0
+        # The table name and comment are derived from the intent and approved digest, so
+        # only a table created for exactly this approved action counts as owned.
         identity = hashlib.sha256(
             f"{details['intent_id']}:{details['proposal_digest']}".encode()
         ).hexdigest()
@@ -135,6 +151,8 @@ class LabSSHObserver:
                 )
                 for element in elements
             )
+            # "blocked" needs the address in the set and the probe denied; "recovered"
+            # needs an empty set and the probe reachable again.
             if stage == "blocked":
                 return present and not reachable
             return stage == "recovered" and not elements and reachable

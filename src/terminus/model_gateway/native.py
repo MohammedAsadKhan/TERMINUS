@@ -1,6 +1,6 @@
 # File name: native.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Pure codecs for provider-native model APIs.
 
@@ -38,6 +38,7 @@ _MAX_TOOL_CALLS = 8
 
 
 def _object(value: object, message: str = "Malformed provider response") -> dict[str, JsonValue]:
+    """Require a dict with only string keys, raising ModelProtocolError with the given message."""
     if not isinstance(value, dict):
         raise ModelProtocolError(message)
     raw = cast("dict[object, object]", value)
@@ -47,18 +48,21 @@ def _object(value: object, message: str = "Malformed provider response") -> dict
 
 
 def _array(value: object, message: str = "Malformed provider response") -> list[JsonValue]:
+    """Require a list, raising ModelProtocolError with the given message."""
     if not isinstance(value, list):
         raise ModelProtocolError(message)
     return cast("list[JsonValue]", value)
 
 
 def _string(value: object, message: str = "Malformed provider response") -> str:
+    """Require a string, raising ModelProtocolError with the given message."""
     if not isinstance(value, str):
         raise ModelProtocolError(message)
     return value
 
 
 def _optional_count(container: dict[str, JsonValue], key: str) -> int | None:
+    """Return a bounded non-negative integer count, or None when the key is absent."""
     if key not in container:
         return None
     value = container[key]
@@ -68,6 +72,7 @@ def _optional_count(container: dict[str, JsonValue], key: str) -> int | None:
 
 
 def _drop_nulls(payload: dict[str, JsonValue]) -> dict[str, JsonValue]:
+    """Return a copy without null values, so explicit nulls count as unknown."""
     return {key: value for key, value in payload.items() if value is not None}
 
 
@@ -79,6 +84,11 @@ def _usage(
     total_key: str | None = None,
     provider: str = "",
 ) -> ModelUsage:
+    """Normalize provider token usage to the shared convention.
+
+    Input and output totals include cached and reasoning tokens; a missing count stays
+    None (unknown) and is never zero.
+    """
     # Normalized to ModelUsage convention: input/output include cached/reasoning.
     input_tokens = _optional_count(payload, input_key)
     output_tokens = _optional_count(payload, output_key)
@@ -119,6 +129,7 @@ def _usage(
 def _provider_error(
     payload: dict[str, JsonValue], request: ModelRequest
 ) -> ModelResponse | None:
+    """Convert a provider error payload to an error response with a sanitized code, or None."""
     if "error" not in payload:
         return None
     error = _object(payload["error"], "Malformed provider error")
@@ -138,6 +149,7 @@ def _provider_error(
 
 
 def _validated_response(response: ModelResponse, request: ModelRequest) -> ModelResponse:
+    """Validate a response against its request, mapping unexpected failures to a protocol error."""
     try:
         return validate_response(response, request)
     except ModelProtocolError:
@@ -153,6 +165,7 @@ def _make_tool_call(
     arguments: object,
     provider_state: dict[str, str] | None = None,
 ) -> ToolCall:
+    """Build a ToolCall from raw provider fields, mapping validation failures to protocol errors."""
     if not isinstance(call_id, str) or not isinstance(name, str):
         raise ModelProtocolError("Malformed provider tool call")
     args = _object(arguments, "Malformed provider tool call")
@@ -168,6 +181,7 @@ def _make_tool_call(
 
 
 def _tool_result(message: ChatMessage) -> dict[str, JsonValue]:
+    """Parse a tool-result message's content as a strict JSON object."""
     return parse_json_object(message.content)
 
 
@@ -178,17 +192,25 @@ class AnthropicCodec:
 
     @property
     def headers(self) -> dict[str, str]:
+        """Return a copy of the fixed Anthropic version header."""
         return dict(self._HEADERS)
 
     def path(self, request: ModelRequest) -> str:
+        """Return the Messages API path."""
         del request
         return "/v1/messages"
 
     def encode(self, request: ModelRequest) -> dict[str, JsonValue]:  # noqa: C901
+        """Encode a request as Anthropic Messages JSON without network I/O.
+
+        Consecutive tool results are merged into one user turn, and provider state on
+        tool calls is rejected.
+        """
         messages: list[JsonValue] = []
         pending_results: list[JsonValue] = []
 
         def flush_results() -> None:
+            """Emit buffered tool results as a single user message."""
             if pending_results:
                 messages.append({"role": "user", "content": list(pending_results)})
                 pending_results.clear()
@@ -255,6 +277,11 @@ class AnthropicCodec:
     def decode(  # noqa: C901, PLR0912
         self, payload: dict[str, JsonValue], request: ModelRequest
     ) -> ModelResponse:
+        """Decode a Messages response into the shared result contract.
+
+        A refusal or truncation never yields tool calls, and unknown content blocks or
+        stop reasons are protocol errors.
+        """
         bounded_json(payload)
         error = _provider_error(payload, request)
         if error is not None:
@@ -291,6 +318,9 @@ class AnthropicCodec:
         if len(calls) > _MAX_TOOL_CALLS:
             raise ModelProtocolError("Too many Anthropic tool calls")
 
+        # Order matters: refusals and truncated turns discard any tool calls, so a
+        # partial or refused turn can never trigger a tool; then tool calls are
+        # checked before plain text output.
         if stop_reason == "refusal":
             status = "refused"
             output = None
@@ -338,9 +368,11 @@ class GeminiCodec:
 
     @property
     def headers(self) -> dict[str, str]:
+        """Return no static headers; the credential is added by the gated transport."""
         return {}
 
     def path(self, request: ModelRequest) -> str:
+        """Return the generateContent path for a validated, URL-quoted model id."""
         model = request.model
         if model.startswith("models/"):
             model = model.removeprefix("models/")
@@ -349,10 +381,16 @@ class GeminiCodec:
         return f"/v1beta/models/{quote(model, safe='')}:generateContent"
 
     def encode(self, request: ModelRequest) -> dict[str, JsonValue]:  # noqa: C901
+        """Encode a request as Gemini generateContent JSON without network I/O.
+
+        Consecutive tool results are merged into one user turn and thought signatures
+        are preserved.
+        """
         contents: list[JsonValue] = []
         pending_results: list[JsonValue] = []
 
         def flush_results() -> None:
+            """Emit buffered function responses as a single user message."""
             if pending_results:
                 contents.append({"role": "user", "parts": list(pending_results)})
                 pending_results.clear()
@@ -428,6 +466,11 @@ class GeminiCodec:
     def decode(  # noqa: C901, PLR0912, PLR0915
         self, payload: dict[str, JsonValue], request: ModelRequest
     ) -> ModelResponse:
+        """Decode a generateContent response into the shared result contract.
+
+        Blocked, truncated and failed candidates map to refused, incomplete and error
+        before any content is read.
+        """
         bounded_json(payload)
         error = _provider_error(payload, request)
         if error is not None:
@@ -457,6 +500,8 @@ class GeminiCodec:
             raise ModelProtocolError("Missing Gemini candidate")
         if len(candidates) != 1:
             raise ModelProtocolError("Gemini returned multiple candidates")
+        # Finish reasons are classified before the parts are read: blocked or
+        # truncated candidates never have their content interpreted.
 
         candidate = _object(candidates[0])
         finish_reason = _string(candidate.get("finishReason"))
@@ -588,6 +633,7 @@ class GeminiCodec:
     def _response_model(
         payload: dict[str, JsonValue], request: ModelRequest
     ) -> str:
+        """Return the reported model version, falling back to the requested model."""
         model = payload.get("modelVersion", request.model)
         if not isinstance(model, str) or not model or len(model) > 128:
             raise ModelProtocolError("Invalid Gemini model version")
@@ -595,6 +641,7 @@ class GeminiCodec:
 
     @staticmethod
     def _signature(value: object) -> str | None:
+        """Validate an optional thought signature, returning None when absent."""
         if value is None:
             return None
         if not isinstance(value, str) or not value or len(value.encode()) > 16384:
@@ -605,10 +652,15 @@ class GeminiCodec:
     def _synthetic_call_id(
         function: dict[str, JsonValue], index: int, previous_call_count: int
     ) -> str:
+        """Derive a stable tool-call id from the call content and its position.
+
+        Used only when Gemini omits an id.
+        """
         bounded_json(function, 16384)
         canonical = json.dumps(
             function, sort_keys=True, separators=(",", ":"), ensure_ascii=True
         ).encode()
+        # Position data keeps ids unique across turns when Gemini sends no id.
         identity = previous_call_count.to_bytes(2, "big") + index.to_bytes(2, "big")
         digest = hashlib.sha256(identity + canonical).hexdigest()[:24]
         return f"gemini_{digest}"

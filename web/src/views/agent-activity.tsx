@@ -1,6 +1,6 @@
 // File: agent-activity.tsx
 // Author: Team LARP
-// Date: 2026-11-09
+// Date: 2026-11-19 (comments revised)
 // Version: 0.1.0
 // Purpose: Display specialist task and run activity with evidence links.
 
@@ -33,12 +33,17 @@ import './agent-activity.css';
 import OperationMap from './operation-map';
 import IncidentResponse from './incident-response';
 
+// Tasks per page. The server gives no total, so the pager assumes another page exists only when a full page comes back.
 const PAGE_SIZE = 20;
+// Task states that still need work; they decide the running counts and whether Cancel is offered.
 const ACTIVE_STATES = new Set(['queued', 'running', 'waiting']);
+// Options for the execution status filter.
 const TASK_STATES = ['queued', 'running', 'waiting', 'completed', 'failed', 'cancelled'] as const;
 
+// Stored run results are untyped JSON; the helpers below narrow them before the UI reads them.
 type JsonObject = Record<string, unknown>;
 
+// A durable orchestration task for one incident; parent_task_id links a delegated child to its parent.
 interface ActivityTask {
   task_id: string;
   incident_id: string;
@@ -55,6 +60,7 @@ interface ActivityTask {
   idempotency_key?: string | null;
 }
 
+// Scheduler assignment for a task. Every field is optional because a job may be missing or only partly recorded.
 interface SchedulerJob {
   job_id?: string;
   role?: string;
@@ -70,9 +76,12 @@ interface SchedulerJob {
   attempts?: number;
 }
 
+// A listed task with its scheduler job, or null when it has none.
 interface TaskRow { task: ActivityTask; scheduler_job: SchedulerJob | null }
+// One page of tasks; no total is provided.
 interface TaskPage { items: TaskRow[]; limit: number; offset: number }
 
+// One execution attempt of a task. result stays untyped until specialistResult validates it.
 interface AgentRun {
   run_id: string;
   task_id: string;
@@ -88,6 +97,7 @@ interface AgentRun {
   error?: string | null;
 }
 
+// Evidence saved during a run; content may be inline or only referenced through content_ref.
 interface EvidenceRecord {
   evidence_id: string;
   source: string;
@@ -98,6 +108,7 @@ interface EvidenceRecord {
   content_hash?: string;
 }
 
+// A task's request for help from another specialist role.
 interface HelpRequest {
   help_request_id: string;
   task_id: string;
@@ -107,6 +118,7 @@ interface HelpRequest {
   created_at?: string;
 }
 
+// A response action attempted for a task and the targets it named.
 interface ActionAttempt {
   attempt_id: string;
   action: string;
@@ -115,6 +127,8 @@ interface ActionAttempt {
   created_at?: string;
 }
 
+// Task detail with its runs, evidence, help requests and actions. child_records_may_be_truncated warns that a record
+// group reached child_records_limit, so more records may exist.
 interface TaskDetail {
   task: ActivityTask;
   scheduler_job: SchedulerJob | null;
@@ -126,9 +140,13 @@ interface TaskDetail {
   child_records_may_be_truncated: boolean;
 }
 
+// One recorded tool call and how many evidence records it produced.
 interface ToolCallRecord { tool_id: string; status: string; error_code?: string | null; evidence_count: number }
+// A claim and the ids of the evidence that supports it.
 interface Finding { claim: string; evidence_ids: string[] }
+// A recorded reason coverage was incomplete, optionally tied to one tool.
 interface SpecialistGap { code: string; tool_id?: string | null; detail?: string }
+// Token counts as reported by the provider; any field is null when the provider did not report it.
 interface ModelUsage {
   input_tokens?: number | null;
   output_tokens?: number | null;
@@ -136,6 +154,7 @@ interface ModelUsage {
   cached_input_tokens?: number | null;
   reasoning_tokens?: number | null;
 }
+// The model connection and route that handled an analysis, with usage and cost only when the provider reported them.
 interface ModelRef {
   connection_id: string;
   model: string;
@@ -145,6 +164,8 @@ interface ModelRef {
   cost_known?: boolean | null;
   cost_micro_usd?: number | null;
 }
+// Validated specialist result. status keeps incomplete coverage (partial, insufficient_telemetry) apart from an execution
+// error, and execution_mode says whether a model was used.
 interface SpecialistResult {
   status: 'completed' | 'partial' | 'insufficient_telemetry' | 'error';
   role: string;
@@ -156,6 +177,7 @@ interface SpecialistResult {
   execution_mode: 'tools_only' | 'tools_and_model';
 }
 
+// A task in the incident tree, with children and, when the server includes them, its runs, evidence and help records.
 interface TreeNode extends ActivityTask {
   objective: string;
   children?: TreeNode[];
@@ -170,6 +192,7 @@ interface TreeNode extends ActivityTask {
   planned_areas?: string[];
   planned_roles?: string[];
 }
+// Task tree for one incident; gaps are coverage gaps reported by the server.
 interface IncidentTree {
   incident_id: string;
   roots: TreeNode[];
@@ -178,6 +201,7 @@ interface IncidentTree {
   planned_areas?: string[];
   gaps?: string[];
 }
+// Who owns a help request, its state, and the evidence shared with it.
 interface HelpOwnership {
   help_request_id: string;
   state: string;
@@ -194,8 +218,10 @@ interface HelpOwnership {
   shared_evidence_ids?: string[];
   result?: unknown;
 }
+// Help ownership plus the shared evidence records loaded for it.
 interface HelpContext extends HelpOwnership { shared_evidence?: EvidenceRecord[] }
 
+// A specialist role from the catalog; execution_available false means the role cannot run yet.
 interface CatalogItem {
   specialty_id: string;
   name: string;
@@ -206,16 +232,21 @@ interface CatalogItem {
   execution_available: boolean;
   status_label: string;
 }
+// Catalog listing with an optional server note.
 interface CatalogResponse { items: CatalogItem[]; note?: string }
 
+// Narrows unknown JSON to a plain object; arrays and null are rejected.
 function asObject(value: unknown): JsonObject | null {
   return value !== null && typeof value === 'object' && !Array.isArray(value) ? value as JsonObject : null;
 }
 
+// Keeps only string items; anything that is not an array becomes an empty list.
 function asStringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
 }
 
+// Validates an untyped run result. It returns null unless the status is a known value, and it drops tool calls,
+// findings and gaps that lack the required fields so malformed entries are not displayed as findings.
 function specialistResult(value: unknown): SpecialistResult | null {
   const item = asObject(value);
   if (!item || !['completed', 'partial', 'insufficient_telemetry', 'error'].includes(String(item.status))) return null;
@@ -264,6 +295,8 @@ function specialistResult(value: unknown): SpecialistResult | null {
   };
 }
 
+// Objectives are plain text or a JSON envelope; this pulls out request.objective or objective and otherwise returns the
+// raw string.
 function objectiveText(value: string): string {
   try {
     const parsed = asObject(JSON.parse(value));
@@ -274,10 +307,12 @@ function objectiveText(value: string): string {
   return value;
 }
 
+// Readable status text; a missing status reads as unknown.
 function displayStatus(value?: string): string {
   return (value || 'unknown').replaceAll('_', ' ');
 }
 
+// Tag color for a state; unrecognized states stay neutral.
 function stateTone(value?: string): string {
   if (value === 'completed' || value === 'resolved') return 'success';
   if (value === 'failed' || value === 'error') return 'error';
@@ -286,6 +321,7 @@ function stateTone(value?: string): string {
   return 'default';
 }
 
+// Coverage label for a result, kept separate from execution status. null means no structured result was recorded.
 function analysisLabel(result: SpecialistResult | null): string {
   if (!result) return 'No recorded analysis';
   if (result.status === 'insufficient_telemetry') return 'Insufficient telemetry';
@@ -294,6 +330,7 @@ function analysisLabel(result: SpecialistResult | null): string {
   return 'Completed analysis';
 }
 
+// Depth-first search for a task. lineage lists its ancestors, root first.
 function findNode(nodes: TreeNode[], taskId: string, lineage: TreeNode[] = []): { node: TreeNode; lineage: TreeNode[] } | null {
   for (const node of nodes) {
     if (node.task_id === taskId) return { node, lineage };
@@ -303,6 +340,7 @@ function findNode(nodes: TreeNode[], taskId: string, lineage: TreeNode[] = []): 
   return null;
 }
 
+// Task list URL: newest first, paged by PAGE_SIZE, optionally filtered by exact incident id and status.
 function taskUrl(page: number, incident: string, status: string): string {
   const params = new URLSearchParams({ limit: String(PAGE_SIZE), offset: String(page * PAGE_SIZE), newest_first: 'true' });
   if (incident.trim()) params.set('incident_id', incident.trim());
@@ -310,14 +348,17 @@ function taskUrl(page: number, incident: string, status: string): string {
   return `/orchestration/tasks?${params.toString()}`;
 }
 
+// Monospace identifier; the full value is in the tooltip.
 function Id({ children }: { children: string }) {
   return <code className="activity-id" title={children}>{children}</code>;
 }
 
+// Status tag using stateTone.
 function StateTag({ value }: { value?: string }) {
   return <Tag color={stateTone(value)}>{displayStatus(value).toUpperCase()}</Tag>;
 }
 
+// Recursive tree row; depth is passed to the stylesheet as a CSS variable for indentation.
 function TreeBranch({ node, selected, onSelect, depth = 0 }: { node: TreeNode; selected: string | null; onSelect: (id: string) => void; depth?: number }) {
   return <li>
     <button className={`activity-tree-node${selected === node.task_id ? ' selected' : ''}`} style={{ '--tree-depth': depth } as React.CSSProperties} onClick={() => onSelect(node.task_id)}>
@@ -329,14 +370,17 @@ function TreeBranch({ node, selected, onSelect, depth = 0 }: { node: TreeNode; s
   </li>;
 }
 
+// Flattens a task and its whole subtree.
 function descendants(root: TreeNode): TreeNode[] {
   return [root, ...(root.children || []).flatMap(descendants)];
 }
 
+// Most recently created run of a task.
 function latestRun(node: TreeNode): AgentRun | null {
   return [...(node.runs || [])].sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))[0] || null;
 }
 
+// Elapsed time from start to end, or to now while there is no end. Missing or unparsable times read as Not started or Unknown.
 function duration(start?: string | null, end?: string | null): string {
   if (!start) return 'Not started';
   const seconds = Math.max(0, Math.floor(((end ? Date.parse(end) : Date.now()) - Date.parse(start)) / 1000));
@@ -344,6 +388,8 @@ function duration(start?: string | null, end?: string | null): string {
   return seconds < 60 ? `${seconds}s` : seconds < 3600 ? `${Math.floor(seconds / 60)}m ${seconds % 60}s` : `${Math.floor(seconds / 3600)}h ${Math.floor(seconds % 3600 / 60)}m`;
 }
 
+// Overview of one operation (a root task and everything under it). If the selected task is in another root, that root is
+// shown; otherwise the newest. Counts come only from recorded task states.
 function OperationOverview({ tree, selected, onSelect }: { tree: IncidentTree; selected: string | null; onSelect: (id: string) => void }) {
   const roots = [...tree.roots].sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
   const match = selected ? findNode(roots, selected) : null;
@@ -352,6 +398,7 @@ function OperationOverview({ tree, selected, onSelect }: { tree: IncidentTree; s
   const nodes = descendants(root);
   const specialists = nodes.filter(node => !['main_orchestrator', 'area_orchestrator'].includes(node.role));
   const active = nodes.filter(node => ACTIVE_STATES.has(node.status));
+  // Elapsed time stops at the latest recorded completion only when nothing is active; otherwise it runs to now.
   const lastCompletion = active.length ? null : nodes.map(node => node.completed_at || node.updated_at || '').sort().at(-1);
   return <section className="panel operation-overview" aria-label="Operation overview">
     <header className="operation-heading">
@@ -385,6 +432,8 @@ function OperationOverview({ tree, selected, onSelect }: { tree: IncidentTree; s
   </section>;
 }
 
+// Timeline built from recorded records only. Per-step timestamps for tool and model calls are not available, so those
+// steps show their recorded order instead (the note below the list says so).
 function ActivityTimeline({ task, run, evidence }: { task: ActivityTask; run: AgentRun | null; evidence: EvidenceRecord[] }) {
   const result = specialistResult(run?.result);
   return <section className="activity-subsection"><h4>Activity timeline</h4><ol className="agent-timeline">
@@ -397,6 +446,8 @@ function ActivityTimeline({ task, run, evidence }: { task: ActivityTask; run: Ag
   </ol><p className="coverage-note">Tool and model steps use their recorded order; individual step timestamps are unavailable in this result.</p></section>;
 }
 
+// Validated result for one run: calls, cited findings, coverage gaps and model provenance. A run with no structured result
+// is shown as such, and having no finding is explicitly not a clean verdict.
 function RunResult({ run, evidence }: { run: AgentRun | null; evidence: EvidenceRecord[] }) {
   const result = specialistResult(run?.result);
   const evidenceById = new Map(evidence.map(item => [item.evidence_id, item]));
@@ -429,6 +480,8 @@ function RunResult({ run, evidence }: { run: AgentRun | null; evidence: Evidence
   </div>;
 }
 
+// Scheduler assignment for a task. Missing values show as Unknown or None instead of being guessed; the worker text
+// depends on the job status.
 function SchedulerProgress({ job }: { job: SchedulerJob | null }) {
   if (!job) return <Alert type="info" showIcon title="No scheduler job" description="This task has no durable scheduler assignment." />;
   const worker = job.worker_id
@@ -448,6 +501,7 @@ function SchedulerProgress({ job }: { job: SchedulerJob | null }) {
   </section>;
 }
 
+// Lists run attempts; hidden unless there is more than one.
 function RunHistory({ runs, selected, onSelect }: { runs: AgentRun[]; selected: string | null; onSelect: (runId: string) => void }) {
   if (runs.length < 2) return null;
   return <section className="activity-subsection">
@@ -458,6 +512,8 @@ function RunHistory({ runs, selected, onSelect }: { runs: AgentRun[]; selected: 
   </section>;
 }
 
+// Model provenance. Tokens use the reported total, or input plus output when only those are known; cost is shown only
+// when the provider reported it, otherwise Unknown.
 function ModelAttempt({ model, executionMode }: { model: ModelRef | null; executionMode: SpecialistResult['execution_mode'] }) {
   if (!model) return <div className="activity-subsection"><h4>Model provenance</h4><p className="muted">Tools-only execution; no model attempt was recorded.</p></div>;
   const usage = model.usage;
@@ -476,6 +532,7 @@ function ModelAttempt({ model, executionMode }: { model: ModelRef | null; execut
   </div>;
 }
 
+// Specialist roster grouped by area; roles without execution support are disabled.
 function Catalog({ data, loading }: { data?: CatalogResponse; loading: boolean }) {
   const grouped = useMemo(() => {
     const map = new Map<string, CatalogItem[]>();
@@ -495,6 +552,8 @@ function Catalog({ data, loading }: { data?: CatalogResponse; loading: boolean }
   </section>;
 }
 
+// Activity tab of the Agents page: recorded orchestration tasks for the signed-in organization with run, evidence and
+// ownership detail. Data are stored records polled every 2 seconds; the only action is an operator's cancel request.
 export default function AgentActivity() {
   const { orgId, detail: membership } = useSession();
   const [responseParams] = useSearchParams();
@@ -506,11 +565,13 @@ export default function AgentActivity() {
   const [status, setStatus] = useState('');
   const [incident, setIncident] = useState('');
   const [incidentDraft, setIncidentDraft] = useState('');
+  // The selection carries its organization id, so a task chosen in a previous organization is not treated as selected after a switch.
   const [selection, setSelection] = useState<{ orgId: string; taskId: string } | null>(null);
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
   const [grouping, setGrouping] = useState('incident');
   const selectedTaskId = selection?.orgId === orgId ? selection.taskId : null;
 
+  // Reset filters, paging and selection when the organization or the ?incident_id and ?task_id link parameters change.
   useEffect(() => {
     setPage(0);
     setStatus('');
@@ -520,13 +581,16 @@ export default function AgentActivity() {
     setSelectedRunId(null);
   }, [orgId, linkedIncident, linkedTask]);
 
+  // Keyed by page and filters; polled every 2 seconds.
   const tasks = useQuery({
     queryKey: ['orchestration-tasks', orgId, page, status, incident],
     queryFn: () => api<TaskPage>(taskUrl(page, incident, status), orgId),
     refetchInterval: 2_000,
   });
+  // Role roster; not polled, only the Refresh button refetches it.
   const catalog = useQuery({ queryKey: ['orchestration-catalog', orgId], queryFn: () => api<CatalogResponse>('/orchestration/catalog', orgId) });
   const selectedRow = tasks.data?.items.find(item => item.task.task_id === selectedTaskId) || null;
+  // Selected task detail, fetched only while a task is selected and polled every 2 seconds.
   const detail = useQuery({
     queryKey: ['orchestration-task', orgId, selectedTaskId],
     queryFn: () => api<TaskDetail>(`/orchestration/tasks/${encodeURIComponent(selectedTaskId!)}`, orgId),
@@ -534,19 +598,24 @@ export default function AgentActivity() {
     refetchInterval: 2_000,
   });
   const selectedIncident = selectedRow?.task.incident_id || detail.data?.task.incident_id;
+  // Task tree of the selected task's incident, polled every 2 seconds.
   const tree = useQuery({
     queryKey: ['orchestration-tree', orgId, selectedIncident],
     queryFn: () => api<IncidentTree>(`/orchestration/incidents/${encodeURIComponent(selectedIncident!)}/tree`, orgId),
     enabled: !!selectedIncident,
     refetchInterval: 2_000,
   });
+  // Where the selected task sits in the tree, with its ancestors.
   const treeMatch = selectedTaskId && tree.data ? findNode(tree.data.roots, selectedTaskId) : null;
+  // Help request of the selected task, or of its nearest ancestor that has one.
   const helpRequestId = treeMatch ? [treeMatch.node, ...treeMatch.lineage.slice().reverse()].find(node => node.help_request_id)?.help_request_id : null;
+  // Help context is fetched only when the selected task (or an ancestor) has a help request.
   const helpContext = useQuery({
     queryKey: ['orchestration-help-context', orgId, selectedTaskId, helpRequestId],
     queryFn: () => api<HelpContext>(`/orchestration/tasks/${encodeURIComponent(selectedTaskId!)}/help-context`, orgId),
     enabled: !!selectedTaskId && !!helpRequestId,
   });
+  // Success only means the cancellation request was accepted; the task lists are refreshed to show the outcome.
   const cancel = useMutation({
     mutationFn: () => api(`/orchestration/tasks/${encodeURIComponent(selectedTaskId!)}/cancel`, orgId, body('POST')),
     onSuccess: async () => {
@@ -559,28 +628,37 @@ export default function AgentActivity() {
     onError: error => message.error(error.message),
   });
 
+  // The run chosen under Run attempts, otherwise the last run in the list.
   const currentRun = detail.data?.runs.find(run => run.run_id === selectedRunId)
     || (detail.data?.runs.length ? detail.data.runs[detail.data.runs.length - 1] : null);
   const result = specialistResult(currentRun?.result);
+  // Evidence for the selected task: its own records, shared help evidence, and records elsewhere in the incident tree that the
+  // result cites, de-duplicated by evidence id.
   const visibleEvidence = useMemo(() => {
     const incidentEvidence = (tree.data?.roots || []).flatMap(descendants).flatMap(node => node.evidence || []);
     const cited = new Set(result?.evidence_ids || []);
     const records = [...(detail.data?.evidence || []), ...(helpContext.data?.shared_evidence || []), ...incidentEvidence.filter(record => cited.has(record.evidence_id))];
     return [...new Map(records.map(record => [record.evidence_id, record])).values()];
   }, [detail.data?.evidence, helpContext.data?.shared_evidence, tree.data, currentRun]);
+  // Newest first within the loaded page; grouped by incident unless the time view is chosen.
   const sortedTasks = [...(tasks.data?.items || [])].sort((a, b) => (b.task.created_at || '').localeCompare(a.task.created_at || ''));
   const taskGroups = grouping === 'time' ? [['Execution history', sortedTasks] as const] : [...sortedTasks.reduce((groups, item) => {
     groups.set(item.task.incident_id, [...(groups.get(item.task.incident_id) || []), item]);
     return groups;
   }, new Map<string, TaskRow[]>()).entries()];
+  // Admins and members may request cancellation; the button is disabled for other roles.
   const canOperate = membership?.role === 'admin' || membership?.role === 'member';
+  // Cancel is offered only for a task with a scheduler job in an active state.
   const canCancel = !!detail.data?.scheduler_job && ACTIVE_STATES.has(detail.data.task.status);
+  // Drives the spinner on the Refresh button.
   const waiting = tasks.isFetching || detail.isFetching || tree.isFetching || catalog.isFetching;
 
+  // Refetches everything currently loaded, skipping queries that have nothing selected.
   async function refresh() {
     await Promise.all([tasks.refetch(), catalog.refetch(), selectedTaskId ? detail.refetch() : Promise.resolve(), selectedIncident ? tree.refetch() : Promise.resolve(), helpRequestId ? helpContext.refetch() : Promise.resolve()]);
   }
 
+  // Applies the typed incident id as an exact-match filter and returns to the first page.
   function applyIncident() {
     setPage(0);
     setIncident(incidentDraft.trim());
@@ -654,6 +732,7 @@ export default function AgentActivity() {
   </div>;
 }
 
+// Shows who requested and owns a help request and the evidence shared with it; a missing owner reads as Unassigned.
 function HelpRecord({ ownership }: { ownership: HelpOwnership | HelpContext }) {
   const result = specialistResult(ownership.result);
   const sharedEvidence = 'shared_evidence' in ownership ? ownership.shared_evidence : undefined;

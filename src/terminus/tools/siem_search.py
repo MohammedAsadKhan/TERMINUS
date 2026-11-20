@@ -1,6 +1,6 @@
 # File name: siem_search.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Historical SIEM Query & Process Forensics Tool for TERMINUS.
 
@@ -18,6 +18,7 @@ class SiemForensicsTool:
     """Queries SIEM context, agent historical events, and process telemetry."""
 
     def __init__(self, siem_client: SiemClient) -> None:
+        """Bind the SIEM client used for context queries."""
         self.siem = siem_client
 
     async def get_host_context(self, agent_id: AgentId | str) -> dict[str, Any]:

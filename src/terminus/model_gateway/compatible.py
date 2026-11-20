@@ -1,6 +1,6 @@
 # File name: compatible.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Pure codec for OpenAI-compatible Chat Completions providers.
 
@@ -45,6 +45,7 @@ class OpenAICompatibleCodec:
     """Encode and decode the conservative Chat Completions JSON subset."""
 
     def __init__(self, provider: CompatibleProvider = "openai_compatible") -> None:
+        """Bind the codec to one supported provider and start with no extra headers."""
         if provider not in _COMPATIBLE_PROVIDERS:
             raise ValueError("Unsupported OpenAI-compatible provider")
         self.provider: CompatibleProvider = provider
@@ -125,6 +126,9 @@ class OpenAICompatibleCodec:
         refusal = message.get("refusal")
         if refusal is not None and not isinstance(refusal, str):
             raise ModelProtocolError("Compatible response refusal is invalid")
+        # Order matters: a refusal or content filter wins over every other
+        # finish reason, and a truncated ("length") reply is never parsed as a
+        # complete answer or as tool calls.
         if refusal or finish_reason == "content_filter":
             return validate_response(
                 ModelResponse(
@@ -160,6 +164,7 @@ class OpenAICompatibleCodec:
                 request,
             )
 
+        # A plain "stop" reply must not smuggle tool calls past the tool path.
         if message.get("tool_calls") not in (None, []):
             raise ModelProtocolError("Compatible response has inconsistent tool calls")
 
@@ -179,6 +184,7 @@ class OpenAICompatibleCodec:
 
 
 def _system_instruction(request: ModelRequest, provider: CompatibleProvider) -> str:
+    """Return the system prompt; DeepSeek gets the output schema appended as text instead."""
     if provider != "deepseek" or request.output_schema is None:
         return request.system
     schema = json.dumps(
@@ -194,10 +200,12 @@ def _system_instruction(request: ModelRequest, provider: CompatibleProvider) -> 
 
 
 def _token_parameter(provider: CompatibleProvider) -> str:
+    """Return the output-token limit field name; only OpenAI uses max_completion_tokens."""
     return "max_completion_tokens" if provider == "openai" else "max_tokens"
 
 
 def _encode_message(message: ChatMessage) -> JsonValue:
+    """Encode one chat message, rejecting tool results without a call id and unknown roles."""
     if message.role == "user":
         return {"role": "user", "content": message.content}
     if message.role == "assistant":
@@ -222,6 +230,7 @@ def _encode_message(message: ChatMessage) -> JsonValue:
 
 
 def _encode_tool_call(call: ToolCall) -> JsonValue:
+    """Encode a tool call with canonical JSON arguments; provider state cannot be carried."""
     if call.provider_state:
         raise ModelProtocolError("Compatible tool calls cannot carry provider state")
     try:
@@ -241,6 +250,7 @@ def _encode_tool_call(call: ToolCall) -> JsonValue:
 
 
 def _decode_model(value: JsonValue | None, fallback: str) -> str:
+    """Return the reported model name, falling back to the requested one when absent."""
     if value is None or value == "":
         return fallback
     if not isinstance(value, str) or not value.strip() or len(value) > 128:
@@ -249,6 +259,11 @@ def _decode_model(value: JsonValue | None, fallback: str) -> str:
 
 
 def _decode_usage(value: JsonValue | None) -> ModelUsage:
+    """Decode provider token usage, rejecting malformed or inconsistent counts.
+
+    Absent usage stays unknown (None fields) rather than becoming zero, so cost is never
+    undercounted.
+    """
     if value is None:
         return ModelUsage()
     if not isinstance(value, dict):
@@ -279,6 +294,7 @@ def _decode_usage(value: JsonValue | None) -> ModelUsage:
 
 
 def _detail_count(usage: dict[str, JsonValue], group: str, key: str) -> int | None:
+    """Read one token count from a nested usage group, if the group is present."""
     details = usage.get(group)
     if details is None:
         return None
@@ -288,6 +304,7 @@ def _detail_count(usage: dict[str, JsonValue], group: str, key: str) -> int | No
 
 
 def _token_count(usage: dict[str, JsonValue], key: str) -> int | None:
+    """Return a non-negative integer count or None; booleans and negatives are rejected."""
     value = usage.get(key)
     if value is None:
         return None
@@ -297,6 +314,7 @@ def _token_count(usage: dict[str, JsonValue], key: str) -> int | None:
 
 
 def _only_choice(value: JsonValue | None) -> dict[str, JsonValue]:
+    """Require exactly one well-formed choice in the response."""
     if not isinstance(value, list) or len(value) != 1:
         raise ModelProtocolError("Compatible response must contain exactly one choice")
     choice = value[0]
@@ -306,6 +324,7 @@ def _only_choice(value: JsonValue | None) -> dict[str, JsonValue]:
 
 
 def _decode_tool_calls(value: JsonValue | None) -> tuple[ToolCall, ...]:
+    """Decode one to eight function tool calls, rejecting malformed arguments."""
     if not isinstance(value, list) or not value or len(value) > 8:
         raise ModelProtocolError("Compatible response has no tool calls")
     calls: list[ToolCall] = []

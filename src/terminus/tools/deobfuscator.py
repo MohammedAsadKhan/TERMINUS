@@ -1,6 +1,6 @@
 # File name: deobfuscator.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Static Script and Payload De-obfuscation Engine for TERMINUS.
 
@@ -20,6 +20,10 @@ from dataclasses import dataclass, field
 
 @dataclass
 class DeobfuscationResult:
+    """Decoded form of a payload, the encoding detected, and any dangerous command names found in
+    it.
+    """
+
     original: str
     deobfuscated: str
     encoding_type: str

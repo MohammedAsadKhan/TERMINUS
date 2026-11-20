@@ -1,6 +1,6 @@
 # File name: coordination_models.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Explicit objective and delegation contracts for deterministic coordinators.
 
@@ -41,12 +41,18 @@ class CoordinationLimitError(ValueError):
 
 
 class CoordinationContract(BaseModel):
+    # Strict, immutable base for coordination contracts that rejects unknown fields.
+
     model_config: ClassVar[ConfigDict] = ConfigDict(
         extra="forbid", strict=True, frozen=True, allow_inf_nan=False
     )
 
 
 class IncidentObjective(CoordinationContract):
+    # Request to coordinate an incident objective across one to five distinct areas,
+    # deduplicated
+    # by idempotency_key.
+
     # Leave room for the durable JSON envelope in Task.objective (16 KiB).
     objective: Annotated[str, Field(min_length=1, max_length=12000, pattern=r"\S")]
     areas: Annotated[list[Area], Field(min_length=1, max_length=5)]
@@ -56,17 +62,22 @@ class IncidentObjective(CoordinationContract):
     @field_validator("areas")
     @classmethod
     def unique_areas(cls, value: list[Area]) -> list[Area]:
+        """Reject duplicate areas in the request."""
         if len(value) != len(set(value)):
             raise ValueError("areas must be unique")
         return value
 
 
 class SpecialistDefinition(CoordinationContract):
+    # Maps a specialist role to the area it serves.
+
     role: Label
     area: Area
 
 
 class AreaObjective(CoordinationContract):
+    # Objective and roles delegated to a single area, optionally tied to a help request.
+
     area: Area
     objective: str
     roles: Annotated[list[Label], Field(max_length=24)]
@@ -74,6 +85,8 @@ class AreaObjective(CoordinationContract):
 
 
 class MainObjective(CoordinationContract):
+    # The incident request together with its per-area plans (one to five).
+
     request: IncidentObjective
     plans: Annotated[list[AreaObjective], Field(min_length=1, max_length=5)]
 
@@ -94,6 +107,7 @@ class HelpRequestSpec(CoordinationContract):
     @field_validator("expected_evidence_kinds", "shared_evidence_ids")
     @classmethod
     def unique_items(cls, value: list[str]) -> list[str]:
+        """Reject duplicate evidence kinds or evidence IDs."""
         if len(value) != len(set(value)):
             raise ValueError("items must be unique")
         return value

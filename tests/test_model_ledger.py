@@ -1,6 +1,6 @@
 # File name: test_model_ledger.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: M05: atomic reservations, durable usage ledger and reconciliation.
 
@@ -32,6 +32,9 @@ WINDOW = window_key_for(NOW)
 MODEL = "model-a"
 
 
+# Shared fixture: organization "org" with an admin, a member and a viewer, a separate
+# organization "other" with its own admin, two priced connections, and a one-dollar budget
+# for the current window. The clock is fixed so window keys are stable.
 @pytest.fixture
 def env(tmp_path):
     path = str(tmp_path / "ledger.db")
@@ -77,6 +80,7 @@ def req(
     max_output: int = 1000,
     **extra,
 ) -> ReservationRequest:
+    """Build a reservation request whose default size reserves exactly BOUND micro-USD."""
     return ReservationRequest(
         idempotency_key=key,
         incident_id="inc",
@@ -96,6 +100,9 @@ def req(
 BOUND = 5000
 
 
+# Reservation sizing. Protects the rule that the reserved amount is a conservative upper
+# bound computed before any provider call, that a zero price still enforces the token
+# limit, and that the reserve row is written to the ledger first.
 def test_reserve_computes_conservative_bound(env):
     _, store, _ = env
     res = store.reserve("org", "member", req())
@@ -166,6 +173,8 @@ def test_reserve_writes_ledger_row_first(env):
     assert entries[0].cost_micro_usd is None
 
 
+# Idempotent reservation. Protects against double-counting a retried request, and against
+# reusing one idempotency key for a request with different parameters.
 def test_idempotent_reserve_returns_same(env):
     _, store, _ = env
     first = store.reserve("org", "member", req())
@@ -183,6 +192,9 @@ def test_idempotency_key_with_different_parameters_conflicts(env):
         _ = store.reserve("org", "member", req(connection="conn-2"))
 
 
+# Denial before spend and atomic reservation. Protects the rule that a request is refused
+# when it has no price, no budget, or would pass a dollar or token limit, and that
+# concurrent reservations across connections can never exceed the shared organization limit.
 def test_unpriced_model_denied(env):
     _, store, _ = env
     with pytest.raises(BudgetExceededError):
@@ -265,6 +277,8 @@ def test_fallback_connections_share_org_limit(env):
         _ = store.reserve("org", "member", req("a-fallback-2", "conn-2"))
 
 
+# Settlement cost. Protects exact cost arithmetic from reported usage, and the rule that
+# missing, unknown, or inconsistent usage is recorded as ambiguous and never as zero cost.
 def test_settle_computes_known_cost(env):
     _, store, _ = env
     res = store.reserve("org", "member", req())
@@ -360,6 +374,8 @@ def test_inconsistent_usage_is_unknown(env):
     assert done.state == "ambiguous"
 
 
+# Exposure accounting. Protects the rule that ambiguous reservations and actual overruns
+# keep counting against the budget, so they block later reservations instead of vanishing.
 def test_ambiguous_exposure_blocks_new_reserves(env):
     _, store, _ = env
     _ = store.put_budget(
@@ -396,6 +412,8 @@ def test_actual_cost_above_reserve_recorded_and_blocks_later(env):
         _ = store.reserve("org", "member", req("b", max_output=1, request_bytes=1))
 
 
+# State transitions. Protects settle idempotence, pricing from the snapshot taken at
+# reservation time, and the rule that a release is allowed only before provider I/O.
 def test_settle_idempotent_and_conflicting_usage(env):
     _, store, _ = env
     res = store.reserve("org", "member", req())
@@ -480,6 +498,9 @@ def test_mark_ambiguous_idempotent(env):
     assert len(store.list_ledger("org", "member", a.reservation_id)) == 2
 
 
+# Recovery and reconciliation. Protects the rule that an interrupted reservation becomes
+# ambiguous rather than released, and that only an admin with explicit evidence can resolve
+# it. Zero cost is never inferred, and the admin action is scoped to its own tenant.
 def test_stale_recovery_marks_ambiguous_never_releases(env):
     db, store, _ = env
     old = store.reserve("org", "member", req("old"))
@@ -605,6 +626,9 @@ def test_reconcile_requires_ambiguous(env):
         )
 
 
+# Organization isolation and authorization. Protects against reading or changing another
+# organization's reservations, ledger, or prices, and enforces role limits on reserving,
+# viewing, and configuring.
 def test_tenant_isolation_on_system_transitions_and_reads(env):
     _, store, _ = env
     res = store.reserve("org", "member", req())
@@ -635,6 +659,8 @@ def test_authorization_levels(env):
     assert store.get_price("org", "member", "conn-1", MODEL).version == 1
 
 
+# Configuration writes. Protects price and budget changes behind the admin role, an
+# expected-version check against lost updates, and input validation.
 def test_price_and_budget_writes_admin_only_with_cas(env):
     _, store, _ = env
     with pytest.raises(BudgetDeniedError):
@@ -671,12 +697,16 @@ def test_price_and_budget_writes_admin_only_with_cas(env):
         _ = store.put_budget("org", "admin", "2026-10-05", limit_micro_usd=-1)
 
 
+# Prices are tenant-scoped; see the isolation group above.
 def test_prices_isolated_per_org(env):
     _, store, _ = env
     with pytest.raises(BudgetNotFoundError):
         _ = store.get_price("other", "outsider", "conn-1", MODEL)
 
 
+# Ledger integrity and durability. Protects the append-only ledger (no update or delete),
+# the database rule that an unknown cost cannot be stored as zero, survival across a
+# restart, and the absence of secrets or prompts in stored rows.
 def test_ledger_is_immutable(env):
     db, store, _ = env
     _ = store.reserve("org", "member", req())
@@ -748,6 +778,8 @@ def test_invalid_requests_rejected_safely(env):
         _ = store.list_ledger("org", "member", limit=0)
 
 
+# Usage summary. Protects the remaining-budget figure and the empty result for a window
+# that has no budget.
 def test_summary_other_window_and_remaining(env):
     _, store, _ = env
     _ = store.reserve("org", "member", req())

@@ -1,6 +1,6 @@
 # File name: copilot_tools.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Comprehensive tenant-scoped Copilot tools for TERMINUS.
 
@@ -399,6 +399,9 @@ def place_new_nodes(
 
 
 def _brief_ticket(ticket: dict[str, Any]) -> dict[str, Any]:
+    """Reduce a ticket to the short, model-safe summary fields returned in list and
+    search results, truncating the summary.
+    """
     return {
         "id": ticket.get("id"),
         "description": ticket.get("rule_description"),
@@ -422,6 +425,9 @@ class IncidentTools:
         db: Database | None = None,
         actor_role: str = "viewer",
     ) -> None:
+        """Bind the tool handler to one organization and the caller's role; every tool
+        call is limited to that organization, and write tools require the admin role.
+        """
         self.store = store
         self.org_id = OrgId(str(org_id))
         self.db = db
@@ -432,6 +438,10 @@ class IncidentTools:
         self.workflow_engine = WorkflowEngine(db=db)
 
     async def execute(self, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+        """Dispatch one model-requested tool call scoped to this organization; mutating
+        tools are refused unless the actor is an admin, and unknown or invalid input
+        returns an error dict rather than raising.
+        """
         org_str = str(self.org_id)
 
         # Write gate (F02): mutating tools require the organization admin role.

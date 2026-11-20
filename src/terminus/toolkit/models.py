@@ -1,6 +1,6 @@
 # File name: models.py
 # Author: Team LARP
-# Revision date: 2026-11-13
+# Revision date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Strict, non-executing contracts for the defensive toolkit roadmap.
 
@@ -63,6 +63,8 @@ Family = Literal[
 
 
 class Contract(BaseModel):
+    # Base for every toolkit contract: immutable, strict-typed, rejects unknown fields
+    # and non-finite numbers, and normalizes timestamps to aware UTC.
     model_config: ClassVar[ConfigDict] = ConfigDict(
         extra="forbid",
         strict=True,
@@ -83,12 +85,17 @@ class Contract(BaseModel):
     )
     @classmethod
     def aware_time(cls, value: datetime) -> datetime:
+        """Reject naive timestamps and convert aware ones to UTC, so expiry and window
+        comparisons never depend on a local timezone.
+        """
         if value.tzinfo is None or value.utcoffset() is None:
             raise ValueError("timestamps require a timezone")
         return value.astimezone(UTC)
 
 
 class ToolLimits(Contract):
+    # Hard upper bounds on a read tool's window, paging, timeout and output size; the
+    # fields cannot be set above these ceilings.
     window_seconds: int = Field(default=3600, ge=1, le=3600)
     page_size: int = Field(default=200, ge=1, le=200)
     max_pages: int = Field(default=4, ge=1, le=4)
@@ -124,6 +131,9 @@ class ReadQuery(Contract):
 
     @model_validator(mode="after")
     def bounded_window(self) -> ReadQuery:
+        """Require a positive window of at most one hour, bounding how much evidence one
+        read can pull.
+        """
         seconds = (self.end - self.start).total_seconds()
         if not 0 < seconds <= 3600:
             raise ValueError("query window must be positive and at most one hour")
@@ -143,6 +153,8 @@ class ScopedEffect(Contract):
 
 
 class ResponseProposal(Contract):
+    # Immutable proposal of a scoped response effect with its evidence, prerequisites
+    # and expiry; an approval is bound to its digest.
     proposal_id: Id
     org_id: Id
     incident_id: Id
@@ -162,6 +174,9 @@ class ResponseProposal(Contract):
     approval_expires_at: datetime
 
     def digest(self) -> str:
+        """SHA-256 of the key-sorted compact JSON of the proposal, so any later change
+        invalidates an approval bound to it.
+        """
         payload = json.dumps(
             self.model_dump(mode="json"), sort_keys=True, separators=(",", ":")
         )
@@ -169,6 +184,8 @@ class ResponseProposal(Contract):
 
 
 class ApprovalBinding(Contract):
+    # Admin approval bound to one proposal by id and digest, valid between issuance and
+    # expiry.
     approval_id: Id
     org_id: Id
     incident_id: Id
@@ -181,12 +198,15 @@ class ApprovalBinding(Contract):
 
     @model_validator(mode="after")
     def expiry(self) -> ApprovalBinding:
+        """Require the approval to expire strictly after it was issued."""
         if self.approval_expires_at <= self.issued_at:
             raise ValueError("approval expiry must follow issuance")
         return self
 
 
 class ToolDescriptor(Contract):
+    # Catalog entry describing a tool's availability, permitted roles, connectors,
+    # effect type, egress policy and limits.
     tool_id: Id
     version: Literal["1.0"]
     name: Text
@@ -208,6 +228,9 @@ class ToolDescriptor(Contract):
 
     @model_validator(mode="after")
     def effects_require_binding(self) -> ToolDescriptor:
+        """A dispatching tool must require approval and idempotency and take a scoped
+        effect as input, so no effect can be dispatched unbound.
+        """
         if self.effect == "dispatch" and not (
             self.requires_approval and self.idempotency_required
         ):
@@ -238,6 +261,10 @@ class ToolExecutionContext(Contract):
 
     @model_validator(mode="after")
     def lease_scope(self) -> ToolExecutionContext:
+        """Require the context's organization, incident, task, run and role to equal
+        those of the job lease, so a context cannot be paired with another tenant's
+        lease.
+        """
         expected = (self.org_id, self.incident_id, self.task_id, self.run_id, self.role)
         actual = (
             self.lease.org_id,
@@ -252,6 +279,8 @@ class ToolExecutionContext(Contract):
 
 
 class EvidenceReference(Contract):
+    # Pointer to a stored evidence record by id and content hash, scoped to an
+    # organization and incident.
     evidence_id: Id
     org_id: Id
     incident_id: Id
@@ -259,6 +288,8 @@ class EvidenceReference(Contract):
 
 
 class Provenance(Contract):
+    # Where a result came from: source and connector identity, event ids, timestamps
+    # and the digest of the query that produced it.
     source_id: Id
     connector_id: Id
     connector_version: Id
@@ -269,6 +300,8 @@ class Provenance(Contract):
 
 
 class ToolResult(Contract):
+    # Model-facing outcome of a tool call, with status, data, evidence references,
+    # provenance, coverage and gaps.
     tool_id: Id
     version: Literal["1.0"]
     status: Literal[
@@ -284,6 +317,9 @@ class ToolResult(Contract):
 
     @model_validator(mode="after")
     def honest_outcome(self) -> ToolResult:
+        """Prevent overclaiming: empty needs complete coverage and no data, truncation
+        implies partial, failures carry no data, and the payload stays within 64 KiB.
+        """
         if self.status == "empty" and (
             self.data not in (None, [], {})
             or self.coverage != "complete"
@@ -340,6 +376,10 @@ class ToolInvocation(Contract):
 
     @model_validator(mode="after")
     def uncertain_dispatch_has_intent(self) -> ToolInvocation:
+        """Keep dispatch identities (proposal digest, intent id, idempotency key) all-
+        or-nothing, forbid them on reads, and require them for an unknown dispatch
+        outcome so it can be reconciled later.
+        """
         identity = (self.proposal_digest, self.dispatch_intent_id, self.idempotency_key)
         if any(identity) and not all(identity):
             raise ValueError("dispatch identities must be bound together")
@@ -355,6 +395,8 @@ class ToolInvocation(Contract):
 
 
 class VerificationObservation(Contract):
+    # One post-dispatch check (for example endpoint effect or service health) with its
+    # collector run, source and evidence.
     kind: Literal[
         "provider_ack",
         "endpoint_effect",
@@ -370,6 +412,8 @@ class VerificationObservation(Contract):
 
 
 class VerificationReport(Contract):
+    # Verification verdict for a dispatched proposal, built from observations that must
+    # belong to the same organization and incident.
     org_id: Id
     incident_id: Id
     proposal_digest: Digest
@@ -380,6 +424,11 @@ class VerificationReport(Contract):
 
     @model_validator(mode="after")
     def independent_checks(self) -> VerificationReport:
+        """A verified status requires passing endpoint, attacker-path, management and
+        service checks collected after dispatch by a different run, each with separate
+        evidence and distinct endpoint and attacker sources; provider acknowledgement
+        alone never counts.
+        """
         for observation in self.observations:
             if (observation.evidence.org_id, observation.evidence.incident_id) != (
                 self.org_id,

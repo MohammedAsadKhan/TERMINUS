@@ -1,6 +1,6 @@
 # File name: routing.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Capability routing and bounded approved fallback over M03 admission.
 
@@ -93,23 +93,32 @@ class ModelRoutingDeniedError(ValueError):
 
 
 class _Contract(BaseModel):
+    # Base for routing contracts: immutable, strictly typed and closed to extra fields.
+
     model_config: ClassVar[ConfigDict] = ConfigDict(
         extra="forbid", strict=True, frozen=True
     )
 
 
 class RouteRef(_Contract):
+    # Identifies one connection and model pair.
+
     connection_id: str = Field(min_length=1, max_length=200)
     model: str = Field(min_length=1, max_length=128)
 
 
 class RouteExclusion(_Contract):
+    # A candidate route dropped before use, with a short reason code.
+
     connection_id: str
     model: str
     reason: str
 
 
 class RouteAttempt(_Contract):
+    # Audit-safe summary of one provider attempt, including whether cost and usage are
+    # known.
+
     attempt: int
     connection_id: str
     connection_version: int
@@ -137,16 +146,20 @@ class RoutedModelResult(_Contract):
 
     @property
     def selected(self) -> RouteAttempt:
+        """Return the final attempt, which produced the response."""
         return self.attempts[-1]
 
 
 @dataclass(frozen=True)
 class _Candidate:
+    """A grant-approved connection and model eligible for routing."""
+
     connection: ModelConnectionView
     model: str
 
 
 def _safe_code(code: str | None) -> str:
+    """Map an error code to a known fixed code, so audit text is never provider-controlled."""
     if code is None:
         return "none"
     return code if code in FALLBACK_ERRORS else "unclassified"
@@ -158,6 +171,7 @@ class ModelRoutingService:
     def __init__(
         self, admission: ModelAdmissionService, budgets: ModelBudgetStore
     ) -> None:
+        """Require one shared database and create the append-only routing audit table."""
         if admission.scheduler.db is not budgets.db:
             raise ModelRoutingDeniedError("Model services require one database")
         self.admission: ModelAdmissionService = admission
@@ -202,6 +216,7 @@ class ModelRoutingService:
         request_digest: str | None = None,
         reservation_id: str | None = None,
     ) -> None:
+        """Append an immutable routing audit row, advancing the route's sequence number."""
         ctx.seq += 1
         connection = candidate.connection if candidate else None
         db = self.admission.scheduler.db
@@ -237,6 +252,7 @@ class ModelRoutingService:
         )
 
     def _owned(self, lease: JobLease, actor: str) -> None:
+        """Raise a routing denial if the lease is stale or cancelled."""
         # Stale ownership or cancellation ends routing; it is never a fallback.
         try:
             _ = self.admission.task_for(lease, actor)
@@ -246,10 +262,17 @@ class ModelRoutingService:
     def _candidates(
         self, ctx: _RouteContext, grants_for: list[tuple[str, int, tuple[str, ...]]]
     ) -> tuple[list[_Candidate], list[RouteExclusion]]:
+        """Split policy grants into eligible candidates and excluded ones with reasons.
+
+        A candidate needs an enabled connection at the granted version, a listed model
+        and admitted capabilities.
+        """
         eligible: list[_Candidate] = []
         excluded: list[RouteExclusion] = []
         seen: set[tuple[str, str]] = set()
         for connection_id, version, models in grants_for:
+            # Connections are fetched for the task's org as the acting user; a
+            # failed lookup excludes the route rather than aborting routing.
             try:
                 connection = self.admission.connections.get(
                     ctx.org_id, ctx.actor, connection_id
@@ -357,6 +380,8 @@ class ModelRoutingService:
         for candidate in eligible:
             if len(attempts) >= max_attempts:
                 break
+            # Ownership is rechecked before every attempt, so a cancelled or
+            # stale lease stops routing instead of reaching the next candidate.
             self._owned_logged(ctx, lease, actor_user_id)
             client = client_for(candidate.connection)
             if client is None:
@@ -462,6 +487,8 @@ class ModelRoutingService:
                 )
                 raise
             except ModelAdmissionDeniedError:
+                # Admission is rechecked while the call runs, so a denial here may
+                # follow provider I/O: keep the reserve (ambiguous), do not release.
                 self._ledger_safely(self.budgets.mark_ambiguous, ctx.org_id, rid)
                 self._log(
                     ctx,
@@ -529,6 +556,8 @@ class ModelRoutingService:
                 request_digest=call.request_digest,
                 reservation_id=rid,
             )
+            # Fall back only on a provider failure listed in FALLBACK_ERRORS; every
+            # other outcome is final and the next candidate is never tried.
             if response.status != "error" or response.error_code not in FALLBACK_ERRORS:
                 break
             rationale = f"fallback:{_safe_code(response.error_code)}"
@@ -574,6 +603,7 @@ class ModelRoutingService:
             )
 
     def _owned_logged(self, ctx: _RouteContext, lease: JobLease, actor: str) -> None:
+        """Check ownership and audit a stale lease as a denial before re-raising."""
         try:
             self._owned(lease, actor)
         except ModelRoutingDeniedError:
@@ -581,12 +611,15 @@ class ModelRoutingService:
             raise
 
     def _deny(self, ctx: _RouteContext, reason: str) -> NoReturn:
+        """Audit a denial reason and raise; no route is ever substituted."""
         self._log(ctx, "denied", reason)
         raise ModelRoutingDeniedError("No approved model route")
 
 
 @dataclass
 class _RouteContext:
+    """Per-route identifiers and audit sequence shared by all attempts in one route."""
+
     route_id: str
     org_id: str
     incident_id: str

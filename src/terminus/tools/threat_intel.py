@@ -1,6 +1,6 @@
 # File name: threat_intel.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Live Threat Intelligence Integration (VirusTotal, AbuseIPDB, GreyNoise) with TTL caching.
 
@@ -20,6 +20,10 @@ logger = logging.getLogger("terminus.tools.threat_intel")
 
 @dataclass
 class ThreatIntelResult:
+    """Outcome of one indicator lookup; is_malicious and reputation_score are None when no provider
+    was queried, meaning unknown rather than benign.
+    """
+
     indicator: str
     indicator_type: str  # "hash", "ipv4", "domain", "cve"
     is_malicious: bool | None
@@ -30,6 +34,11 @@ class ThreatIntelResult:
     details: str = ""
 
     def to_citation(self) -> dict[str, Any]:
+        # A result without a provider is reported as not assessed (queried False) so callers never
+        # treat it as corroboration or as benign.
+        """Convert the result to a citation, marked queried only when an external provider produced
+        it.
+        """
         if self.provider == "No external provider queried":
             return {
                 "status": "not_assessed",
@@ -59,6 +68,8 @@ class ThreatIntelClient:
         greynoise_key: str = "",
         cache_ttl_sec: float = 86400.0,
     ) -> None:
+        """Store provider API keys and the cache lifetime; a provider without a key is not queried.
+        """
         self.vt_api_key = vt_api_key
         self.abuseipdb_key = abuseipdb_key
         self.greynoise_key = greynoise_key
@@ -95,6 +106,9 @@ class ThreatIntelClient:
         return result
 
     async def _query_provider(self, indicator: str, indicator_type: str) -> ThreatIntelResult:
+        """Try the keyed live providers for the indicator type, otherwise return a result that
+        records that no reputation was assessed.
+        """
         # 1. Live VirusTotal Hash Lookup
         if indicator_type == "hash" and self.vt_api_key:
             try:
@@ -150,6 +164,8 @@ class ThreatIntelClient:
             except Exception as e:
                 logger.warning(f"AbuseIPDB lookup error for {indicator}: {e}")
 
+        # A failed or non-200 provider reply falls through to the unknown results below; it is never
+        # treated as benign.
         # Local string matches are context only; they cannot establish reputation.
         if indicator_type == "ipv4":
             # Check private RFC 1918

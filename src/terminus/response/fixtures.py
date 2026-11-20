@@ -1,6 +1,6 @@
 # File name: fixtures.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Internal deterministic fixture transitions. No transport or live adapter.
 
@@ -28,11 +28,19 @@ from terminus.toolkit.models import (
 
 @final
 class FixtureResponseDriver:
+    """Internal driver that simulates a response in SQLite: attempts, acknowledgements,
+    unknown outcomes, verification, undo and expiry of an owned fixture resource. It
+    performs no network or endpoint action.
+    """
     def __init__(self, service: ResponseContractService) -> None:
+        """Bind the driver to a contract service and its database."""
         self.service = service
         self.db = service.db
 
     def reserve(self, org_id: str, proposal_id: str) -> dict[str, Any]:
+        """Reserve the durable intent for an approved proposal by delegating to the
+        service, which re-checks admission and approval first.
+        """
         return self.service._reserve(org_id, proposal_id)  # noqa: SLF001
 
     def dispatch(
@@ -51,6 +59,8 @@ class FixtureResponseDriver:
         intent = self.reserve(org_id, proposal_id)
         with self.db.transaction():
             intent = self.service.store.intent(org_id, intent["intent_id"])
+            # Only a freshly reserved intent may be dispatched; any other state means an
+            # earlier attempt exists whose outcome must be read, not repeated.
             if intent["state"] != "reserved":
                 # Ambiguous/in-flight attempts are read, never blindly retried.
                 return self.service.inspect(org_id, proposal_id)
@@ -82,6 +92,8 @@ class FixtureResponseDriver:
         # intent or authorize a second attempt after restart.
         if outcome in {"acknowledged", "unknown_after_apply", "crash_after_apply"}:
             self._apply(org_id, intent["intent_id"])
+        # A simulated crash stops here, leaving the intent in_flight so that
+        # recover_interrupted() has an ambiguous attempt to reconcile.
         if outcome.startswith("crash"):
             return self.service.inspect(org_id, proposal_id)
         state = (
@@ -129,6 +141,8 @@ class FixtureResponseDriver:
             _ = self.service._binding(proposal)  # noqa: SLF001
             if proposal.digest() != intent["proposal_digest"]:
                 raise ResponseDeniedError("Fixture intent digest changed")
+            # One receipt per intent: a second apply would duplicate the effect, so an
+            # existing receipt must be reconciled rather than replayed.
             prior = self.db.fetchone(
                 "SELECT 1 FROM response_fixture_receipts WHERE org_id=? AND intent_id=?",
                 (org_id, intent_id),
@@ -176,6 +190,10 @@ class FixtureResponseDriver:
     def _state(
         self, org_id: str, intent_id: str, expected: str, state: str, detail: str
     ) -> None:
+        """Move an intent between lifecycle states with a compare-and-set on the
+        expected current state, raising a conflict if another writer changed it, and log
+        the transition.
+        """
         intent = self.service.store.intent(org_id, intent_id)
         cursor = self.db.execute(
             "UPDATE response_intents SET state=?,detail=? WHERE org_id=? AND intent_id=? AND state=?",
@@ -221,6 +239,8 @@ class FixtureResponseDriver:
             proposal, _ = self.service._proposal(org_id, intent["proposal_id"])  # noqa: SLF001
             if intent["state"] != "unknown":
                 return self.service.inspect(org_id, intent["proposal_id"])
+            # Ambiguity resolution: an unknown attempt is promoted to acknowledged only if
+            # an exact, matching owned-resource receipt exists; otherwise it stays unknown.
             try:
                 _ = self._ownership(proposal, intent)
             except (ResponseDeniedError, ValueError, KeyError):
@@ -261,6 +281,8 @@ class FixtureResponseDriver:
                 raise ResponseDeniedError(
                     "Verification requires a reconciled acknowledgement"
                 )
+            # Verification of an effect that has already expired would claim a current
+            # block that no longer exists, so it is refused.
             resource = self._ownership(proposal, intent)
             if datetime.fromisoformat(resource["expires_at"]) <= self.service._now():  # noqa: SLF001
                 raise ResponseDeniedError(
@@ -322,6 +344,11 @@ class FixtureResponseDriver:
         intent: dict[str, Any],
         observation: VerificationObservation,
     ) -> None:
+        """Check that one verification observation is backed by persisted evidence (same
+        source, hash and timestamps), a completed collector run and, for effect and
+        health checks, an independent verification task collected after dispatch and
+        before expiry.
+        """
         evidence = self.service._evidence(  # noqa: SLF001
             proposal.org_id, proposal.incident_id, observation.evidence.evidence_id
         )
@@ -429,6 +456,11 @@ class FixtureResponseDriver:
         return expired
 
     def _remove_owned(self, org_id: str, intent_id: str, *, expired: bool) -> None:
+        """Remove only the intent's owned fixture resource, either by manual undo
+        (refused while an ambiguous effect is unreconciled) or after its approved expiry
+        (refused before it); repeating on an already undone or expired intent does
+        nothing.
+        """
         intent = self.service.store.intent(org_id, intent_id)
         proposal, _ = self.service._proposal(org_id, intent["proposal_id"])  # noqa: SLF001
         if intent["state"] in {"undone", "expired"}:
@@ -467,6 +499,10 @@ class FixtureResponseDriver:
     def _ownership(
         self, proposal: ResponseProposal, intent: dict[str, Any]
     ) -> dict[str, Any]:
+        """Return the owned resource only if its receipt, proposal digest, incident,
+        undo strategy and expiry all exactly match the approved dispatch, otherwise
+        raise ResponseDeniedError.
+        """
         resource = self.db.fetchone(
             "SELECT * FROM response_owned_resources WHERE org_id=? AND intent_id=?",
             (proposal.org_id, intent["intent_id"]),

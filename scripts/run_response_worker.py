@@ -1,6 +1,6 @@
 # File name: run_response_worker.py
 # Author: Team LARP
-# Revision date: 2026-11-14
+# Revision date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Opt-in console response worker. Credentials remain local; no standalone dispatcher.
 
@@ -36,11 +36,18 @@ from terminus.toolkit.wazuh_readers import (
 
 
 async def run(args: argparse.Namespace) -> None:
+    """Run the console response worker loop until it is interrupted.
+
+    Startup authorizes no action: the worker only polls, and a response can be sent only
+    after an incident approval or an autonomy policy elsewhere in the service. Credentials
+    come from the environment or a local prompt and are never command-line arguments.
+    """
     manager_url = getattr(args, "manager_url", "https://192.168.56.104:55000")
     indexer_url = getattr(args, "indexer_url", "https://127.0.0.1:19200")
     observer_mode = getattr(args, "observer", "ssh")
     agent_id = getattr(args, "agent_id", "001")
     verify_tls = _verify_tls(args, manager_url, indexer_url, observer_mode)
+    # Environment variables take precedence so a scripted run needs no prompt.
     api_user = (
         os.environ.get("TERMINUS_RESPONSE_API_USER")
         or (await asyncio.to_thread(input, "Response API username: ")).strip()
@@ -71,11 +78,15 @@ async def run(args: argparse.Namespace) -> None:
             verify_tls=verify_tls,
         )
     )
+    # The worker must act on the same agent the API bound responses to; a mismatch would
+    # let a response be proposed for one agent and sent for another.
     if os.environ.get("TERMINUS_RESPONSE_AGENT_ID", agent_id) != agent_id:
         raise ValueError("Worker agent ID differs from the API response binding")
     os.environ["TERMINUS_RESPONSE_AGENT_ID"] = agent_id
     db = Database(args.database)
     service = LiveResponseService(db)
+    # Recovery is confirmed by an observer independent of the Wazuh API that sent the
+    # command, either the disposable Docker lab or SSH to the lab host.
     if observer_mode == "docker":
         observer = DockerLabObserver(local_script=True)
     elif args.kali_management_ip:
@@ -83,6 +94,8 @@ async def run(args: argparse.Namespace) -> None:
     else:
         raise ValueError("SSH observer requires --kali-management-ip")
     try:
+        # Authorization first, then an independent baseline; with no baseline the worker
+        # refuses to start because recovery could not be verified later.
         service.require_admin(args.org, args.actor)
         if not await observer("baseline", {}):
             raise ValueError("Independent lab baseline unavailable")
@@ -103,6 +116,8 @@ async def run(args: argparse.Namespace) -> None:
                 print("Database busy; response cycle will retry.", flush=True)
             await asyncio.sleep(5)
     finally:
+        # Drop this organization's runtime record on exit so a stopped worker is not left
+        # registered; a locked database is tolerated here rather than masking the exit.
         with suppress(sqlite3.OperationalError):
             db.execute("DELETE FROM live_response_runtime WHERE org_id=?", (args.org,))
         await manager.aclose()
@@ -113,6 +128,7 @@ async def run(args: argparse.Namespace) -> None:
 def _verify_tls(
     args: argparse.Namespace, manager_url: str, indexer_url: str, observer_mode: str
 ) -> bool:
+    """Return whether TLS certificates are verified; skipping needs the fixed Docker lab."""
     if not getattr(args, "insecure_lab_tls", False):
         return True
     # Test certificates in the disposable Compose lab are not trusted by the
@@ -137,7 +153,13 @@ async def _worker_cycle(
     observer: Callable[[str, dict[str, Any]], Awaitable[bool]],
     agent_id: str,
 ) -> None:
+    """Run one poll cycle: read agent status and recent failures, then advance responses.
+
+    New dispatch is allowed only after a complete, untruncated read. Recovery observation
+    still runs when the manager or the read is unavailable, so expired effects are checked.
+    """
     now = datetime.now(UTC)
+    # Only dispatch while the manager reports the named lab agent as active.
     context = await manager.read(
         ReadQuery(
             resource_id="response-target",
@@ -155,6 +177,7 @@ async def _worker_cycle(
         and o.data.get("name") == "terminus-target-a"
         for o in context.observations
     ):
+        # Bounded window and page count keep each cycle small.
         collection = await indexer.read(
             ReadQuery(
                 resource_id="response-target",
@@ -169,6 +192,8 @@ async def _worker_cycle(
             ),
         )
         service.ingest(args.org, args.actor, collection)
+        # A partial, gapped, or truncated read pauses new dispatch (available is False)
+        # rather than being treated as an absence of attacks.
         await service.tick(
             args.org,
             transport,
@@ -179,6 +204,7 @@ async def _worker_cycle(
             and not collection.truncated,
         )
     else:
+        # Manager state unknown: pause new dispatch but still let recovery run.
         await service.tick(args.org, transport, observer, available=False)
         print("Manager unavailable; new dispatch paused.", flush=True)
 

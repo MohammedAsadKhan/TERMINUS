@@ -1,6 +1,6 @@
 # File name: deps.py
 # Author: Team LARP
-# Revision date: 2026-11-14
+# Revision date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: FastAPI dependency injection module for services, authentication, and multi-tenant authorization.
 
@@ -172,48 +172,65 @@ if get_settings().demo_seed_enabled and get_settings().deployment_mode == "local
 
 
 def get_sqlite_workflow_repo() -> SqliteWorkflowRepository:
+    """Return the process-wide workflow repository singleton (same instance as
+    get_workflow_repo).
+    """
     return _sqlite_workflow_repo
 
 
 def get_workflow_repo() -> SqliteWorkflowRepository:
+    """FastAPI dependency returning the shared SQLite workflow repository."""
     return _sqlite_workflow_repo
 
 
 def get_sqlite_agent_repo() -> SqliteAgentRepository:
+    """Return the process-wide agent repository singleton (same instance as
+    get_agent_repo).
+    """
     return _sqlite_agent_repo
 
 
 def get_agent_repo() -> SqliteAgentRepository:
+    """FastAPI dependency returning the shared SQLite agent repository."""
     return _sqlite_agent_repo
 
 
 def get_workflow_run_repo() -> SqliteWorkflowRunRepository:
+    """FastAPI dependency returning the shared SQLite workflow-run repository."""
     return _sqlite_workflow_run_repo
 
 
 def get_approval_repo() -> SqliteApprovalRepository:
+    """FastAPI dependency returning the shared SQLite approval repository."""
     return _sqlite_approval_repo
 
 
 def get_alert_claim_repo() -> SqliteAlertClaimRepository:
+    """FastAPI dependency returning the shared repository that records alert claims."""
     return _sqlite_alert_claim_repo
 
 
 def get_allowlist_repo() -> SqliteAllowlistRepository:
+    """FastAPI dependency returning the shared SQLite allowlist repository."""
     return _sqlite_allowlist_repo
 
 
 def get_incident_repo() -> SqliteIncidentRepository:
+    """FastAPI dependency returning the shared SQLite incident (ticket) repository."""
     return _sqlite_incident_repo
 
 
 def get_action_log_repo() -> SqliteActionLogRepository:
+    """FastAPI dependency returning the shared SQLite response-action log repository."""
     return _sqlite_action_log_repo
 
 
 def get_agents_store(
     org_id: Annotated[OrgId, Depends(lambda: OrgId("org-default"))],
 ) -> dict[str, SocAgent]:
+    """Return agents keyed by id for a fixed default organization; the org is not
+    derived from the caller, so tenant-scoped routes use get_tenant_agents instead.
+    """
     agents = _sqlite_agent_repo.list_for_org(str(org_id))
     return {a.id: a for a in agents}
 
@@ -221,29 +238,41 @@ def get_agents_store(
 def get_workflows_store(
     org_id: Annotated[OrgId, Depends(lambda: OrgId("org-default"))],
 ) -> dict[str, Workflow]:
+    """Return workflows keyed by id for a fixed default organization; tenant-scoped
+    routes use get_tenant_workflows instead.
+    """
     wfs = _sqlite_workflow_repo.list_for_org(str(org_id))
     return {w.id: w for w in wfs}
 
 
 def get_user_store() -> UserStore:
+    """FastAPI dependency creating a SQLite-backed user store."""
     return SqliteUserStore()
 
 
 def get_org_store() -> SqliteOrganizationStore:
+    """FastAPI dependency creating a SQLite-backed organization store."""
     return SqliteOrganizationStore()
 
 
 def get_membership_store() -> SqliteMembershipStore:
+    """FastAPI dependency creating a SQLite-backed organization membership store."""
     return SqliteMembershipStore()
 
 
 def get_auth_service() -> AuthService:
+    """FastAPI dependency building an AuthService over the SQLite user and session
+    stores.
+    """
     return AuthService(SqliteUserStore(), session_store=SqliteSessionStore())
 
 
 def get_license_service(
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> LicenseService:
+    """FastAPI dependency building a LicenseService keyed by the configured license
+    secret.
+    """
     return LicenseService(secret=settings.license_secret)
 
 
@@ -252,6 +281,9 @@ def get_org_service(
     membership_store: Annotated[MembershipStore, Depends(get_membership_store)],
     license_service: Annotated[LicenseService, Depends(get_license_service)],
 ) -> OrganizationService:
+    """FastAPI dependency wiring the organization service to its org, membership and
+    license collaborators.
+    """
     return OrganizationService(
         org_store=org_store,
         membership_store=membership_store,
@@ -262,6 +294,9 @@ def get_org_service(
 def get_llm_client(
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> LlmClient:
+    """Return an OpenAI-compatible client when an API key is configured, otherwise a
+    client that reports the LLM as unavailable instead of failing at import time.
+    """
     if settings.llm_api_key:
         return OpenAiCompatibleLlm(
             base_url=settings.llm_base_url,
@@ -274,6 +309,10 @@ def get_llm_client(
 def get_pipeline_runner(
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> PipelineRunner:
+    """Assemble the incident pipeline from settings: LLM, Wazuh SIEM (or unavailable
+    stub), notifiers, optional Jira, policy engine and campaign stitcher; optional
+    integrations are enabled only when their credentials are configured.
+    """
     llm = get_llm_client(settings)
 
     if settings.wazuh_url:
@@ -355,6 +394,12 @@ def get_current_user(
     x_session_token: Annotated[str | None, Header(alias="X-Session-Token")] = None,
     terminus_session: Annotated[str | None, Cookie()] = None,
 ) -> User:
+    """Authenticate the request from the X-Session-Token header, then the Authorization
+    header (Bearer prefix optional), then the session cookie, in that order; raises 401
+    if no token is found or the session is invalid or expired, and rejects the local
+    demo admin account in hosted mode.
+    """
+    # Token precedence: explicit session header, then Authorization, then the cookie.
     token_str = x_session_token
     if not token_str and authorization:
         if authorization.startswith("Bearer "):
@@ -373,6 +418,8 @@ def get_current_user(
 
     try:
         user = auth_service.verify(SessionToken(token_str))
+        # The seeded demo admin has a published password, so it must never authenticate
+        # on a hosted deployment even though its session itself is valid.
         if get_settings().deployment_mode == "hosted" and user.email == "admin@terminus.local":
             raise ValueError("Local demo account is disabled in hosted mode")
         return user
@@ -388,12 +435,20 @@ def get_current_org(
     membership_store: Annotated[MembershipStore, Depends(get_membership_store)],
     x_org_id: Annotated[str | None, Header(alias="X-Org-ID")] = None,
 ) -> OrgId:
+    """Resolve the organization the caller acts in: an explicit X-Org-ID is honored only
+    if the user holds a membership there (403 otherwise), and without it the user's
+    first membership is used. This is the tenant-isolation boundary for org-scoped
+    routes.
+    """
     if not x_org_id:
         user_orgs = membership_store.orgs_for_user(user.user_id)
         if user_orgs:
+            # No explicit org requested: default to the user's first membership.
             return user_orgs[0].org_id
         raise HTTPException(status_code=403, detail="User has no organization membership")
 
+    # A client-supplied org header is untrusted: membership must be verified here so
+    # one tenant cannot act in another tenant's organization.
     org_id = OrgId(x_org_id)
     role = membership_store.role_of(org_id, user.user_id)
     if role is None:
@@ -407,6 +462,9 @@ def get_current_org(
 def get_webhook_org(
     org_id: Annotated[OrgId, Depends(get_current_org)],
 ) -> OrgId:
+    """Resolve the organization for webhook ingestion via the caller's authenticated
+    organization.
+    """
     return org_id
 
 
@@ -415,6 +473,9 @@ def get_current_user_role(
     org_id: Annotated[OrgId, Depends(get_current_org)],
     membership_store: Annotated[MembershipStore, Depends(get_membership_store)],
 ) -> str:
+    """Map the caller's membership role in the current organization to the console role
+    names: admin, analyst (member), or viewer for any other or missing role.
+    """
     role = membership_store.role_of(org_id, user.user_id)
     if role == OrganizationRole.ADMIN:
         return "admin"
@@ -428,6 +489,9 @@ def require_admin(
     org_id: Annotated[OrgId, Depends(get_current_org)],
     membership_store: Annotated[MembershipStore, Depends(get_membership_store)],
 ) -> None:
+    """Authorization guard that raises 403 unless the caller is an admin of the current
+    organization.
+    """
     role = membership_store.role_of(org_id, user.user_id)
     if role != OrganizationRole.ADMIN:
         raise HTTPException(
@@ -437,6 +501,7 @@ def require_admin(
 
 
 def get_reports_store() -> SqliteReportStore:
+    """Return a report store bound to the currently active database."""
     # Tests and isolated instances can reset the singleton after module import;
     # bind report history to the same active database as tenant repositories.
     return SqliteReportStore(Database.get_instance())
@@ -447,6 +512,9 @@ def require_operator(
     org_id: Annotated[OrgId, Depends(get_current_org)],
     members: Annotated[MembershipStore, Depends(get_membership_store)],
 ) -> None:
+    """Authorization guard that raises 403 unless the caller is an admin or member of
+    the current organization (viewers are excluded).
+    """
     if members.role_of(org_id, user.user_id) not in (
         OrganizationRole.ADMIN, OrganizationRole.MEMBER
     ):
@@ -457,6 +525,9 @@ def get_tenant_agents(
     org_id: Annotated[OrgId, Depends(get_current_org)],
     agent_repo: Annotated[SqliteAgentRepository, Depends(get_agent_repo)],
 ) -> dict[str, SocAgent]:
+    """Return the current organization's agents keyed by id; only that organization's
+    rows are loaded.
+    """
     agents = agent_repo.list_for_org(str(org_id))
     return {a.id: a for a in agents}
 
@@ -465,5 +536,8 @@ def get_tenant_workflows(
     org_id: Annotated[OrgId, Depends(get_current_org)],
     workflow_repo: Annotated[SqliteWorkflowRepository, Depends(get_workflow_repo)],
 ) -> dict[str, Workflow]:
+    """Return the current organization's workflows keyed by id; only that organization's
+    rows are loaded.
+    """
     wfs = workflow_repo.list_for_org(str(org_id))
     return {w.id: w for w in wfs}

@@ -1,6 +1,6 @@
 # File name: store.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Durable tenant-scoped storage for named model connections.
 
@@ -31,6 +31,8 @@ if TYPE_CHECKING:
 
 
 class _Cipher(Protocol):
+    """Structural interface for the credential cipher used to protect stored keys."""
+
     def encrypt(self, secret: str, binding: str) -> str: ...
 
     def decrypt(self, token: str, binding: str) -> SecretStr: ...
@@ -97,6 +99,7 @@ class ModelConnectionStore:
     """Connection registry with live authorization and optimistic concurrency."""
 
     def __init__(self, db: Database, cipher: CredentialCipher | None) -> None:
+        """Create the connection and immutable audit tables and keep the optional cipher."""
         self.db: Database = db
         self._cipher: _Cipher | None = cast("_Cipher | None", cipher)
         with self.db.transaction() as conn:
@@ -109,12 +112,14 @@ class ModelConnectionStore:
 
     @staticmethod
     def _binding(org_id: str, connection_id: str) -> str:
+        """Return the tenant and connection identity a credential is bound to."""
         return json.dumps([org_id, connection_id], separators=(",", ":"))
 
     @staticmethod
     def _authorize(
         conn: sqlite3.Connection, org_id: str, actor: str, *, write: bool
     ) -> None:
+        """Require live membership in the org, and the admin role for writes."""
         row = conn.execute(
             "SELECT role FROM memberships WHERE org_id = ? AND user_id = ?",
             (org_id, actor),
@@ -124,9 +129,11 @@ class ModelConnectionStore:
 
     @staticmethod
     def _missing() -> ConnectionNotFoundError:
+        """Build the not-found error used for absent or other-tenant connections."""
         return ConnectionNotFoundError("Model connection not found")
 
     def _validate_ciphertext(self, row: sqlite3.Row) -> None:
+        """Confirm a stored credential still decrypts under its own binding, without exposing it."""
         token = row["credential_ciphertext"]
         if token is None or self._cipher is None:
             return
@@ -159,9 +166,12 @@ class ModelConnectionStore:
                 "SELECT * FROM model_connections WHERE org_id=? AND connection_id=?",
                 (connection.org_id, connection.connection_id),
             ).fetchone()
+            # The caller's snapshot must equal the stored row exactly; any edit
+            # since admission (version, endpoint, models) refuses the credential.
             if row is None or not connection.enabled or self._view(row) != connection:
                 raise ConnectionUnavailableError("Model connection changed")
             token = row["credential_ciphertext"]
+            # Only local providers may run without a key; hosted ones must have one.
             if token is None:
                 if connection.provider == "local":
                     return None
@@ -182,6 +192,7 @@ class ModelConnectionStore:
     def _validate_create_request(
         request: ModelConnectionCreate,
     ) -> ModelConnectionCreate:
+        """Re-validate a create request from its dump, keeping the write-only API key."""
         try:
             payload = request.model_dump(warnings=False)
             payload["api_key"] = request.api_key
@@ -193,6 +204,7 @@ class ModelConnectionStore:
     def _validate_update_request(
         request: ModelConnectionUpdate,
     ) -> ModelConnectionUpdate:
+        """Re-validate only the supplied fields of an update, so omitted ones stay unchanged."""
         try:
             supplied = request.model_fields_set
             payload = request.model_dump(exclude_unset=True, warnings=False)
@@ -203,6 +215,7 @@ class ModelConnectionStore:
             raise ConnectionValidationError("Invalid model connection update") from exc
 
     def _view(self, row: sqlite3.Row) -> ModelConnectionView:
+        """Build the public view of a row, which carries a credential mask but never the key."""
         self._validate_ciphertext(row)
         configured = row["credential_ciphertext"] is not None
         try:
@@ -237,6 +250,8 @@ class ModelConnectionStore:
         version: int,
         timestamp: str,
     ) -> None:
+        """Append an immutable audit row listing changed field names, never values."""
+        # Audit rows list field names only; api_key is recorded as "credential".
         safe_fields = sorted(
             "credential" if item == "api_key" else item for item in fields
         )
@@ -260,6 +275,7 @@ class ModelConnectionStore:
     def create(
         self, org_id: str, actor_user_id: str, request: ModelConnectionCreate
     ) -> ModelConnectionView:
+        """Create a connection with an encrypted optional key; admin only, capped at 50 per org."""
         connection_id = str(uuid4())
         timestamp = datetime.now(UTC).isoformat()
         with self.db.transaction() as conn:
@@ -280,6 +296,7 @@ class ModelConnectionStore:
                     raise ConnectionUnavailableError(
                         "Credential encryption failed"
                     ) from exc
+            # Per-organization cap, counted inside the same transaction as the insert.
             count = conn.execute(
                 "SELECT count(*) FROM model_connections WHERE org_id = ?", (org_id,)
             ).fetchone()[0]
@@ -335,6 +352,7 @@ class ModelConnectionStore:
     def list_for_org(
         self, org_id: str, actor_user_id: str
     ) -> list[ModelConnectionView]:
+        """List the org's connections for any live member, ordered by name."""
         with self.db.transaction() as conn:
             self._authorize(conn, org_id, actor_user_id, write=False)
             rows = conn.execute(
@@ -347,6 +365,7 @@ class ModelConnectionStore:
     def get(
         self, org_id: str, actor_user_id: str, connection_id: str
     ) -> ModelConnectionView:
+        """Return one connection of the org for any live member, or raise not-found."""
         with self.db.transaction() as conn:
             self._authorize(conn, org_id, actor_user_id, write=False)
             row = conn.execute(
@@ -364,6 +383,11 @@ class ModelConnectionStore:
         connection_id: str,
         request: ModelConnectionUpdate,
     ) -> ModelConnectionView:
+        """Apply a version-checked partial update atomically; admin only.
+
+        A provider or endpoint change requires replacing or clearing the stored
+        credential.
+        """
         with self.db.transaction() as conn:
             self._authorize(conn, org_id, actor_user_id, write=True)
             request = self._validate_update_request(request)
@@ -374,6 +398,7 @@ class ModelConnectionStore:
             if row is None:
                 raise self._missing()
             self._validate_ciphertext(row)
+            # Optimistic concurrency: the caller must have seen the current version.
             if int(row["version"]) != request.expected_version:
                 raise ConnectionConflictError("Model connection version conflict")
 
@@ -381,6 +406,8 @@ class ModelConnectionStore:
             provider = (
                 request.provider if "provider" in supplied else str(row["provider"])
             )
+            # Boundary: a stored credential cannot follow a changed provider or
+            # endpoint, so it can never be redirected to a new destination.
             if (
                 "provider" in supplied
                 and provider != row["provider"]
@@ -509,6 +536,7 @@ class ModelConnectionStore:
         connection_id: str,
         expected_version: int,
     ) -> None:
+        """Delete a connection at the expected version and audit it; admin only."""
         unchecked_version: object = expected_version
         if type(unchecked_version) is not int:
             raise ConnectionValidationError("Invalid expected version")

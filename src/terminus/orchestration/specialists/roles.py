@@ -1,6 +1,6 @@
 # File name: roles.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Fixed, ordered read plans for the eight core specialist roles.
 
@@ -64,6 +64,9 @@ def _query(task: Task, context: QueryContext, resource_id: str, kind: str) -> Re
 def _call(
     tool_id: str, resource_id: str, kind: str = "evidence", *, cite: bool = False
 ) -> PlannedCall:
+    """Build a planned call whose query is derived from the leased task for the given resource and
+    event kind.
+    """
     return PlannedCall(
         tool_id,
         lambda task, context: _query(task, context, resource_id, kind),
@@ -72,10 +75,12 @@ def _call(
 
 
 def _incident(tool_id: str, *, cite: bool = False) -> PlannedCall:
+    """Planned call against the incident resource reference."""
     return _call(tool_id, INCIDENT_RESOURCE_ID, cite=cite)
 
 
 def _endpoint(tool_id: str, kind: str = "evidence") -> PlannedCall:
+    """Planned call against the endpoint resource reference."""
     return _call(tool_id, ENDPOINT_RESOURCE_ID, kind)
 
 
@@ -83,6 +88,9 @@ _INCIDENT_GET = _incident("incident.get")
 
 
 def _scoped_alert_query(task: Task, context: QueryContext) -> ReadQuery:
+    """Build the alert and coverage query for the endpoint, using the authentication event kind for
+    authentication incidents.
+    """
     return _query(
         task,
         context,

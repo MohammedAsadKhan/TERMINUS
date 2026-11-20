@@ -1,6 +1,6 @@
 // File: main.tsx
 // Author: Team LARP
-// Date: 2026-11-17
+// Date: 2026-11-19 (comments revised)
 // Version: 0.1.0
 // Purpose: Mount the React console with routing, query caching, and the dark default theme.
 
@@ -18,13 +18,16 @@ import './workbench.css';
 import './investigation-graph.css';
 import './workspace.css';
 
+// Shared query cache. Failed requests are not retried automatically, and data is treated as fresh for 15 seconds.
 const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: 15000 }, mutations: { retry: false } } });
 
+// Top-level providers: theme, Ant Design theme tokens, query cache and routing under the /console base path.
 function Root() {
   // Preserve an analyst's explicit choice; first-time sessions start in the SOC's dark theme.
   const [themeId, setThemeIdState] = useState<string>(() => localStorage.getItem('terminus_theme_id') || 'carbon');
   const activeTheme = THEMES[themeId] || THEMES.carbon;
 
+  // Applies and saves a theme only if it is a known theme id.
   const setThemeId = (id: string) => {
     if (THEMES[id]) {
       setThemeIdState(id);
@@ -33,6 +36,7 @@ function Root() {
     }
   };
 
+  // Re-applies the CSS variables whenever the active theme changes, including on first load.
   useEffect(() => {
     applyThemeVariables(activeTheme);
   }, [activeTheme]);

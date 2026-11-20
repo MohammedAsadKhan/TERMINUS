@@ -1,6 +1,6 @@
 # File name: routers.py
 # Author: Team LARP
-# Revision date: 2026-11-13
+# Revision date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: FastAPI route handlers for Auth, Organization, License management, Workflows, Agents, and Wazuh webhooks.
 
@@ -79,6 +79,8 @@ from terminus.storage.repositories import (
 
 
 class RegisterRequest(BaseModel):
+    # Body for registering a user; extra fields are rejected and the password must be
+    # at least eight characters.
     model_config = ConfigDict(extra="forbid")
     email: str
     password: str = Field(min_length=8)
@@ -86,34 +88,41 @@ class RegisterRequest(BaseModel):
 
 
 class LoginRequest(BaseModel):
+    # Email and password submitted to log in; extra fields are rejected.
     model_config = ConfigDict(extra="forbid")
     email: str
     password: str
 
 
 class LoginResponse(BaseModel):
+    # Login result carrying the session token and the public user profile.
     model_config = ConfigDict(extra="forbid")
     session_token: str
     user: PublicUser
 
 
 class CreateOrgRequest(BaseModel):
+    # Body for creating an organization.
     model_config = ConfigDict(extra="forbid")
     name: str = Field(min_length=1)
 
 
 class AddMemberRequest(BaseModel):
+    # Body naming an existing user and the role to grant, defaulting to member.
     model_config = ConfigDict(extra="forbid")
     user_id: UserId
     role: OrganizationRole = OrganizationRole.MEMBER
 
 
 class ActivateLicenseRequest(BaseModel):
+    # Body carrying the signed license token to activate.
     model_config = ConfigDict(extra="forbid")
     token: str
 
 
 class CreateAgentRequest(BaseModel):
+    # Body for creating a SOC agent, with bounded name, description and prompt lengths.
+    #
     model_config = ConfigDict(extra="forbid")
     name: str = Field(min_length=1, max_length=80)
     role_description: str = Field(min_length=1, max_length=500)
@@ -121,6 +130,7 @@ class CreateAgentRequest(BaseModel):
 
 
 class UpdateAgentRequest(BaseModel):
+    # Partial update for a SOC agent; only supplied fields change.
     model_config = ConfigDict(extra="forbid")
     name: str | None = Field(default=None, max_length=80)
     role_description: str | None = Field(default=None, max_length=500)
@@ -129,16 +139,19 @@ class UpdateAgentRequest(BaseModel):
 
 
 class ToggleWorkflowRequest(BaseModel):
+    # Body that enables or disables a workflow.
     model_config = ConfigDict(extra="forbid")
     enabled: bool
 
 
 class ResolveApprovalRequest(BaseModel):
+    # Approve or reject decision for a pending workflow approval.
     model_config = ConfigDict(extra="forbid")
     decision: Literal["approve", "reject"]
 
 
 class CreateAllowlistRequest(BaseModel):
+    # Body for adding a containment allowlist entry of a given kind and value.
     model_config = ConfigDict(extra="forbid")
     kind: Literal["host", "ip", "subnet", "domain"]
     value: str
@@ -146,6 +159,8 @@ class CreateAllowlistRequest(BaseModel):
 
 
 class DryRunExecuteRequest(BaseModel):
+    # Body for a workflow test run; defaults to a dry run with an optional sample
+    # alert.
     model_config = ConfigDict(extra="allow")
     sample_alert: SiemAlert | None = None
     dry_run: bool = True
@@ -156,6 +171,8 @@ from terminus.service.sensor import service_sensor
 
 
 class ServiceHeartbeatRequest(BaseModel):
+    # Heartbeat from an external telemetry or simulation source, with its state and
+    # free-form metadata.
     model_config = ConfigDict(extra="allow")
     source: str = "siem_emitter"
     status: Literal["connected", "disconnected", "active", "idle"] = "connected"
@@ -176,17 +193,22 @@ allowlist_router = APIRouter(prefix="/containment/allowlist", tags=["Containment
 @health_router.get("/", include_in_schema=False)
 @health_router.get("/dashboard", include_in_schema=False)
 async def dashboard() -> RedirectResponse:
+    """Redirect the root and dashboard paths to the console."""
     return RedirectResponse("/console/")
 
 
 @health_router.get("/console", include_in_schema=False)
 async def console_redirect() -> RedirectResponse:
+    """Redirect the bare console path to its trailing-slash form."""
     return RedirectResponse("/console/")
 
 
 @health_router.get("/console/", response_class=HTMLResponse, include_in_schema=False)
 @health_router.get("/console/{path:path}", response_class=HTMLResponse, include_in_schema=False)
 async def console_entry(path: str = "") -> HTMLResponse:
+    """Serve the console's single-page entry for any console path, or a 503 hint to
+    build the console when the bundle is missing.
+    """
     entry = Path(__file__).parent / "static" / "console" / "index.html"
     if not entry.exists():
         return HTMLResponse("<h1>Build the Terminus console</h1><p>Run <code>cd web &amp;&amp; npm ci &amp;&amp; npm run build</code>, then refresh.</p>", status_code=503)
@@ -264,6 +286,8 @@ async def login(
 ) -> LoginResponse:
     """Authenticate with email and password to receive a session token."""
     try:
+        # Hosted deployments refuse the seeded demo admin (its password is published)
+        # before any credential check is made.
         if get_settings().deployment_mode == "hosted" and req.email.strip().lower() == "admin@terminus.local":
             raise ValueError("Invalid email or password")
         token = auth_service.login(email=req.email, password=req.password)
@@ -287,6 +311,8 @@ async def logout(
     authorization: Annotated[str | None, Header()] = None,
 ) -> dict[str, str]:
     """Revoke active session token."""
+    # Revoke every credential the request carried (header token and cookie), since either
+    # alone would keep the session usable.
     token_str = x_session_token
     if not token_str and authorization:
         token_str = authorization.removeprefix("Bearer ")
@@ -418,11 +444,15 @@ async def authenticated_wazuh_webhook(
 ) -> InvestigationReport:
     """Bind a configured source credential and raw receipt to one organization."""
     settings = get_settings()
+    # The organization comes from server configuration, never from the request, so a
+    # source key can only ever write into the one organization it was provisioned for.
     expected = settings.wazuh_webhook_key.get_secret_value()
     if not expected or not settings.wazuh_webhook_org:
         raise HTTPException(503, "Wazuh source intake is not configured")
     if not x_terminus_source_key or not secrets.compare_digest(x_terminus_source_key, expected):
         raise HTTPException(401, "Invalid source credential")
+    # Hash of the raw body is stored as a receipt so the stored alert can be tied back
+    # to exactly what the source sent.
     receipt_hash = sha256(await request.body()).hexdigest()
     service_sensor.record_telemetry_event(source="authenticated_wazuh_webhook", alert_id=str(alert.id))
     return await pipeline_runner.process_alert(
@@ -443,6 +473,8 @@ async def list_incidents(
 
 
 class IncidentActionRequest(BaseModel):
+    # Requested incident action; only ticket status actions (close, reopen, start
+    # investigation) are executed by the server.
     action_type: Literal["close_ticket", "reopen_ticket", "start_investigation", "isolate_host", "block_ip", "run_playbook"] = Field(description="Action to execute: isolate_host, block_ip, run_playbook, close_ticket")
     resolution_category: Literal["true_positive", "false_positive", "benign_activity", "inconclusive"] | None = None
     resolution_notes: str | None = Field(default=None, max_length=4000)
@@ -459,6 +491,8 @@ async def execute_incident_action(
     ticket_store = pipeline_runner.deployment.ticket_store
     ticket = await ticket_store.get_ticket(ticket_id, org_id)
 
+    # The ticket lookup above is organization-scoped. Only status changes are executed
+    # here; containment actions are refused so nothing is reported as done that was not.
     statuses = {"close_ticket": "RESOLVED", "reopen_ticket": "OPEN", "start_investigation": "INVESTIGATING"}
     if req.action_type not in statuses:
         raise HTTPException(501, "Live containment requires a verified response connector. No external action was executed.")
@@ -470,6 +504,8 @@ async def execute_incident_action(
             resolution_notes=(req.resolution_notes or "").strip() if req.action_type == "close_ticket" else None,
         )
         return {"status": "success", "ticket": ticket, "message": f"Incident marked {ticket['status'].lower()}"}
+    # Fallback for stores without update_ticket_status: edits the returned ticket dict
+    # directly rather than calling a store method.
     ticket["status"] = statuses[req.action_type]
     ticket["updated_at"] = datetime.now(UTC).isoformat()
     ticket["resolved_at"] = ticket["updated_at"] if req.action_type == "close_ticket" else ""

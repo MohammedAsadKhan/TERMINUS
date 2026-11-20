@@ -1,6 +1,6 @@
 # File name: backtest.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Historical Rule Replay & Backtesting Simulator for TERMINUS.
 
@@ -21,6 +21,10 @@ from terminus.tuning.service import TuningRecommendation
 
 @dataclass
 class BacktestResult:
+    """Outcome of a simulated backtest of a tuning rule, including the Wilson lower bound used for
+    the safety decision.
+    """
+
     rule_id: str
     historical_events_evaluated: int
     false_positives_eliminated: int
@@ -40,9 +44,15 @@ class RuleBacktestSimulator:
         recommendation: TuningRecommendation,
         historical_incidents: list[dict[str, Any]],
     ) -> BacktestResult:
+        """Estimate a rule's effect from a fixed assumption (18% of events, at least 3, are false
+        positives and no true positives are suppressed) rather than replaying telemetry; it is safe
+        only if the Wilson lower bound is at least 0.65.
+        """
         total = len(historical_incidents) if historical_incidents else 100
         # Calculate matching historical metrics
         eliminated = min(max(int(total * 0.18), 3), total)
+        # Assumed, not measured: no telemetry is replayed, so this result is a simulation and not
+        # evidence from real data.
         suppressed_tp = 0  # Confirmed 0 true attacks suppressed
 
         noise_pct = round((eliminated / max(total, 1)) * 100.0, 1)

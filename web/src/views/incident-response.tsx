@@ -1,6 +1,6 @@
 // File: incident-response.tsx
 // Author: Team LARP
-// Date: 2026-11-09
+// Date: 2026-11-19 (comments revised)
 // Version: 0.1.0
 // Purpose: Render response proposals, authorization decisions, and verified outcomes.
 
@@ -11,22 +11,36 @@ import { api, body } from '../api';
 import { useSession } from '../context';
 import { date, ErrorPanel } from '../components';
 
+// One response recommendation. digest is sent back with every decision or revision so it applies to this exact
+// proposal, and capability is 'Ready' only when the action can be approved.
 type Proposal = { suggested_steps?: string[]; proposal_id: string; digest: string; title: string; action: string; origin: string; rationale: string; capability: string; source_ip: string | null; target_ip: string | null; agent_id: string | null; duration_seconds: number; cooldown_seconds: number; max_actions: number; impact: string; verification: string; recovery: string; exclusions: string[]; evidence: { id: string; task_id: string }[]; decision: { decision: string; note: string } | null };
+// Response state for one incident. The first proposal is the current one; the rest are earlier revisions.
 type ResponseView = { operation_id: string | null; proposals: Proposal[]; authorizations: {authorization_id: string; mode: string; expires_at: string; revoked_at: string | null}[]; intents: {intent_id: string; proposal_id: string; state: string}[]; events: {id: number; state: string; detail: string; created_at: string; intent_id: string | null; proposal_id: string | null}[] };
 
+// Response decision panel and timeline for one incident, scoped to the signed-in organization. Approving or enabling
+// autonomy only records an authorization; execution and verification are reported separately in the timeline.
+// Decision controls are enabled only for organization admins.
 export default function IncidentResponse({ incidentId, timelineOnly = false }: { incidentId: string; timelineOnly?: boolean }) {
   const { orgId, detail } = useSession();
   const { message } = App.useApp();
+  // Decision waiting in the review dialog; a rejection cannot be saved without a note.
   const [review, setReview] = useState<{proposal: Proposal; decision: string} | null>(null);
   const [note, setNote] = useState('');
+  // Proposal whose block duration is being revised; saving creates a new revision and revokes prior authorization.
   const [revision, setRevision] = useState<Proposal | null>(null);
   const [duration, setDuration] = useState(60);
   const base = `/incidents/${encodeURIComponent(incidentId)}/response`;
+  // Polled every 2 seconds so queued, executed and verified states appear without a manual refresh.
   const state = useQuery({queryKey: ['live-response', orgId, incidentId], queryFn: () => api<ResponseView>(base, orgId), refetchInterval: 2000});
+  // Every decision action posts to the response API and reloads the state. The success text notes that execution is reported separately.
   const update = useMutation({mutationFn: ({path, payload}: {path: string; payload?: unknown}) => api<ResponseView>(base + path, orgId, body('POST', payload ?? {})), onSuccess: () => { setReview(null); setRevision(null); setNote(''); void state.refetch(); message.success('Response decision recorded. Execution and verification are reported separately.'); }, onError: (error: Error) => message.error(error.message)});
   const admin = detail?.role === 'admin';
+  // Authorizations that are neither revoked nor expired. While one is active, new approve or autonomy decisions are blocked.
   const active = state.data?.authorizations?.filter(a => !a.revoked_at && new Date(a.expires_at).getTime() > Date.now()) || [];
+  // The newest proposal is the one being decided.
   const proposal = state.data?.proposals?.[0];
+  // Decision buttons are disabled once a non-deferred decision exists, and approve or autonomy also need a Ready
+  // capability and no active authorization.
   return <section aria-label="Incident response" className="work-detail-content">
     <h3>{timelineOnly ? 'Response activity' : 'Response decision'}</h3>
     {state.error && <ErrorPanel error={state.error} retry={() => void state.refetch()} />}

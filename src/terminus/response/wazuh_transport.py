@@ -1,6 +1,6 @@
 # File name: wazuh_transport.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Private, bounded Wazuh 4.x response transport.
 
@@ -26,6 +26,8 @@ from terminus.toolkit.wazuh_readers import WazuhManagerSettings
 
 
 class WazuhBlockRequest(Contract):
+    # Validated request to block one IPv4 source for 30 to 900 seconds on one Wazuh
+    # agent, bound to an intent id and approved proposal digest.
     org_id: Id
     intent_id: Id
     proposal_digest: Digest
@@ -36,12 +38,17 @@ class WazuhBlockRequest(Contract):
     @field_validator("agent_id")
     @classmethod
     def endpoint_only(cls, value: str) -> str:
+        """Reject agent id 0, which is the Wazuh manager itself, so the manager can
+        never be targeted.
+        """
         if int(value) == 0:
             raise ValueError("Manager is protected")
         return value
 
 
 class DispatchOutcome(Contract):
+    # Result of one dispatch attempt; verified is always False because the manager's
+    # acknowledgement does not prove the endpoint effect.
     status: Literal["acknowledged", "denied", "unavailable", "unknown"]
     verified: Literal[False] = False
     detail: str
@@ -58,6 +65,9 @@ class WazuhResponseTransport:
         allowed_source_ip: IPv4Address,
         transport: httpx2.AsyncBaseTransport | None = None,
     ) -> None:
+        """Pin the transport to one organization's manager settings, one agent and one
+        source IP; nothing else can be dispatched through it.
+        """
         self.settings = settings
         self.agent_id = allowed_agent_id
         self.source_ip = allowed_source_ip
@@ -70,6 +80,9 @@ class WazuhResponseTransport:
         path: str,
         **kwargs: Any,  # noqa: ANN401
     ) -> dict[str, Any]:
+        """Perform one HTTP call and return its JSON object, failing on error status,
+        redirects, bodies over 64 KiB or non-object JSON.
+        """
         async with client.stream(method, path, **kwargs) as response:
             response.raise_for_status()
             if response.is_redirect:
@@ -85,6 +98,13 @@ class WazuhResponseTransport:
             return result
 
     async def dispatch(self, request: WazuhBlockRequest) -> DispatchOutcome:
+        """Send the single fixed block command after re-validating the request against
+        the pinned scope. Returns denied when out of scope, acknowledged on a clean one-
+        agent success, unavailable if failure came before sending, and unknown if it
+        came after, which needs reconciliation and must not be retried.
+        """
+        # Re-validate even though callers pass a model, then compare against the pinned
+        # scope before any network I/O; scope violations never reach the manager.
         request = WazuhBlockRequest.model_validate(request.model_dump())
         if (
             request.org_id != self.settings.org_id
@@ -95,6 +115,8 @@ class WazuhResponseTransport:
             or request.source_ip.is_unspecified
         ):
             return DispatchOutcome(status="denied", detail="Deployment scope denied")
+        # Ambiguity tracking: a failure before the command is sent means nothing happened
+        # ("unavailable"); a failure after it may have taken effect ("unknown").
         sending = False
         try:
             async with asyncio.timeout(10):
@@ -121,6 +143,8 @@ class WazuhResponseTransport:
                         or not token
                     ):
                         raise ValueError("Authentication failed")
+                    # From here on the manager may act on the command even if we never see
+                    # its reply, so errors must be reported as unknown, not as failures.
                     sending = True
                     response = await self._json(
                         client,

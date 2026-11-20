@@ -1,6 +1,6 @@
 # File name: crypto.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Sign and verify license tokens with the configured secret.
 
@@ -18,6 +18,7 @@ class LicenseError(ValueError):
     """Error raised when license validation fails."""
 
     def __init__(self, message: str, reason: str = "invalid") -> None:
+        """Carry a machine-readable reason (default invalid) alongside the message."""
         super().__init__(message)
         self.reason = reason
 
@@ -71,6 +72,8 @@ def decode(raw: str, secret: str) -> License:
     except Exception as e:
         raise LicenseError("Invalid base64 encoding", reason="bad_encoding") from e
 
+    # Verify the signature over the exact signed bytes before parsing the payload,
+    # so untrusted data is never interpreted; compare_digest is constant-time.
     expected_signature = sign(canonical, secret)
     if not hmac.compare_digest(signature, expected_signature):
         raise LicenseError("Signature mismatch", reason="tampered")

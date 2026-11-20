@@ -1,6 +1,6 @@
 # File name: autonomous_lab.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Opt-in autonomous Scenario A controller. Fixed lab scope; no model-selected targets.
 
@@ -29,6 +29,9 @@ from terminus.toolkit.sources import ReadCollection
 
 
 class LabAutonomousPolicy(Contract):
+    # Admin-set limits for the standalone lab controller: fixed agent and source and
+    # target addresses, failure threshold, block duration, action quota, cooldown and an
+    # expiry.
     org_id: Id
     actor_id: Id
     version: Literal[1] = 1
@@ -47,8 +50,15 @@ Observer = Callable[[str, dict[str, Any]], Awaitable[bool]]
 
 
 class AutonomousLabController:
+    """Standalone lab controller that blocks one fixed source after repeated failed SSH
+    logins within its admin-enabled policy, then independently observes the block and
+    its expiry; all gates fail closed.
+    """
     def __init__(self, db: Database, transport: WazuhResponseTransport, observer: Observer,
                  *, clock: Callable[[], datetime] | None = None) -> None:
+        """Wire the database, Wazuh transport, observer and optional clock, and create
+        the policy, intent, history and event tables if absent.
+        """
         self.db, self.transport, self.observer = db, transport, observer
         self.clock = clock or (lambda: datetime.now(UTC))
         with db.transaction() as conn:
@@ -58,10 +68,16 @@ class AutonomousLabController:
             conn.execute("CREATE TABLE IF NOT EXISTS autonomous_lab_events (seq INTEGER PRIMARY KEY AUTOINCREMENT, intent_id TEXT NOT NULL, state TEXT NOT NULL, created_at TEXT NOT NULL)")
 
     def _admin(self, policy: LabAutonomousPolicy) -> None:
+        """Verify the policy's actor is currently an administrator of its organization,
+        so a demoted admin's stored policy stops working.
+        """
         if SqliteMembershipStore(self.db).role_of(OrgId(policy.org_id), UserId(policy.actor_id)) != OrganizationRole.ADMIN:
             raise ValueError("Current organization administrator required")
 
     def enable(self, policy: LabAutonomousPolicy) -> None:
+        """Store an admin-set policy that expires within one hour, refusing while any
+        earlier intent is unresolved or the console response worker owns dispatch.
+        """
         now = self.clock()
         if policy.enabled_until.tzinfo is None or not now < policy.enabled_until <= now + timedelta(hours=1):
             raise ValueError("Policy expiry must be within one hour")
@@ -76,6 +92,9 @@ class AutonomousLabController:
             conn.execute("INSERT INTO autonomous_lab_policy VALUES(?,?,?,?,?) ON CONFLICT(org_id) DO UPDATE SET actor_id=excluded.actor_id,digest=excluded.digest,payload=excluded.payload,enabled_at=excluded.enabled_at", (policy.org_id, policy.actor_id, digest(payload), canonical(payload), now.isoformat()))
 
     def _policy(self, org: str) -> tuple[LabAutonomousPolicy, str, datetime]:
+        """Load the organization's policy and re-check administrator role, stored digest
+        and expiry on every use; raises if it is missing, altered or expired.
+        """
         row = self.db.fetchone("SELECT * FROM autonomous_lab_policy WHERE org_id=?", (org,))
         if row is None:
             raise ValueError("Autonomous policy not enabled")
@@ -86,6 +105,9 @@ class AutonomousLabController:
         return policy, row["digest"], datetime.fromisoformat(row["enabled_at"])
 
     def _state(self, intent: str, state: str) -> None:
+        """Record an intent's new state and event, ignoring updates to already-final
+        intents so a late worker cannot overwrite a reconciliation result.
+        """
         now = self.clock().isoformat()
         with self.db.transaction() as conn:
             current = conn.execute("SELECT state FROM autonomous_lab_intents WHERE intent_id=?", (intent,)).fetchone()
@@ -98,6 +120,10 @@ class AutonomousLabController:
 
     @staticmethod
     def _select(collection: ReadCollection, enabled_at: datetime, now: datetime) -> dict:
+        """Pick distinct failed-SSH-login events from the Wazuh indexer for the fixed
+        agent and source, observed after the policy was enabled and within the last 120
+        seconds.
+        """
         unique = {}
         for item in collection.observations:
             if item.source_id != "wazuh-indexer" or not enabled_at <= item.source_timestamp <= now or now - item.source_timestamp > timedelta(seconds=120):
@@ -116,6 +142,9 @@ class AutonomousLabController:
 
     @staticmethod
     def _hold(policy: LabAutonomousPolicy, rows: list, now: datetime, unique: dict) -> str | None:
+        """Return a reason to refuse acting (unresolved earlier action, quota used,
+        cooldown, or events already acted on), or None if a new action is allowed.
+        """
         if any(row["state"] not in {"recovered", "recovered_unverified", "unavailable", "denied"} for row in rows):
             return "reconciliation_required"
         if len(rows) >= policy.max_actions:
@@ -126,6 +155,13 @@ class AutonomousLabController:
         return "duplicate_events" if seen.intersection(unique) else None
 
     async def process(self, org: str, collection: ReadCollection) -> str:  # noqa: C901, PLR0911, PLR0912 -- ordered fail-closed dispatch gates
+        """Evaluate a read collection and, if every gate passes, durably record an
+        intent, dispatch one block and verify blocked then recovered through the
+        observer; returns a short outcome label.
+        """
+        # Gate order: policy validity first, then data completeness, then threshold,
+        # holds, a live baseline, and finally a second policy/data check inside the
+        # transaction that records the intent, so nothing dispatches on stale input.
         policy, policy_digest, enabled_at = self._policy(org)
         now = self.clock()
         if collection.status != "ok" or collection.coverage != "complete" or collection.gaps or collection.truncated:
@@ -160,6 +196,8 @@ class AutonomousLabController:
                         "duration_seconds": current.duration_seconds, "source_event_ids": sorted(unique),
                         "undo": "owned_resource_only", "verification": "independent_source_management_and_owned_table"}
             proposal_digest = digest(proposal)
+            # The intent is committed as in_flight before any network I/O, so a crash
+            # mid-dispatch leaves a visible unresolved record for reconciliation.
             conn.execute("INSERT INTO autonomous_lab_intents VALUES(?,?,?,?,?,?,?,?,?)", (intent, org, incident, policy_digest, proposal_digest, canonical(proposal), "in_flight", now.isoformat(), now.isoformat()))
             conn.execute("INSERT INTO autonomous_lab_events(intent_id,state,created_at) VALUES(?,?,?)", (intent, "in_flight", now.isoformat()))
         request = WazuhBlockRequest(org_id=org, intent_id=intent, proposal_digest=proposal_digest,
@@ -167,6 +205,8 @@ class AutonomousLabController:
         try:
             outcome = await self.transport.dispatch(request)
         except BaseException:
+            # Cancellation or a crash may land after the manager accepted the command,
+            # so the outcome is unknown; never retry it automatically.
             self._state(intent, "unknown")
             raise
         self._state(intent, outcome.status)
@@ -181,6 +221,8 @@ class AutonomousLabController:
         else:
             self._state(intent, "unknown")
             return "unknown"
+        # Wait past the block's kernel expiry, then confirm independently that the source
+        # is reachable again rather than assuming the block expired.
         await asyncio.sleep(policy.duration_seconds + 5)
         if await self.observer("recovered", details):
             self._state(intent, "recovered")
@@ -217,6 +259,7 @@ async def reconcile_lab_actions(
         if actual != expected:
             raise ValueError("Action does not bind the authorized scope")
         intent_id = row["intent_id"]
+        # Do not observe recovery before the block could have expired (plus a margin).
         if now < datetime.fromisoformat(row["created_at"]) + timedelta(seconds=policy.duration_seconds + 15):
             results.append({"intent_id": intent_id, "state": "waiting_for_expiry"})
             continue
@@ -228,6 +271,8 @@ async def reconcile_lab_actions(
             if SqliteMembershipStore(db).role_of(OrgId(org_id), UserId(actor_id)) != OrganizationRole.ADMIN:
                 raise ValueError("Current organization administrator required")
             verified = conn.execute("SELECT 1 FROM autonomous_lab_events WHERE intent_id=? AND state='verified_blocked'", (intent_id,)).fetchone()
+            # Without an earlier verified_blocked event we only know the source is reachable
+            # now, not that the block ever took effect, so it is recorded as unverified.
             state = "recovered" if verified else "recovered_unverified"
             changed = conn.execute("UPDATE autonomous_lab_intents SET state=?,updated_at=? WHERE intent_id=? AND org_id=? AND state=?", (state, now.isoformat(), intent_id, org_id, row["state"])).rowcount
             if changed:

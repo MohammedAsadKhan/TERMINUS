@@ -1,6 +1,6 @@
 # File name: store.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Memory-backed stores for organizations and memberships.
 
@@ -19,6 +19,7 @@ class OrganizationStore(MemoryRepository[Organization]):
     """Thread-safe in-memory store for organizations."""
 
     def _record_id(self, record: Organization) -> str:
+        """Key organization records by their organization ID."""
         return record.org_id
 
     def list_all(self) -> list[Organization]:
@@ -36,6 +37,7 @@ class MembershipStore:
     """
 
     def __init__(self) -> None:
+        """Start with an empty membership map keyed by (organization, user) and a lock."""
         self._store: dict[tuple[OrgId, UserId], Membership] = {}
         self._lock = threading.Lock()
 

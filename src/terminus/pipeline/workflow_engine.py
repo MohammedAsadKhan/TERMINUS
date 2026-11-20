@@ -1,6 +1,6 @@
 # File name: workflow_engine.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Asynchronous DAG Workflow Execution Engine for TERMINUS.
 
@@ -70,6 +70,10 @@ DEFAULT_TIMEOUT_SECS = {
 
 @dataclass
 class WorkflowExecutionContext:
+    """Mutable state of one workflow run: statuses, edge states, outputs, errors and flags recording
+    whether side effects happened or an outcome is unknown.
+    """
+
     run_id: str
     workflow_id: str
     org_id: str
@@ -103,6 +107,9 @@ class WorkflowEngine:
         asset_repo: SqliteAssetRepository | None = None,
         specialist_bridge: SpecialistBridge | None = None,
     ) -> None:
+        """Use the supplied repositories and bridge, defaulting each repository to the shared
+        database.
+        """
         self.db = db
         self.specialist_bridge = specialist_bridge
         self.run_repo = run_repo or SqliteWorkflowRunRepository(db=db)
@@ -263,6 +270,8 @@ class WorkflowEngine:
                 ctx.node_outputs[nid] = {}
 
         # Find approval node and resolve edges based on approval resolution
+        # A decided approval (approved, rejected or expired) resolves the gate's edges: approved
+        # takes the true handle, anything else the false handle.
         approvals = self.approval_repo.list_for_run(str(org_id), run_id)
         for apprv in approvals:
             apprv_node_id = apprv["node_id"]
@@ -348,6 +357,9 @@ class WorkflowEngine:
             return None
 
     def _report_unavailable(self, workflow: Workflow, ctx: WorkflowExecutionContext) -> None:
+        """Mark agent nodes not executed and all others skipped, and every edge dead, when no valid
+        assessment report exists, so nothing runs without one.
+        """
         ctx.errors.append("Report unavailable: specialist execution requires a valid supplied assessment or a canonical assessment matching the organization, incident, and alert.")
         for node in workflow.nodes:
             status = "NOT_EXECUTED" if node.type == NodeType.AGENT_LLM.value else "SKIPPED"
@@ -586,6 +598,8 @@ class WorkflowEngine:
                 export = getattr(deployment, "export_ticket", None) if getattr(type(deployment), "export_ticket", None) else None
                 try:
                     external_id = await export(str(t), ctx.report, OrgId(ctx.org_id)) if export else None
+                # The external ticket write may have happened before this failed, so record an
+                # unknown outcome and a side effect; the run then ends as failed after side effects.
                 except Exception:
                     ctx.unknown_outcome = True
                     ctx.side_effects_executed = True
@@ -607,6 +621,8 @@ class WorkflowEngine:
                     force_override=force_override,
                 )
 
+                # Guardrail checks run before the dry-run branch so a dry run reports the same block
+                # a live run would; the firewall node below follows the same order.
                 if not guardrail_res.allowed:
                     ctx.errors.append(f"Containment blocked by guardrail: {guardrail_res.reason}")
                     return "BLOCKED", {"blocked": True, "target": target_host, "reason": guardrail_res.reason}, "on_error", False
@@ -759,6 +775,9 @@ class WorkflowEngine:
             ctx.outcome = "HANDLED"
 
     async def _persist_incident_report(self, ctx: WorkflowExecutionContext, deployment: PipelineDeployment | None) -> None:
+        """Write the run's final report back to the incident through the ticket store when it
+        supports updates.
+        """
         update = getattr(deployment.ticket_store, "update_ticket_report", None) if deployment and getattr(type(deployment.ticket_store), "update_ticket_report", None) else None
         if ctx.incident_id and update and ctx.report is not None:
             await update(ctx.incident_id, OrgId(ctx.org_id), ctx.report)

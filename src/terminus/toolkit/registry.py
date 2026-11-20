@@ -1,6 +1,6 @@
 # File name: registry.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Immutable operator-installed executables, separate from roadmap metadata.
 
@@ -44,6 +44,9 @@ class ToolRegistryError(ValueError):
         error_code: str,
         status: Literal["unsupported", "denied", "unavailable"],
     ) -> None:
+        """Store the message plus the safe error code and status that are returned to
+        the caller.
+        """
         super().__init__(message)
         self.error_code = error_code
         self.status = status
@@ -73,6 +76,10 @@ class ExecutableToolRegistry:
         installed: Iterable[InstalledTool] = (),
         configured_connector_ids: Iterable[str] = (),
     ) -> None:
+        """Revalidate the catalog, check each installed tool and the configured
+        connectors, and freeze descriptors, handlers and per-role grants; only the v1
+        read-only tools in a core bundle can be granted.
+        """
         source = load_catalog() if catalog is None else catalog
         # Revalidate to reject model_copy/model_construct bypasses and detach
         # the registry's immutable descriptors from caller-owned metadata.
@@ -85,6 +92,8 @@ class ExecutableToolRegistry:
         for entry in installed:
             self._validate_installation(entry, descriptors, handlers)
             handlers[entry.descriptor.tool_id] = entry.handler
+        # A grant needs both bundle membership and the descriptor's own role permission,
+        # so editing one side of the catalog alone cannot widen a role's access.
         grants = {
             bundle.role: frozenset(
                 tool_id
@@ -105,6 +114,10 @@ class ExecutableToolRegistry:
         descriptors: Mapping[str, ToolDescriptor],
         handlers: Mapping[str, ToolHandler],
     ) -> None:
+        """Reject a duplicate, a descriptor that differs from the catalog, any tool that
+        is not v1 read-only without egress or approval, and any handler that is not
+        asynchronous.
+        """
         descriptor = ToolDescriptor.model_validate(entry.descriptor.model_dump())
         if descriptor.tool_id in handlers:
             raise ValueError("Duplicate executable registration")

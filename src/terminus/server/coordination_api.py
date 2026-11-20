@@ -1,6 +1,6 @@
 # File name: coordination_api.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Authenticated, tenant-scoped coordination controls and persisted inspection.
 
@@ -28,6 +28,7 @@ CurrentOrg = Annotated[OrgId, Depends(get_current_org)]
 
 
 def get_coordination_service() -> CoordinationService:
+    """FastAPI dependency building a coordination service on the active database."""
     return CoordinationService(Database.get_instance())
 
 
@@ -39,6 +40,10 @@ def start_incident(
     service: Annotated[CoordinationService, Depends(get_coordination_service)],
     payload: Annotated[dict[str, Any], Body()],
 ) -> dict[str, Any]:
+    """Operator-only: start coordinated work on an incident in the caller's organization
+    from a validated objective; returns 400 for an invalid objective without echoing its
+    content.
+    """
     try:
         request = IncidentObjective.model_validate(payload)
     except ValidationError as exc:
@@ -56,6 +61,9 @@ def get_incident_tree(
     org_id: CurrentOrg,
     service: Annotated[CoordinationService, Depends(get_coordination_service)],
 ) -> dict[str, Any]:
+    """Return the incident's task tree for the caller's organization with sensitive
+    values redacted.
+    """
     try:
         return cast(dict[str, Any], _redact(service.get_incident_tree(str(org_id), incident_id)))
     except Exception as exc:
@@ -69,6 +77,9 @@ def assign_help(
     _: Annotated[None, Depends(require_operator)],
     service: Annotated[CoordinationService, Depends(get_coordination_service)],
 ) -> dict[str, Any]:
+    """Operator-only: assign a pending help request in the caller's organization and
+    return its recorded state.
+    """
     try:
         return _record(service.assign_help(str(org_id), help_request_id))
     except Exception as exc:
@@ -82,6 +93,9 @@ def reconcile_help(
     _: Annotated[None, Depends(require_operator)],
     service: Annotated[CoordinationService, Depends(get_coordination_service)],
 ) -> dict[str, Any]:
+    """Operator-only: reconcile an assigned help request, resolving it only once the
+    delegated specialist has completed, and return its redacted state and ownership.
+    """
     try:
         request = service.reconcile_help(str(org_id), help_request_id)
         return cast(
@@ -107,6 +121,9 @@ def request_help(
     service: Annotated[CoordinationService, Depends(get_coordination_service)],
     payload: Annotated[dict[str, Any], Body()],
 ) -> dict[str, Any]:
+    """Operator-only: raise a help request for a task in the caller's organization from
+    a validated spec; returns 400 for an invalid spec.
+    """
     try:
         spec = HelpRequestSpec.model_validate(payload)
     except ValidationError as exc:
@@ -126,6 +143,9 @@ def get_help_context(
     org_id: CurrentOrg,
     service: Annotated[CoordinationService, Depends(get_coordination_service)],
 ) -> dict[str, Any]:
+    """Return the redacted context available to whoever answers a task's help request,
+    scoped to the caller's organization.
+    """
     try:
         return cast(
             dict[str, Any], _redact(service.get_help_context(str(org_id), task_id))

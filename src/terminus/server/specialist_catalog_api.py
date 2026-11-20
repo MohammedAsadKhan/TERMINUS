@@ -1,6 +1,6 @@
 # File name: specialist_catalog_api.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Read-only roadmap metadata, deliberately separate from execution authority.
 
@@ -22,6 +22,9 @@ router = APIRouter(prefix="/orchestration", tags=["orchestration"])
 def specialist_catalog(
     _org: Annotated[OrgId, Depends(get_current_org)],
 ) -> dict[str, JsonValue]:
+    """Return the specialist catalog for any authenticated organization member; entries
+    are registrations only and none is marked executable.
+    """
     catalog = load_catalog()
     return {
         "items": [

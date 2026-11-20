@@ -1,6 +1,6 @@
 # File name: db.py
 # Author: Team LARP
-# Revision date: 2026-11-14
+# Revision date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Persistent database engine and tenant-scoped table definitions for TERMINUS.
 
@@ -28,12 +28,16 @@ class Database:
     _lock = threading.Lock()
 
     def __init__(self, db_path: str = "terminus.db") -> None:
+        """Open the database path and create or migrate the schema."""
         self.db_path = db_path
         self._local = threading.local()
         self._init_db()
 
     @classmethod
     def get_instance(cls, db_path: str = "terminus.db") -> Database:
+        """Return the shared Database, creating it on first use under a class lock
+        (db_path only matters for that first call).
+        """
         with cls._lock:
             if cls._instance is None:
                 cls._instance = cls(db_path)
@@ -41,11 +45,17 @@ class Database:
 
     @classmethod
     def reset_instance(cls, db_path: str = ":memory:") -> Database:
+        """Replace the shared Database with a fresh one (in-memory by default); intended
+        for tests and re-initialization.
+        """
         with cls._lock:
             cls._instance = cls(db_path)
             return cls._instance
 
     def _get_connection(self) -> sqlite3.Connection:
+        """Return this thread's connection, opening it lazily in autocommit mode with
+        WAL, foreign keys and busy timeout enabled.
+        """
         if not hasattr(self._local, "conn") or self._local.conn is None:
             conn = sqlite3.connect(
                 self.db_path,
@@ -64,6 +74,9 @@ class Database:
     def execute(
         self, sql: str, params: tuple[Any, ...] | dict[str, Any] = ()
     ) -> sqlite3.Cursor:
+        """Run one statement on the calling thread's connection; callers must pass user
+        values as parameters.
+        """
         conn = self._get_connection()
         return conn.execute(sql, params)
 
@@ -77,12 +90,16 @@ class Database:
     def executemany(
         self, sql: str, params_seq: list[tuple[Any, ...] | dict[str, Any]]
     ) -> sqlite3.Cursor:
+        """Run one statement against many parameter sets on the calling thread's
+        connection.
+        """
         conn = self._get_connection()
         return conn.executemany(sql, params_seq)
 
     def fetchone(
         self, sql: str, params: tuple[Any, ...] | dict[str, Any] = ()
     ) -> dict[str, Any] | None:
+        """Run a query and return the first row as a dict, or None."""
         cur = self.execute(sql, params)
         row = cur.fetchone()
         if row is None:
@@ -92,6 +109,7 @@ class Database:
     def fetchall(
         self, sql: str, params: tuple[Any, ...] | dict[str, Any] = ()
     ) -> list[dict[str, Any]]:
+        """Run a query and return all rows as dicts."""
         cur = self.execute(sql, params)
         return [dict(row) for row in cur.fetchall()]
 

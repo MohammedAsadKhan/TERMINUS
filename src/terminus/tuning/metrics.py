@@ -1,6 +1,6 @@
 # File name: metrics.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Statistical Precision & Wilson Score Lower Bound Engine for TERMINUS.
 
@@ -18,6 +18,10 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class StatisticalConfidenceMetrics:
+    """A rule's observed precision with Wilson confidence bounds and whether it clears the soundness
+    thresholds.
+    """
+
     total_evaluated: int
     true_positives: int
     false_positives: int

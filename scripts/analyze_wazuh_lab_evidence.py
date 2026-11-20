@@ -1,6 +1,6 @@
 # File name: analyze_wazuh_lab_evidence.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Run one approved Gemini triage turn over saved lab evidence, without response tools.
 
@@ -35,21 +35,32 @@ from terminus.storage.db import Database
 
 
 class LocalSecrets(BaseSettings):
+    """Read the local model-credentials key from ``.env`` so it is never a CLI argument."""
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
     terminus_model_credentials_key: SecretStr
 
 
 async def run(args: argparse.Namespace) -> None:  # noqa: C901, PLR0912, PLR0915 -- ordered local admission and lifecycle
+    """Check admission, then run one triage task over saved evidence and print its result.
+
+    Every admission check runs before any state change or model call, so a failed check
+    leaves the database untouched. ``--check`` stops after the read-only checks.
+    """
     db = Database(args.database)
     runtime = None
     runner = None
     try:
+        # Authorization first: only a current organization administrator may start a
+        # lab model run, before any evidence is read.
         if (
             SqliteMembershipStore(db).role_of(OrgId(args.org), UserId(args.actor))
             != OrganizationRole.ADMIN
         ):
             raise ValueError("Current organization administrator required")
         service = CoordinationService(db)
+        # Bound the input to one incident's saved records so the model never sees
+        # evidence from another incident or an unbounded set.
         records = service.records.list_evidence(args.org, task_id=args.source_task)
         if (
             not records
@@ -69,6 +80,8 @@ async def run(args: argparse.Namespace) -> None:  # noqa: C901, PLR0912, PLR0915
             raise ValueError(
                 "No investigation evidence remains after removing duplicated coverage"
             )
+        # Require the single approved zero-price Gemini Flash Lite triage route; any other
+        # grant or a non-zero price is refused so the lab cannot incur spend.
         policy_store = ModelPolicyStore(db)
         policy = policy_store.get(args.org, args.actor)
         grants = [g for g in policy.grants if g.role == "triage"]
@@ -85,11 +98,14 @@ async def run(args: argparse.Namespace) -> None:  # noqa: C901, PLR0912, PLR0915
         )
         if price.input_per_mtok_micro_usd != 0 or price.output_per_mtok_micro_usd != 0:
             raise ValueError("Lab run requires the configured zero-price route")
+        # Readiness mode exits here, before any classification change or API call.
         if args.check:
             print(
                 f"Ready: {len(records)} saved evidence records; exact triage grant configured. No model call made."
             )
             return
+        # An unexpired scheduler lease means another worker owns the queue; refuse
+        # rather than run two coordinators against the same database.
         coordinator = db.fetchone(
             "SELECT lease_expires_at FROM orchestration_scheduler_coordinator WHERE singleton=1"
         )
@@ -99,6 +115,8 @@ async def run(args: argparse.Namespace) -> None:  # noqa: C901, PLR0912, PLR0915
             raise ValueError(
                 "Stop the existing lab worker with Ctrl+C, then rerun this command"
             )
+        # The new triage task must hang under the incident's existing alert-handling
+        # coordinator so it appears in the same task tree.
         parents = [
             t
             for t in service.records.list_tasks(args.org, incident_id=args.incident)
@@ -106,6 +124,8 @@ async def run(args: argparse.Namespace) -> None:  # noqa: C901, PLR0912, PLR0915
         ]
         if len(parents) != 1:
             raise ValueError("Expected existing alert-handling coordinator")
+        # Deployment settings are passed through a copied environment, not process-wide
+        # state; the credentials key comes from the local ``.env`` file.
         env = os.environ.copy()
         env.update(
             {
@@ -124,12 +144,15 @@ async def run(args: argparse.Namespace) -> None:  # noqa: C901, PLR0912, PLR0915
         def diagnostic_client(
             connection: ModelConnectionView,
         ) -> FixtureModelClient | ProductionModelTransport | None:
+            """Wrap the deployment client factory to apply a 75 second live-call timeout."""
             client = original_factory(connection)
             if isinstance(client, ProductionModelTransport):
                 client.timeout_seconds = 75
             return client
 
         deps = replace(deps, client_for=diagnostic_client)
+        # The lab budget must already be zero dollars. A new window copies the previous
+        # token limit and never raises the dollar limit.
         window = window_key_for(datetime.now(UTC))
         budgets = ModelBudgetStore(db)
         if (
@@ -152,6 +175,8 @@ async def run(args: argparse.Namespace) -> None:  # noqa: C901, PLR0912, PLR0915
                 limit_micro_usd=0,
                 limit_tokens=previous["limit_tokens"],
             )
+        # Only redacted evidence may leave for the cloud route: grant that
+        # classification to the model and mark each selected record with it.
         grant = grants[0]
         if "redacted_cloud" not in grant.classifications:
             updated = grant.model_copy(
@@ -177,6 +202,7 @@ async def run(args: argparse.Namespace) -> None:  # noqa: C901, PLR0912, PLR0915
                 "redacted_cloud",
                 expected_version=existing.version if existing else 0,
             )
+        # A random idempotency key makes every run a new task rather than a replay.
         task = service.records.create_incident_task(
             args.org,
             args.incident,
@@ -197,11 +223,15 @@ async def run(args: argparse.Namespace) -> None:  # noqa: C901, PLR0912, PLR0915
             run_timeout_seconds=90,
         )
         runner = asyncio.create_task(runtime.run())
+        # Give the scheduler a moment to start; if it already exited, surface its error.
         await asyncio.sleep(0.2)
         if runner.done():
             await runner
         _ = service.scheduler.enqueue_task(args.org, task.task_id)
         print("Gemini analysis task: " + task.task_id, flush=True)
+        # Poll the durable task tree for up to about two minutes. A run error is raised
+        # as a failure instead of being retried, and a timeout is reported as unknown
+        # so the operator inspects the durable run first.
         for _ in range(240):
             tree = service.get_incident_tree(args.org, args.incident)
             nodes = list(tree["roots"])
@@ -224,6 +254,7 @@ async def run(args: argparse.Namespace) -> None:  # noqa: C901, PLR0912, PLR0915
             "Analysis did not produce a result within the bounded wait; inspect task before retrying"
         )
     finally:
+        # Always stop the scheduler and wait for it before closing the database.
         if runtime:
             runtime.request_stop()
         if runner:
@@ -232,6 +263,7 @@ async def run(args: argparse.Namespace) -> None:  # noqa: C901, PLR0912, PLR0915
 
 
 def main() -> None:
+    """Parse arguments, run the analysis, and exit with the error text on a refusal."""
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ("database", "org", "actor", "incident", "source-task"):
         parser.add_argument("--" + name, required=True)

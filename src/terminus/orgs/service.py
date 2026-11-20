@@ -1,6 +1,6 @@
 # File name: service.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Organization domain service enforcing business rules.
 
@@ -49,6 +49,10 @@ class OrganizationService(Service):
         license_service: LicenseService | None = None,
         membership_store: MembershipStore | SqliteMembershipStore | None = None,
     ) -> None:
+        """Wire the organization and membership stores plus the license service; either
+        membership keyword is accepted and a missing store or license service raises
+        TypeError.
+        """
         self._orgs: OrganizationStore | SqliteOrganizationStore = org_store
         effective_members = member_store or membership_store
         if effective_members is None:
@@ -146,6 +150,8 @@ class OrganizationService(Service):
         with self._transaction():
             self._require_admin(org_id, effective_actor)
 
+            # Authorization above runs first, so license and membership data are only
+            # consulted for an authorized admin.
             # Check seat limit from license.
             org = self._orgs.get(org_id, org_id)
             if org.license_ref:
@@ -179,6 +185,7 @@ class OrganizationService(Service):
             self._require_admin(org_id, effective_actor)
 
             target = self._members.get(org_id, user_id)
+            # Keep at least one admin so the organization can always be managed.
             if target.role == OrganizationRole.ADMIN and self._admin_count(org_id) <= 1:
                 msg = "Cannot remove the last admin of an organization"
                 raise LastAdminError(msg)

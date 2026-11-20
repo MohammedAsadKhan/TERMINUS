@@ -1,6 +1,6 @@
 // File: network-canvas.tsx
 // Author: Team LARP
-// Date: 2026-11-09
+// Date: 2026-11-19 (comments revised)
 // Version: 0.1.0
 // Purpose: Draw network topology and its selectable nodes.
 
@@ -17,6 +17,7 @@ import {
   type SimulationNodeDatum,
 } from 'd3-force';
 
+// One alert from the graph network endpoint; each becomes a dot on the canvas.
 export interface NetworkEvent {
   alert_id: string;
   occurred_at: string;
@@ -28,6 +29,7 @@ export interface NetworkEvent {
   rule_description: string;
 }
 
+// What the user picked. The parent page uses the optional fields to filter its evidence query.
 export type NetworkSelection = {
   kind: 'source' | 'host' | 'technique' | 'event' | 'edge';
   label: string;
@@ -37,9 +39,14 @@ export type NetworkSelection = {
   alert_id?: string;
 };
 
+// Node kinds: shared hubs (source, host, technique) and one dot per alert (event).
 type Kind = 'source' | 'host' | 'technique' | 'event';
+// Label modes: all shows every hub label; smart and hover show the active, neighboring or pointer-near hubs, and smart also
+// labels the top hubs when nothing is focused.
 type LabelDensity = 'smart' | 'hover' | 'all';
 
+// A drawable node. Hubs accumulate counts across every alert that shares them; targetX and targetY are the layout position the
+// force simulation pulls toward.
 interface Node extends SimulationNodeDatum {
   id: string;
   kind: Kind;
@@ -56,11 +63,13 @@ interface Node extends SimulationNodeDatum {
   isTier0?: boolean;
 }
 
+// Edge between an alert dot and a hub.
 interface Link extends SimulationLinkDatum<Node> {
   source: Node;
   target: Node;
 }
 
+// Computed layout plus adjacency (node id to linked node ids) used to highlight neighbors on hover or selection.
 interface Layout {
   nodes: Node[];
   links: Link[];
@@ -68,6 +77,7 @@ interface Layout {
   bounds: { minX: number; minY: number; maxX: number; maxY: number };
 }
 
+// Fill color per node kind.
 const colors: Record<Kind, string> = {
   source: '#38bdf8', // Sky cyan for adversary ingress
   technique: '#f59e0b', // Amber for MITRE ATT&CK tactics
@@ -75,9 +85,12 @@ const colors: Record<Kind, string> = {
   event: '#94a3b8', // Slate for event dots
 };
 
+// Small deterministic string hash (FNV-1a style) so each dot's jitter is the same on every render.
 const hash = (s: string) =>
   [...s].reduce((n, c) => Math.imul(n ^ c.charCodeAt(0), 16777619) >>> 0, 2166136261);
 
+// Name-based heuristic only: hosts whose names contain these markers are drawn as protected tier-0 assets. It is not read
+// from the asset inventory.
 function isTier0Host(host?: string): boolean {
   if (!host) return false;
   const h = host.toLowerCase();
@@ -91,12 +104,15 @@ function isTier0Host(host?: string): boolean {
   );
 }
 
+// Deterministic layout: sources on the left, techniques in the middle, hosts on the right, each alert dot near the average of
+// its hubs. A fixed 70-tick force simulation then relaxes overlaps synchronously; nothing animates.
 function buildLayout(events: NetworkEvent[]): Layout {
   const nodes: Node[] = [];
   const links: Link[] = [];
   const entities = new Map<string, Node>();
   const adjacency = new Map<string, Set<string>>();
 
+  // Finds or creates the shared hub for a source, host or technique and adds this alert to its severity counts.
   function entity(kind: Exclude<Kind, 'event'>, label: string, isCritical: boolean, isHigh: boolean): Node {
     const id = `${kind}:${label}`;
     let node = entities.get(id);
@@ -124,6 +140,7 @@ function buildLayout(events: NetworkEvent[]): Layout {
     return node;
   }
 
+  // Records an undirected link and the adjacency used for highlighting.
   function connect(a: Node, b: Node) {
     links.push({ source: a, target: b });
     if (!adjacency.has(a.id)) adjacency.set(a.id, new Set());
@@ -292,6 +309,8 @@ function buildLayout(events: NetworkEvent[]): Layout {
   };
 }
 
+// Interactive canvas of alerts and their shared hubs. It only draws and hit-tests the events it is given; selection is
+// reported to the parent, which filters the evidence.
 export function NetworkCanvas({
   events,
   selected,
@@ -303,6 +322,7 @@ export function NetworkCanvas({
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const wrapper = useRef<HTMLDivElement>(null);
+  // Pan and zoom live in a ref; the revision counter below forces a redraw after they change.
   const transform = useRef({ x: 0, y: 0, scale: 1 });
   const pointer = useRef<{ x: number; y: number; moved: boolean } | null>(null);
   const mouseWorldPos = useRef<{ x: number; y: number } | null>(null);
@@ -312,9 +332,11 @@ export function NetworkCanvas({
   const [revision, setRevision] = useState(0);
   const [labelDensity, setLabelDensity] = useState<LabelDensity>('smart');
 
+  // The layout is rebuilt only when the set of alert ids changes, so hover, selection and label mode never reshuffle nodes.
   const signature = events.map(item => item.alert_id).join('|');
   const layout = useMemo(() => buildLayout(events), [signature]);
 
+  // Keeps the canvas size in sync with its container.
   useEffect(() => {
     if (!wrapper.current) return;
     const observer = new ResizeObserver(entries => {
@@ -326,6 +348,7 @@ export function NetworkCanvas({
     return () => observer.disconnect();
   }, []);
 
+  // Centers the layout bounds in the container; the zoom is clamped to 0.45 to 1.4 times.
   function fit() {
     const { minX, minY, maxX, maxY } = layout.bounds;
     const spanX = Math.max(200, maxX - minX + 80);
@@ -339,8 +362,10 @@ export function NetworkCanvas({
     setRevision(n => n + 1);
   }
 
+  // Refit when the layout or the container size changes.
   useEffect(fit, [layout, size.width, size.height]);
 
+  // Maps the parent's selection to a node id. A link selection highlights no single node.
   const selectedId =
     selected?.kind === 'event'
       ? `event:${selected.alert_id}`
@@ -350,6 +375,7 @@ export function NetworkCanvas({
       ? `${selected.kind}:${selected.label}`
       : null;
 
+  // Redraws on layout, size, hover, selection, label mode or revision changes (pan and zoom bump the revision).
   // Render Canvas
   useEffect(() => {
     const surface = canvas.current;
@@ -541,6 +567,8 @@ export function NetworkCanvas({
     ctx.globalAlpha = 1;
   }, [layout, size, revision, hover, selectedId, labelDensity]);
 
+  // Nearest node under the pointer in world coordinates (pan and zoom undone). Hubs have a larger pick radius than dots, and
+  // the radius grows when zoomed out.
   function hit(clientX: number, clientY: number): Node | null {
     const bounds = canvas.current!.getBoundingClientRect();
     const { x, y, scale } = transform.current;
@@ -560,6 +588,7 @@ export function NetworkCanvas({
     return best;
   }
 
+  // Tracks the pointer in world coordinates for the proximity label reveal.
   function updateMouseWorld(clientX: number, clientY: number) {
     if (!canvas.current) return;
     const bounds = canvas.current.getBoundingClientRect();
@@ -570,6 +599,7 @@ export function NetworkCanvas({
     };
   }
 
+  // Reports a click to the parent: hubs carry the field it filters on (source_ip, host or mitre), dots carry the alert id.
   function select(node: Node) {
     if (node.kind === 'event') {
       onSelect({ kind: 'event', label: node.label, alert_id: node.event!.alert_id });

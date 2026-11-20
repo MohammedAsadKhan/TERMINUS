@@ -1,6 +1,6 @@
 # File name: bank_router.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: First Heritage Community Bank — Interactive Retail Banking Honeypot & Decoy Gateway.
 
@@ -450,6 +450,7 @@ async def bank_robots() -> Response:
 
 
 class BankLoginRequest(BaseModel):
+    # Credentials submitted to the decoy bank login endpoint.
     username: str
     password: str
 
@@ -516,6 +517,7 @@ async def bank_api_login(
 
 
 class BankTransferRequest(BaseModel):
+    # Destination account and amount for the decoy bank transfer endpoint.
     to_account: str
     amount: float
 

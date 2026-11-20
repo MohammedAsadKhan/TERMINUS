@@ -1,6 +1,6 @@
 # File name: benchmark.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Automated Benchmark Evaluation Suite for TERMINUS.
 
@@ -29,6 +29,8 @@ from terminus.storage.repositories import SqliteIncidentRepository
 
 @dataclass
 class EvalScenario:
+    """A ground-truth alert with the expected triage decision and verdict severity."""
+
     id: str
     name: str
     alert: SiemAlert
@@ -154,6 +156,8 @@ async def run_benchmark() -> dict[str, Any]:
     db = Database.reset_instance(":memory:")
     repo = SqliteIncidentRepository(db)
 
+    # ScriptedLlm returns keyword-based canned verdicts, so the severity results measure those
+    # scripted rules rather than a live model.
     llm = ScriptedLlm()
     policy_engine = PolicyEngine()
     from terminus.agent.investigator import InvestigationAgent
@@ -215,6 +219,7 @@ async def run_benchmark() -> dict[str, Any]:
 
 
 def main() -> None:
+    """Command-line entry point that runs the benchmark."""
     asyncio.run(run_benchmark())
 
 

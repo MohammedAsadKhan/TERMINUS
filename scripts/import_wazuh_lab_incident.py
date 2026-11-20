@@ -1,6 +1,6 @@
 # File name: import_wazuh_lab_incident.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Import one explicitly scoped real lab incident and queue read-only triage.
 
@@ -23,6 +23,8 @@ from terminus.toolkit.wazuh_deployment import readers_from_environ
 
 
 class Arguments(argparse.Namespace):
+    """Typed argparse namespace; the defaults match the lab agent and attacker address."""
+
     database: str = ""
     org: str = ""
     actor: str = ""
@@ -33,6 +35,10 @@ class Arguments(argparse.Namespace):
 
 
 def matches(item: ReadObservation, source: str) -> bool:
+    """Return True only for a failed-authentication alert from the given source address.
+
+    Every nested field is type-checked because the data is recorded provider output.
+    """
     data = item.data
     alert = data.get("alert") if isinstance(data, dict) else None
     if not isinstance(alert, dict):
@@ -48,9 +54,16 @@ def matches(item: ReadObservation, source: str) -> bool:
 
 
 async def run(args: Arguments) -> None:
+    """Import one scoped authentication incident from the lab Wazuh manager and indexer.
+
+    This only reads from Wazuh and writes the local database; it sends no response action.
+    Credentials are prompted for, never passed as arguments.
+    """
     db = Database(args.database)
     manager = indexer = None
     try:
+        # Authorization first: only a current organization administrator may import
+        # real lab data, before any provider is contacted.
         if (
             SqliteMembershipStore(db).role_of(OrgId(args.org), UserId(args.actor))
             != OrganizationRole.ADMIN
@@ -62,8 +75,12 @@ async def run(args: Arguments) -> None:
             end=datetime.fromisoformat(args.end),
             event_kind="authentication",
         )
+        # Naive timestamps are ambiguous across time zones; require explicit offsets so the
+        # window cannot silently shift.
         if query.start.tzinfo is None or query.end.tzinfo is None:
             raise ValueError("Supply timestamps with timezone offsets")
+        # Fixed lab endpoints; the self-signed lab certificates are why TLS verification
+        # is off.
         prefix = "TERMINUS_SPECIALIST_WAZUH_"
         env = {
             "TERMINUS_DEPLOYMENT_MODE": "local",
@@ -95,12 +112,16 @@ async def run(args: Arguments) -> None:
         context = await manager.read(inventory_query, endpoint)
         if context.status != "ok" or not context.observations:
             raise ValueError("Manager endpoint read failed: " + "; ".join(context.gaps))
+        # A failed endpoint inventory read stops the import before any alerts are read.
         collection = await indexer.read(query, endpoint)
         if collection.status != "ok":
             raise ValueError("Indexer read failed: " + "; ".join(collection.gaps))
+        # Keep only failed-authentication alerts from the one named source address.
         selected = tuple(
             item for item in collection.observations if matches(item, args.source)
         )
+        # Importing the same evidence again retains the existing incident rather than
+        # creating a duplicate.
         incident = import_authentication_incident(
             db,
             org_id=args.org,
@@ -114,6 +135,7 @@ async def run(args: Arguments) -> None:
             f"Imported {len(selected)} real events. Incident: {incident}. Read-only triage queued (or existing import retained)."
         )
     finally:
+        # Close whichever readers were opened, even when the import is refused.
         if manager is not None:
             await manager.aclose()
         if indexer is not None:
@@ -122,6 +144,7 @@ async def run(args: Arguments) -> None:
 
 
 def main() -> None:
+    """Parse arguments and run the import, exiting with the error text on a refusal."""
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ("database", "org", "actor", "start", "end"):
         _ = parser.add_argument("--" + name, required=True)

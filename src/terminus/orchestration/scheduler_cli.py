@@ -1,6 +1,6 @@
 # File name: scheduler_cli.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Dedicated scheduler entry point with explicitly deployed Python handlers.
 
@@ -48,6 +48,9 @@ def load_handlers(specifications: list[str]) -> dict[str, Handler]:
 
 
 async def _run(arguments: argparse.Namespace, handlers: dict[str, Handler]) -> None:
+    """Open the scheduler store, merge the built-in coordination handlers when requested, and run
+    the scheduler until it stops or SIGTERM arrives.
+    """
     store = SchedulerStore(Database(arguments.database))
     if arguments.coordination:
         from terminus.orchestration.coordination import CoordinationService
@@ -77,6 +80,9 @@ async def _run(arguments: argparse.Namespace, handlers: dict[str, Handler]) -> N
 
 
 def main(argv: list[str] | None = None) -> None:
+    """Parse arguments, load the explicitly named handlers, and start the scheduler, reporting
+    configuration errors through the parser.
+    """
     parser = argparse.ArgumentParser(description="Run Terminus's dedicated single-host scheduler")
     parser.add_argument("--database", required=True, help="Same SQLite file used by FastAPI")
     parser.add_argument("--handler", action="append", default=[], metavar="ROLE=MODULE:FUNCTION", help="Trusted async handler; repeat for each supported role")

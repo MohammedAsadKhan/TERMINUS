@@ -1,6 +1,6 @@
 # File name: assets_api.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Inventory metadata API. Endpoints never contact the referenced asset.
 
@@ -35,10 +35,15 @@ _ALLOWED_REPO_HOSTS = {"github.com", "gitlab.com"}
 
 
 def get_asset_repository() -> SqliteAssetRepository:
+    """FastAPI dependency returning the SQLite asset repository."""
     return SqliteAssetRepository()
 
 
 def _validate_repo_locator(locator: str | None) -> None:
+    """Reject repository asset locators that are not https URLs on an allowlisted host,
+    so scans cannot be pointed at arbitrary hosts; a local-path exemption exists only in
+    local mode with TERMINUS_REPO_SCAN_ALLOW_LOCAL set.
+    """
     if not locator:
         return
     allow_local = (
@@ -64,6 +69,7 @@ def _validate_repo_locator(locator: str | None) -> None:
 
 
 class AssetCreate(BaseModel):
+    # Request body for creating an inventory asset; unknown fields are rejected.
     model_config = ConfigDict(extra="forbid")
 
     kind: AssetKind
@@ -80,6 +86,9 @@ class AssetCreate(BaseModel):
     @field_validator("name", "locator", "notes", "agent_id", "hostname", "owner", "environment")
     @classmethod
     def plain_inventory_text(cls, value: str | None) -> str | None:
+        """Trim free-text fields, store empty strings as None, and refuse values that
+        look like credentials since inventory metadata is not a secret store.
+        """
         if value is None:
             return None
         cleaned = value.strip()
@@ -93,6 +102,8 @@ class AssetCreate(BaseModel):
 
 
 class AssetUpdate(BaseModel):
+    # Partial-update body for an inventory asset; unknown fields are rejected and kind
+    # cannot be changed.
     model_config = ConfigDict(extra="forbid")
 
     name: str | None = Field(default=None, min_length=1, max_length=200)
@@ -108,6 +119,9 @@ class AssetUpdate(BaseModel):
     @field_validator("name", "locator", "notes", "agent_id", "hostname", "owner", "environment")
     @classmethod
     def plain_inventory_text(cls, value: str | None) -> str | None:
+        """Trim free-text fields, treat blank values as None, and refuse values that
+        look like credentials.
+        """
         if value is None:
             return None
         cleaned = value.strip()
@@ -119,6 +133,10 @@ class AssetUpdate(BaseModel):
 
 
 def _compute_coverage(db: Database, org_id: str, row: dict[str, Any]) -> str:
+    """Derive a repository asset's scan coverage from its scan history: not_connected
+    for other kinds, never_scanned, scan_failed, or scanned/stale based on a seven- day
+    window; an unparseable finish time counts as scanned.
+    """
     if row.get("kind") != "repository":
         return "not_connected"
     asset_id = str(row.get("asset_id"))
@@ -129,6 +147,8 @@ def _compute_coverage(db: Database, org_id: str, row: dict[str, Any]) -> str:
     )
     if not latest_scan:
         return "never_scanned"
+    # A scan still in progress should not hide earlier results, so only failed or
+    # completed latest scans are final; otherwise fall through to the last completed one.
     if latest_scan["status"] == "failed":
         return "scan_failed"
     if latest_scan["status"] == "completed":
@@ -161,6 +181,7 @@ def _compute_coverage(db: Database, org_id: str, row: dict[str, Any]) -> str:
 
 
 def _response(repository: SqliteAssetRepository, org_id: str, row: dict[str, Any]) -> dict[str, Any]:
+    """Return the stored asset row plus its computed coverage state."""
     coverage = _compute_coverage(repository.db, org_id, row)
     return {**row, "coverage": coverage}
 
@@ -174,6 +195,9 @@ async def list_assets(
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> list[dict[str, Any]]:
+    """List the caller's organization's assets with optional kind and text filters and
+    pagination.
+    """
     rows = repository.list_for_org(str(org_id), kind=kind, q=q, limit=limit, offset=offset)
     return [_response(repository, str(org_id), row) for row in rows]
 
@@ -184,6 +208,9 @@ async def get_asset(
     org_id: Annotated[OrgId, Depends(get_current_org)],
     repository: Annotated[SqliteAssetRepository, Depends(get_asset_repository)],
 ) -> dict[str, Any]:
+    """Return one asset in the caller's organization; raises 404 if it does not exist
+    there.
+    """
     row = repository.get(str(org_id), asset_id)
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Asset not found")
@@ -196,6 +223,9 @@ async def create_asset(
     org_id: Annotated[OrgId, Depends(get_current_org)],
     repository: Annotated[SqliteAssetRepository, Depends(get_asset_repository)],
 ) -> dict[str, Any]:
+    """Admin-only: create an asset in the caller's organization, validating repository
+    locators and optionally queueing a first repo scan when scanning is enabled.
+    """
     if request.kind == "repository":
         _validate_repo_locator(request.locator)
 
@@ -231,6 +261,9 @@ async def update_asset(
     org_id: Annotated[OrgId, Depends(get_current_org)],
     repository: Annotated[SqliteAssetRepository, Depends(get_asset_repository)],
 ) -> dict[str, Any]:
+    """Admin-only: partially update an asset in the caller's organization; repository
+    locators are re-validated and a missing asset raises 404.
+    """
     existing = repository.get(str(org_id), asset_id)
     if existing is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Asset not found")
@@ -251,6 +284,9 @@ async def delete_asset(
     org_id: Annotated[OrgId, Depends(get_current_org)],
     repository: Annotated[SqliteAssetRepository, Depends(get_asset_repository)],
 ) -> None:
+    """Admin-only: delete an asset from the caller's organization; raises 404 if it does
+    not exist there.
+    """
     if not repository.delete(str(org_id), asset_id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Asset not found")
 

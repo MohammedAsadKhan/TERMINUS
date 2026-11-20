@@ -1,6 +1,6 @@
 # File name: admission.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Trusted, revocable model preflight and single-use execution gates.
 
@@ -49,12 +49,20 @@ class ModelAdmissionDeniedError(ValueError):
 
 
 def _endpoint(connection: ModelConnectionView) -> str:
+    """Return the connection's base URL, denying admission if none is configured."""
     if connection.base_url is None:
         raise ModelAdmissionDeniedError("Connection endpoint is unavailable")
     return connection.base_url
 
 
 class PreparedModelCall(BaseModel):
+    # Immutable, org-scoped record of one admitted model request.
+    #
+    # It is pinned to the connection and policy versions it was approved under.
+
+
+
+
     model_config: ClassVar[ConfigDict] = ConfigDict(
         extra="forbid", strict=True, frozen=True
     )
@@ -74,6 +82,11 @@ class PreparedModelCall(BaseModel):
 
 @dataclass(frozen=True)
 class _Binding:
+    """Server-side record of the actor, lease and evidence snapshot behind a prepared call."""
+
+
+
+
     actor: str
     lease: JobLease
     call: PreparedModelCall
@@ -83,6 +96,7 @@ class _Binding:
 
 
 def _digest(value: object) -> str:
+    """Return a SHA-256 of the canonical JSON form, so equal payloads always hash equally."""
     raw = json.dumps(
         value,
         sort_keys=True,
@@ -105,6 +119,7 @@ class ModelAdmissionService:
         *,
         evidence_limit_bytes: int = 24576,
     ) -> None:
+        """Require all stores to share one database and create the append-only audit tables."""
         if type(evidence_limit_bytes) is not int or not 1024 <= evidence_limit_bytes <= 262144:
             raise ModelAdmissionDeniedError("Evidence limit must be 1024 to 262144 bytes")
         self.evidence_limit_bytes = evidence_limit_bytes
@@ -141,7 +156,10 @@ class ModelAdmissionService:
                     SELECT RAISE(ABORT, 'model live intent is immutable'); END""")
 
     def _task(self, lease: JobLease, actor: str) -> Task:
+        """Confirm the lease matches durable running state and the actor is a current operator."""
+        # Re-validate a fresh copy of the lease before trusting any of its fields.
         lease = JobLease.model_validate(lease.model_dump())
+        # Cancellation/staleness is checked first, before any durable state is read.
         if self.scheduler.is_cancel_requested(lease):
             raise ModelAdmissionDeniedError("Model ownership is stale or cancelled")
         task = self.scheduler.records.get_task(lease.org_id, lease.task_id)
@@ -158,6 +176,8 @@ class ModelAdmissionService:
             or job.attempt != lease.attempt
         ):
             raise ModelAdmissionDeniedError("Model lease differs from durable state")
+        # Membership is read for the task's own org, so a user from another
+        # organization can never act on this lease.
         row = self.scheduler.db.fetchone(
             "SELECT role FROM memberships WHERE org_id=? AND user_id=?",
             (task.org_id, actor),
@@ -187,6 +207,9 @@ class ModelAdmissionService:
         tuple[tuple[str, str, int, str], ...],
         list[JsonValue],
     ]:
+        """Load policy, connection and evidence, enforcing the exact role grant and data classes."""
+        # Order: ownership first, then org policy/connection, then exact grant,
+        # then per-evidence checks, and only last the classification-vs-provider gate.
         task = self._task(lease, actor)
         policy = self.policies.get(task.org_id, actor)
         connection = self.connections.get(task.org_id, actor, connection_id)
@@ -230,6 +253,7 @@ class ModelAdmissionService:
                 != evidence.content_hash
             ):
                 raise ModelAdmissionDeniedError("Evidence integrity failed")
+            # Unlabelled evidence defaults to the most restrictive class.
             label = self.policies.get_classification(task.org_id, actor, evidence_id)
             classification = label.classification if label is not None else "local_only"
             version = label.version if label is not None else 0
@@ -252,6 +276,7 @@ class ModelAdmissionService:
             raise ModelAdmissionDeniedError(
                 "Evidence classification is outside role policy"
             )
+        # Data boundary: local-only evidence never leaves for a hosted provider.
         if "local_only" in classifications and connection.provider != "local":
             raise ModelAdmissionDeniedError(
                 "Local evidence cannot reach a hosted provider"
@@ -259,6 +284,7 @@ class ModelAdmissionService:
         return task, policy, connection, tuple(snapshot), observations
 
     def _audit(self, call: PreparedModelCall, outcome: str) -> None:
+        """Append an immutable audit row for the call with the given outcome."""
         _ = self.scheduler.db.execute(
             "INSERT INTO model_admission_audit VALUES(?,?,?,?,?,?,?,?,?,?,?)",
             (
@@ -362,6 +388,7 @@ class ModelAdmissionService:
             raise ModelAdmissionDeniedError("Model preparation denied") from None
 
     def _authorize(self, binding: _Binding, call: PreparedModelCall) -> None:
+        """Reject any change to payload, grants, connection, evidence or destination."""
         call = PreparedModelCall.model_validate(call.model_dump())
         if (
             call != binding.call
@@ -390,6 +417,7 @@ class ModelAdmissionService:
             raise ModelAdmissionDeniedError("Unexpected destination verification")
 
     async def authorize(self, call: PreparedModelCall) -> None:
+        """Recheck an issued admission, including the verified private destination."""
         try:
             binding = self._bindings.get(call.admission_id)
             if binding is None:
@@ -426,6 +454,7 @@ class ModelAdmissionService:
                     "Fixture destination differs from admission"
                 )
             await self.authorize(call)
+            # Single use: the binding is consumed before the fixture runs.
             _ = self._bindings.pop(call.admission_id)
             pending = asyncio.create_task(client.respond(binding.call.request))
             while not pending.done():
@@ -439,10 +468,13 @@ class ModelAdmissionService:
                 self._audit(call, "fixture_finished")
             return result
         except asyncio.CancelledError:
+            # Cancellation may land after the fixture started, so the outcome is
+            # recorded as unknown rather than as a clean denial.
             with self.scheduler.db.transaction():
                 self._audit(call, "fixture_cancelled_unknown")
             raise
         except (ValueError, LookupError, TypeError, KeyError):
+            # "_unknown" marks a denial after the call began (pending is set).
             with self.scheduler.db.transaction():
                 self._audit(
                     binding.call,
@@ -485,7 +517,8 @@ class ModelAdmissionService:
                     "Live destination differs from admission"
                 )
             await self.authorize(call)
-            budget_snapshot = self.scheduler.db.fetchone(
+            # Pin the budget version now; check() fails if the budget changes mid-call.
+            budget_snapshot =self.scheduler.db.fetchone(
                 "SELECT b.version FROM model_budgets b JOIN model_reservations r ON b.org_id=r.org_id AND b.window_key=r.window_key WHERE r.org_id=? AND r.reservation_id=?",
                 (call.org_id, reservation_id),
             )
@@ -493,6 +526,7 @@ class ModelAdmissionService:
                 raise ModelAdmissionDeniedError("Model financial intent is unavailable")
 
             def check() -> None:
+                """Revalidate ownership, financial intent and budget; raise on any change."""
                 with self.scheduler.db.transaction():
                     self._authorize(binding, call)
                     row = self.scheduler.db.fetchone(
@@ -516,6 +550,8 @@ class ModelAdmissionService:
                         raise ModelAdmissionDeniedError(
                             "Model financial intent changed"
                         )
+                    # Unsettled/ambiguous reservations count at their full reserved
+                    # amount, so unknown spend is never treated as zero.
                     exposure = self.scheduler.db.fetchone(
                         """SELECT
                             COALESCE(SUM(CASE WHEN state IN ('reserved','ambiguous') THEN reserved_micro_usd
@@ -565,9 +601,12 @@ class ModelAdmissionService:
                 self._audit(call, "live_finished")
             return result
         except asyncio.CancelledError:
+            # The request may already have reached the provider and been billed,
+            # so cancellation is recorded as unknown, never as "not sent".
             self._audit(binding.call, "live_cancelled_unknown")
             raise
         except Exception:
+            # Only a denial before I/O started is a certain "no charge" outcome.
             self._audit(
                 binding.call,
                 "live_denied_unknown"

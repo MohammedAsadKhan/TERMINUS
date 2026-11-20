@@ -1,6 +1,6 @@
 # File name: synthesizer.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Dynamic Sigma & YARA Detection Rule Synthesizer for TERMINUS.
 
@@ -24,12 +24,16 @@ from terminus.tools.deobfuscator import PayloadDeobfuscator
 
 
 class RuleStatus(StrEnum):
+    """Maturity status of a generated Sigma rule."""
+
     EXPERIMENTAL = "experimental"
     TEST = "test"
     STABLE = "stable"
 
 
 class RuleSeverity(StrEnum):
+    """Severity level of a generated Sigma rule."""
+
     INFORMATIONAL = "informational"
     LOW = "low"
     MEDIUM = "medium"
@@ -39,6 +43,8 @@ class RuleSeverity(StrEnum):
 
 @dataclass
 class SigmaRule:
+    """A generated Sigma detection rule that serializes to YAML."""
+
     title: str
     description: str
     detection: dict[str, Any]
@@ -87,6 +93,8 @@ class SigmaRule:
 
 @dataclass
 class YaraRule:
+    """A generated YARA rule that serializes to YARA source."""
+
     rule_name: str
     meta: dict[str, str] = field(default_factory=dict)
     strings: list[tuple[str, str]] = field(default_factory=list)

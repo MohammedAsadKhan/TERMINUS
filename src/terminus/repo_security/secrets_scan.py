@@ -1,6 +1,6 @@
 # File name: secrets_scan.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Secret scanning engine across repository trees and commit history with zero raw secret storage.
 
@@ -72,6 +72,9 @@ _IGNORED_EXTENSIONS = {
 
 
 def _shannon_entropy(data: str) -> float:
+    """Compute the Shannon entropy in bits per character; higher values suggest random,
+    secret-like strings.
+    """
     if not data:
         return 0.0
     entropy = 0.0
@@ -83,6 +86,9 @@ def _shannon_entropy(data: str) -> float:
 
 
 def _redacted_preview(raw_value: str) -> str:
+    """Keep at most the first four characters of a secret so reports never contain the
+    full credential.
+    """
     cleaned = raw_value.strip()
     if len(cleaned) <= 4:
         return "[REDACTED]"
@@ -90,6 +96,9 @@ def _redacted_preview(raw_value: str) -> str:
 
 
 def _compute_fingerprint(rule_id: str, file_path: str, raw_value: str) -> str:
+    """Derive a stable fingerprint from rule, file and a hash of the secret, so the
+    plaintext secret is never stored.
+    """
     val_hash = hashlib.sha256(raw_value.encode("utf-8")).hexdigest()
     combined = f"{rule_id}:{file_path}:{val_hash}"
     return hashlib.sha256(combined.encode("utf-8")).hexdigest()

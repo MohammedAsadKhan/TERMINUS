@@ -1,6 +1,6 @@
 # File name: storage.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Tenant-scoped SQLite persistence, with no scheduling or external execution.
 
@@ -81,6 +81,9 @@ class OrchestrationTransitionError(ValueError):
 
 
 def _canonical(value: object) -> str:
+    """Serialize a value to deterministic JSON (sorted keys, no whitespace, no NaN) so hashes are
+    stable.
+    """
     return json.dumps(
         value,
         sort_keys=True,
@@ -91,19 +94,29 @@ def _canonical(value: object) -> str:
 
 
 def _hash(value: object) -> str:
+    """Return the SHA-256 hex digest of the canonical JSON form of a value."""
     return hashlib.sha256(_canonical(value).encode("utf-8")).hexdigest()
 
 
 class OrchestrationStore:
+    """Tenant-scoped persistence for tasks, runs, evidence, help requests and action attempts; every
+    read and write is keyed by org_id.
+    """
+
     def __init__(self, db: Database) -> None:
+        """Bind the store to a database handle."""
         self.db: Database = db
 
     @contextmanager
     def _transaction(self) -> Generator[None]:
+        """Run the enclosed statements in one database transaction."""
         with self.db.transaction():
             yield
 
     def _get(self, model: type[Record], org_id: str, record_id: str) -> Record:
+        """Load one record by organization and ID, raising the same not-found error for missing and
+        foreign-tenant IDs.
+        """
         _ = _IDENTIFIER.validate_python(org_id, strict=True)
         _ = _IDENTIFIER.validate_python(record_id, strict=True)
         table, key = _TABLES[model]
@@ -127,6 +140,9 @@ class OrchestrationStore:
         offset: int = 0,
         newest_first: bool = False,
     ) -> list[Record]:
+        """List records for one organization with validated filters and paging, ordered by creation
+        time.
+        """
         _ = _IDENTIFIER.validate_python(org_id, strict=True)
         if (
             type(limit) is not int
@@ -160,6 +176,7 @@ class OrchestrationStore:
     def _insert(
         self, record: DurableRecord, *, request_hash: str | None = None
     ) -> None:
+        """Insert a validated record and its indexed columns, rejecting payloads over 256 KiB."""
         table, key = _TABLES[type(record)]
         data = cast("dict[str, object]", record.model_dump(mode="json"))
         payload = record.model_dump_json()
@@ -208,6 +225,9 @@ class OrchestrationStore:
         priority: int = 100,
         idempotency_key: str | None = None,
     ) -> Task:
+        """Create a task, returning the original if the idempotency key repeats the same request and
+        raising a conflict if it was used for a different one.
+        """
         task = Task(
             org_id=org_id,
             incident_id=incident_id,
@@ -291,6 +311,7 @@ class OrchestrationStore:
         )
 
     def get_task(self, org_id: str, task_id: str) -> Task:
+        """Fetch a task within the organization."""
         return self._get(Task, org_id, task_id)
 
     def list_tasks(
@@ -303,6 +324,7 @@ class OrchestrationStore:
         offset: int = 0,
         newest_first: bool = False,
     ) -> list[Task]:
+        """List an organization's tasks, optionally filtered by incident and status."""
         return self._list(
             Task,
             org_id,
@@ -322,6 +344,7 @@ class OrchestrationStore:
         model_connection_id: str | None = None,
         model_name: str | None = None,
     ) -> AgentRun:
+        """Create a queued run for a task, inheriting the task's incident."""
         task = self.get_task(org_id, task_id)
         run = AgentRun(
             org_id=org_id,
@@ -335,6 +358,7 @@ class OrchestrationStore:
         return run
 
     def get_agent_run(self, org_id: str, run_id: str) -> AgentRun:
+        """Fetch an agent run within the organization."""
         return self._get(AgentRun, org_id, run_id)
 
     def list_agent_runs(
@@ -346,6 +370,7 @@ class OrchestrationStore:
         limit: int = 50,
         offset: int = 0,
     ) -> list[AgentRun]:
+        """List an organization's agent runs, optionally filtered by task or incident."""
         return self._list(
             AgentRun,
             org_id,
@@ -365,6 +390,8 @@ class OrchestrationStore:
         content: JsonValue = None,
         content_ref: str | None = None,
     ) -> EvidenceRecord:
+        """Record evidence for a task and compute its content hash over the content and reference.
+        """
         task = self.get_task(org_id, task_id)
         evidence = EvidenceRecord(
             org_id=org_id,
@@ -380,6 +407,7 @@ class OrchestrationStore:
         return evidence
 
     def get_evidence(self, org_id: str, evidence_id: str) -> EvidenceRecord:
+        """Fetch an evidence record within the organization."""
         return self._get(EvidenceRecord, org_id, evidence_id)
 
     def list_evidence(
@@ -391,6 +419,7 @@ class OrchestrationStore:
         limit: int = 50,
         offset: int = 0,
     ) -> list[EvidenceRecord]:
+        """List an organization's evidence, optionally filtered by task or incident."""
         return self._list(
             EvidenceRecord,
             org_id,
@@ -403,6 +432,7 @@ class OrchestrationStore:
     def create_help_request(
         self, org_id: str, task_id: str, requested_role: str, reason: str
     ) -> HelpRequest:
+        """Open a help request for a task, inheriting the task's incident."""
         task = self.get_task(org_id, task_id)
         request = HelpRequest(
             org_id=org_id,
@@ -415,6 +445,7 @@ class OrchestrationStore:
         return request
 
     def get_help_request(self, org_id: str, help_request_id: str) -> HelpRequest:
+        """Fetch a help request within the organization."""
         return self._get(HelpRequest, org_id, help_request_id)
 
     def list_help_requests(
@@ -426,6 +457,7 @@ class OrchestrationStore:
         limit: int = 50,
         offset: int = 0,
     ) -> list[HelpRequest]:
+        """List an organization's help requests, optionally filtered by task or incident."""
         return self._list(
             HelpRequest,
             org_id,
@@ -445,6 +477,7 @@ class OrchestrationStore:
         inputs: dict[str, JsonValue] | None = None,
         actor: str = "system",
     ) -> ActionAttempt:
+        """Record a proposed action and its first history event in one transaction."""
         task = self.get_task(org_id, task_id)
         attempt = ActionAttempt(
             org_id=org_id,
@@ -467,6 +500,7 @@ class OrchestrationStore:
         return attempt
 
     def get_action_attempt(self, org_id: str, attempt_id: str) -> ActionAttempt:
+        """Fetch an action attempt within the organization."""
         return self._get(ActionAttempt, org_id, attempt_id)
 
     def list_action_attempts(
@@ -478,6 +512,7 @@ class OrchestrationStore:
         limit: int = 50,
         offset: int = 0,
     ) -> list[ActionAttempt]:
+        """List an organization's action attempts, optionally filtered by task or incident."""
         return self._list(
             ActionAttempt,
             org_id,
@@ -490,6 +525,9 @@ class OrchestrationStore:
     def list_action_events(
         self, org_id: str, attempt_id: str, *, limit: int = 50, offset: int = 0
     ) -> list[ActionAttemptEvent]:
+        """List an attempt's history in order, after confirming the attempt belongs to the
+        organization.
+        """
         _ = self.get_action_attempt(org_id, attempt_id)
         if (
             type(limit) is not int
@@ -516,6 +554,9 @@ class OrchestrationStore:
         status: str,
         **updates: object,
     ) -> Record:
+        """Move a record between statuses with compare-and-swap on the expected status, allowing
+        only transitions in the lifecycle table and stamping start and completion times.
+        """
         record = self._get(model, org_id, record_id)
         current = cast("dict[str, object]", record.model_dump())
         if current["status"] != expected_status:
@@ -556,6 +597,7 @@ class OrchestrationStore:
     def transition_task(
         self, org_id: str, task_id: str, expected_status: TaskStatus, status: TaskStatus
     ) -> Task:
+        """Move a task from the expected status to a new one."""
         return self._transition(Task, org_id, task_id, expected_status, status)
 
     def transition_agent_run(
@@ -568,6 +610,7 @@ class OrchestrationStore:
         result: JsonValue = None,
         error: str | None = None,
     ) -> AgentRun:
+        """Move a run to a new status, requiring an error message when it fails."""
         if status == "failed" and not error:
             _ = self.get_agent_run(org_id, run_id)
             raise OrchestrationTransitionError("Failed runs require an error")
@@ -588,6 +631,7 @@ class OrchestrationStore:
         expected_status: HelpStatus,
         status: HelpStatus,
     ) -> HelpRequest:
+        """Move a help request from the expected status to a new one."""
         return self._transition(
             HelpRequest, org_id, help_request_id, expected_status, status
         )
@@ -603,6 +647,9 @@ class OrchestrationStore:
         outputs: dict[str, JsonValue] | None = None,
         error: str | None = None,
     ) -> ActionAttempt:
+        """Move an action attempt to a new status and append the matching history event in the same
+        transaction.
+        """
         with self._transaction():
             attempt = self.get_action_attempt(org_id, attempt_id)
             if status == "verified" and not outputs:

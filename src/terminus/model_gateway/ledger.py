@@ -1,6 +1,6 @@
 # File name: ledger.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Atomic organization-level financial reservations and a durable usage ledger.
 
@@ -52,6 +52,9 @@ _Reason = Annotated[str, Field(pattern=_REASON_PATTERN)]
 
 
 class _Contract(BaseModel):
+    # Base for ledger contracts: immutable, strictly typed and closed to extra fields
+    # and NaN.
+
     model_config: ClassVar[ConfigDict] = ConfigDict(
         extra="forbid", strict=True, frozen=True, allow_inf_nan=False
     )
@@ -307,6 +310,7 @@ def window_key_for(moment: datetime) -> str:
 
 
 def _ceil_div(numerator: int, denominator: int) -> int:
+    """Integer division rounded up, so money is never under-counted."""
     return -(-numerator // denominator)
 
 
@@ -349,6 +353,7 @@ class ModelBudgetStore:
     def __init__(
         self, db: Database, clock: Callable[[], datetime] | None = None
     ) -> None:
+        """Create the price, budget, reservation and immutable ledger tables and set the clock."""
         self.db: Database = db
         self._clock: Callable[[], datetime] = clock or (lambda: datetime.now(UTC))
         with self.db.transaction() as conn:
@@ -362,6 +367,7 @@ class ModelBudgetStore:
     # -- helpers -----------------------------------------------------------
 
     def _now(self) -> datetime:
+        """Return the injectable clock time in UTC."""
         return self._clock().astimezone(UTC)
 
     @staticmethod
@@ -371,6 +377,7 @@ class ModelBudgetStore:
         actor_user_id: str,
         level: Literal["read", "use", "admin"] = "use",
     ) -> None:
+        """Require live membership at the needed level: read, use (admin or member) or admin."""
         row = conn.execute(
             "SELECT role FROM memberships WHERE org_id = ? AND user_id = ?",
             (org_id, actor_user_id),
@@ -385,11 +392,13 @@ class ModelBudgetStore:
 
     @staticmethod
     def _check_org(org_id: str) -> None:
+        """Reject organization ids that are empty, too long or contain spaces."""
         if not 1 <= len(org_id) <= 200 or " " in org_id:
             raise BudgetValidationError("Invalid organization")
 
     @staticmethod
     def _validate[T: BaseModel](kind: type[T], /, **values: object) -> T:
+        """Validate keyword values into a contract, hiding details in the error."""
         try:
             return kind.model_validate(values)
         except (TypeError, ValueError, ValidationError) as exc:
@@ -397,12 +406,14 @@ class ModelBudgetStore:
 
     @staticmethod
     def _reason(reason_code: str) -> str:
+        """Require a short lowercase reason code for the ledger."""
         if not _REASON.fullmatch(reason_code):
             raise BudgetValidationError("Invalid reason code")
         return reason_code
 
     @staticmethod
     def _reservation(row: sqlite3.Row) -> ModelReservation:
+        """Rebuild a reservation from a row, rejecting corrupt stored data."""
         try:
             return ModelReservation.model_validate(
                 {key: row[key] for key in row.keys()}  # noqa: SIM118
@@ -412,6 +423,7 @@ class ModelBudgetStore:
 
     @staticmethod
     def _entry(row: sqlite3.Row) -> LedgerEntry:
+        """Rebuild a ledger entry from a row, rejecting corrupt stored data."""
         values = {key: row[key] for key in row.keys()}  # noqa: SIM118
         values["cost_known"] = bool(values["cost_known"])
         try:
@@ -423,6 +435,7 @@ class ModelBudgetStore:
     def _load(
         conn: sqlite3.Connection, org_id: str, reservation_id: str
     ) -> sqlite3.Row:
+        """Load a reservation scoped to the org, or raise not-found."""
         row = conn.execute(
             "SELECT * FROM model_reservations WHERE org_id = ? AND reservation_id = ?",
             (org_id, reservation_id),
@@ -435,6 +448,7 @@ class ModelBudgetStore:
     def _public(
         conn: sqlite3.Connection, org_id: str, reservation_id: str
     ) -> ModelReservation:
+        """Load a reservation by org and id, selecting only the public columns."""
         row = conn.execute(
             f"SELECT {_RESERVATION_COLUMNS} FROM model_reservations WHERE org_id = ? AND reservation_id = ?",  # noqa: S608
             (org_id, reservation_id),
@@ -455,6 +469,10 @@ class ModelBudgetStore:
         actor_user_id: str | None,
         timestamp: str,
     ) -> None:
+        """Append an immutable ledger row for a state transition.
+
+        Unknown cost is stored as NULL with cost_known false, never as zero.
+        """
         usage = usage or UsageReport()
         _ = conn.execute(
             """INSERT INTO model_usage_ledger
@@ -599,6 +617,7 @@ class ModelBudgetStore:
         version: int,
         timestamp: str,
     ) -> None:
+        """Append an immutable audit row for a price or budget change."""
         _ = conn.execute(
             """INSERT INTO model_budget_audit
                (audit_id, org_id, actor_user_id, action, subject,
@@ -717,6 +736,7 @@ class ModelBudgetStore:
 
     @staticmethod
     def _check_window(window_key: str) -> None:
+        """Require a real calendar date as the budget window key."""
         if not _WINDOW.fullmatch(window_key):
             raise BudgetValidationError("Invalid budget window")
         try:
@@ -728,6 +748,7 @@ class ModelBudgetStore:
 
     @staticmethod
     def _fingerprint(request: ReservationRequest) -> str:
+        """Hash the request minus its idempotency key, to catch a key reused for another request."""
         payload = json.dumps(
             request.model_dump(mode="json", exclude={"idempotency_key"}),
             sort_keys=True,
@@ -753,6 +774,8 @@ class ModelBudgetStore:
                 "SELECT reservation_id, request_fingerprint FROM model_reservations WHERE org_id = ? AND idempotency_key = ?",
                 (org_id, request.idempotency_key),
             ).fetchone()
+            # Idempotent replay: the same key and request returns the original
+            # reservation, so a retry cannot reserve (or spend) twice.
             if existing is not None:
                 if str(existing["request_fingerprint"]) != fingerprint:
                     raise BudgetConflictError(
@@ -763,6 +786,8 @@ class ModelBudgetStore:
                 "SELECT input_per_mtok, output_per_mtok, cached_input_per_mtok, reasoning_per_mtok FROM model_prices WHERE org_id = ? AND connection_id = ? AND model = ?",
                 (org_id, request.connection_id, request.model),
             ).fetchone()
+            # No price or no budget means the cost cannot be bounded, so the
+            # reservation is refused rather than treated as free.
             if price is None:
                 raise BudgetExceededError(
                     "Model cost cannot be bounded: no price configured"
@@ -780,6 +805,8 @@ class ModelBudgetStore:
                 if request.max_input_tokens is None
                 else request.max_input_tokens
             )
+            # Worst case: price each token at the highest applicable rate, so the
+            # reserve can only over-count, never under-count, what may be billed.
             in_rate = max(
                 int(price["input_per_mtok"]), int(price["cached_input_per_mtok"] or 0)
             )
@@ -790,6 +817,8 @@ class ModelBudgetStore:
                 input_bound * in_rate + request.max_output_tokens * out_rate, _MILLION
             )
             reserved_tokens = input_bound + request.max_output_tokens
+            # Exposure is org-wide for the window (all connections, retries and
+            # fallbacks) and includes ambiguous reservations at their full reserve.
             used_usd, used_tokens = self._exposure(conn, org_id, window)
             if used_usd + reserved_usd > int(budget["limit_micro_usd"]) or (
                 budget["limit_tokens"] is not None
@@ -852,7 +881,10 @@ class ModelBudgetStore:
         cost: int | None,
         timestamp: str,
     ) -> None:
+        """Move a reservation from its current state, failing if it changed concurrently."""
         usage = usage or UsageReport()
+        # Actual tokens are recorded only when the cost is known; otherwise they
+        # stay NULL so the reserved bound keeps counting.
         tokens = (
             usage.input_tokens + usage.output_tokens
             if cost is not None
@@ -904,6 +936,8 @@ class ModelBudgetStore:
         reason_code = self._reason(reason_code)
         with self.db.transaction() as conn:
             row = self._load(conn, org_id, reservation_id)
+            # Replaying an identical settlement is a no-op; any other settle of a
+            # non-open reservation is a conflict, so usage cannot be rewritten.
             if row["state"] != "reserved":
                 prior = conn.execute(
                     "SELECT input_tokens, output_tokens, cached_input_tokens, reasoning_tokens FROM model_usage_ledger WHERE org_id = ? AND reservation_id = ? AND action = 'settle'",
@@ -930,6 +964,8 @@ class ModelBudgetStore:
                 row["price_reasoning"],
                 usage,
             )
+            # Unknown cost never becomes zero: the reservation turns ambiguous and
+            # keeps its whole reserve counted until an admin reconciles it.
             to_state = "settled" if cost is not None else "ambiguous"
             stamp = self._now().isoformat()
             self._append(
@@ -1053,6 +1089,8 @@ class ModelBudgetStore:
                 raise BudgetConflictError(
                     "Only an ambiguous reservation can be reconciled"
                 )
+            # Zero cost is allowed only for an explicit confirmed_no_charge;
+            # otherwise the supplied usage must price to a known cost.
             if checked is None:
                 cost: int | None = 0
                 recorded = UsageReport(input_tokens=0, output_tokens=0)

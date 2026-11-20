@@ -1,6 +1,6 @@
 # File name: base.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: OOP foundations: abstract base classes shared by repositories and domain services.
 
@@ -56,6 +56,7 @@ class MemoryRepository(Repository[_RecordT]):
     """
 
     def __init__(self) -> None:
+        """Start with an empty store keyed by (organization, record ID) and a lock."""
         self._store: dict[tuple[OrgId, str], _RecordT] = {}
         self._lock = threading.Lock()
 

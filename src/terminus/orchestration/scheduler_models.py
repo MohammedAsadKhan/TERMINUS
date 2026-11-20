@@ -1,6 +1,6 @@
 # File name: scheduler_models.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Strict scheduler metadata and fencing tokens, separate from canonical tasks.
 
@@ -29,6 +29,10 @@ JobStatus = Literal[
 
 
 class SchedulerJob(DurableRecord):
+    # Scheduler metadata for one admitted task: retry counters, lease and fencing token,
+    # and
+    # cancellation flag. It is kept separate from the canonical Task.
+
     job_id: Identifier = Field(default_factory=new_id)
     task_id: Identifier
     role: Label
@@ -52,10 +56,15 @@ class SchedulerJob(DurableRecord):
     @field_validator("available_at", "lease_expires_at", "heartbeat_at")
     @classmethod
     def normalize_time(cls, value: datetime | None) -> datetime | None:
+        """Apply the UTC normalization rule to the scheduler's timestamp fields."""
         return cls.utc_timestamp(value)
 
 
 class JobLease(DurableRecord):
+    # Ownership grant a worker presents for one running job; the lease and coordinator
+    # tokens fence
+    # out stale holders.
+
     job_id: Identifier
     task_id: Identifier
     run_id: Identifier
@@ -71,10 +80,15 @@ class JobLease(DurableRecord):
     @field_validator("lease_expires_at")
     @classmethod
     def normalize_time(cls, value: datetime) -> datetime:
+        """Apply the UTC normalization rule to the lease expiry."""
         return cls.utc_timestamp(value)
 
 
 class CoordinatorLease(DurableRecord):
+    # Lease for the single scheduler coordinator that owns a database; the token fences
+    # a
+    # superseded owner.
+
     # The singleton is global. Scope fields deliberately carry fixed values.
     org_id: Identifier = "scheduler"
     incident_id: Identifier = "coordinator"
@@ -85,4 +99,5 @@ class CoordinatorLease(DurableRecord):
     @field_validator("lease_expires_at")
     @classmethod
     def normalize_time(cls, value: datetime) -> datetime:
+        """Apply the UTC normalization rule to the lease expiry."""
         return cls.utc_timestamp(value)

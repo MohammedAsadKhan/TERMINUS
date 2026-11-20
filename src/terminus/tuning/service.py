@@ -1,6 +1,6 @@
 # File name: service.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Closed-Loop Detection Engineering Advisor ("Self-Tuning SOC") for TERMINUS.
 
@@ -20,6 +20,10 @@ from typing import Any
 
 @dataclass
 class TuningRecommendation:
+    """A generated suppression proposal for one false-positive incident: Sigma and Wazuh rule text
+    plus a suggested action. Nothing is deployed.
+    """
+
     rule_id: str
     name: str
     incident_id: str
@@ -38,6 +42,9 @@ class DetectionTuningAdvisor:
         incident: dict[str, Any],
         false_positive_reason: str = "Benign administrative routine activity.",
     ) -> TuningRecommendation:
+        """Build a suppression proposal (Sigma YAML and Wazuh XML) from a false-positive incident
+        record, using placeholder values for fields it lacks.
+        """
         rule_id = f"tune-{secrets.token_hex(4)}"
         inc_id = str(incident.get("ticket_id") or incident.get("id") or "unknown")
         orig_rule_id = str(incident.get("rule_id") or "100010")

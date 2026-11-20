@@ -1,6 +1,6 @@
 # File name: readers.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Opt-in tenant-bound readers composed behind durable tool admission.
 
@@ -63,6 +63,9 @@ _TOOLS = (
 
 @dataclass(frozen=True)
 class _Batch:
+    """One connector's collection together with the connector id and version used for
+    its provenance.
+    """
     connector_id: str
     connector_version: str
     collection: ReadCollection
@@ -80,6 +83,11 @@ class InvestigationReadService:
         manager: WazuhManagerReader | None = None,
         indexer: WazuhIndexerReader | None = None,
     ) -> None:
+        """Bind a single organization's read stack: reject a scheduler and policy store
+        on different databases or a Wazuh reader whose settings belong to another
+        organization or capability, and install only the handlers for the configured
+        connectors.
+        """
         self.org_id: str = _ID.validate_python(org_id, strict=True)
         if scheduler.db is not policy_store.db:
             raise ValueError("Read services must share the canonical database")
@@ -97,6 +105,8 @@ class InvestigationReadService:
         self.scheduler: SchedulerStore = scheduler
         self.manager: WazuhManagerReader | None = manager
         self.indexer: WazuhIndexerReader | None = indexer
+        # Audit shares the scheduler's database and clock, so reservations, leases and
+        # evidence are judged against one transaction log and one notion of "now".
         self.audit: ToolInvocationStore = ToolInvocationStore(
             scheduler.db, clock=scheduler.clock
         )
@@ -134,7 +144,15 @@ class InvestigationReadService:
         )
 
     def _handler(self, tool_id: str) -> ToolHandler:  # noqa: C901 - five fixed read routes
+        """Create the registry handler for one read tool; it resolves the operator-bound
+        resource, checks the resource kind and query kind, re-authorizes before every
+        provider read, and publishes the collected batches.
+        """
         async def read(context: ToolExecutionContext, query: ReadQuery) -> ToolResult:  # noqa: C901, PLR0911
+            """Route the call for this tool id to the incident store or the Wazuh
+            manager and indexer readers, returning a disclosed gap when a connector
+            is not configured or the resource or query kind is unsupported.
+            """
             resource = self.contexts.resolve_resource(context, query.resource_id)
             if tool_id == "incident.get":
                 if resource.kind != "incident" or query.event_kind not in {
@@ -242,6 +260,9 @@ class InvestigationReadService:
         status: Literal["unavailable", "unsupported", "denied", "error"],
         code: str,
     ) -> ToolResult:
+        """Build a data-free result that discloses the missing data as a gap with a
+        stable error code.
+        """
         return ToolResult(
             tool_id=tool_id, version="1.0", status=status, error_code=code, gaps=(code,)
         )
@@ -249,6 +270,10 @@ class InvestigationReadService:
     def _incident(
         self, context: ToolExecutionContext, query: ReadQuery, tool_id: str
     ) -> ToolResult:
+        """Read the incident's stored source alert in one transaction, scoped to this
+        organization and incident; a missing, malformed, timestamp-less or out-of-window
+        payload is reported as a gap, never invented.
+        """
         # Fixed projection; include no configuration secrets, model verdicts or
         # synthesized summary as if they were raw source observations.
         with self.scheduler.db.transaction():
@@ -312,6 +337,9 @@ class InvestigationReadService:
         query: ReadQuery,
         batches: list[_Batch],
     ) -> ToolResult:
+        """Re-authorize the context inside a transaction, so a revoked grant yields a
+        denial, then persist and assemble the result.
+        """
         with self.scheduler.db.transaction():
             try:
                 self.contexts.authorize(context)
@@ -326,6 +354,11 @@ class InvestigationReadService:
         query: ReadQuery,
         batches: list[_Batch],
     ) -> ToolResult:
+        """Turn collected batches into one conservative result: fail only if every batch
+        failed, trim observations to the output budget, record each batch as evidence,
+        and mark the result partial whenever sources failed, were empty, truncated or
+        (for coverage) cannot prove health.
+        """
         failures = [
             batch
             for batch in batches
@@ -447,6 +480,8 @@ class InvestigationReadService:
             tool_id = _ID.validate_python(tool_id, strict=True)
         except ValueError:
             return self._gap("invalid-tool", "unsupported", "invalid_tool_id")
+        # Organization isolation: a service is bound to one organization, so a lease
+        # from any other tenant is refused before any context is built.
         if lease.org_id != self.org_id:
             return self._gap(tool_id, "denied", "foreign_organization")
         try:

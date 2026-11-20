@@ -1,6 +1,6 @@
 # File name: sandbox.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Sandboxed repository cloning, URL validation, and safe static file traversal.
 
@@ -92,6 +92,7 @@ def validate_clone_url(url: str) -> None:
 
 
 def _get_dir_size(path: Path) -> int:
+    """Sum the sizes of all files under a directory, skipping files that cannot be read."""
     total = 0
     for root, _, files in os.walk(path):
         for f in files:

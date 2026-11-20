@@ -1,11 +1,12 @@
 // File: theme.ts
 // Author: Team LARP
-// Date: 2026-11-09
+// Date: 2026-11-19 (comments revised)
 // Version: 0.1.0
 // Purpose: Define theme tokens and apply them to the console document.
 
 import { createContext, useContext } from 'react';
 
+// Color tokens for one console theme; they feed both Ant Design and the CSS variables.
 export interface ThemeConfig {
   id: string;
   name: string;
@@ -26,6 +27,7 @@ export interface ThemeConfig {
   swatches: [string, string, string]; // [primary, panel, base]
 }
 
+// Built-in themes keyed by id. 'workspace' is the light theme and 'carbon' is the default dark theme.
 export const THEMES: Record<string, ThemeConfig> = {
   workspace: {
     id: 'workspace', name: 'Workspace', category: 'Light',
@@ -58,6 +60,7 @@ export const THEMES: Record<string, ThemeConfig> = {
   },
 };
 
+// Publishes the active theme as CSS variables on the document root so stylesheets pick it up.
 export function applyThemeVariables(t: ThemeConfig) {
   const root = document.documentElement;
   root.dataset.theme = t.id;
@@ -71,6 +74,7 @@ export function applyThemeVariables(t: ThemeConfig) {
   root.style.setProperty('--text-muted', t.textMuted);
 }
 
+// Theme state shared with the whole console.
 export interface ThemeContextValue {
   themeId: string;
   activeTheme: ThemeConfig;
@@ -78,8 +82,10 @@ export interface ThemeContextValue {
   availableThemes: ThemeConfig[];
 }
 
+// Provided by Root in main.tsx.
 export const ThemeContext = createContext<ThemeContextValue | null>(null);
 
+// Returns the theme state; throws if used outside the provider.
 export function useTheme(): ThemeContextValue {
   const ctx = useContext(ThemeContext);
   if (!ctx) {

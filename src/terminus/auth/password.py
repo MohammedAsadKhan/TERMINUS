@@ -1,6 +1,6 @@
 # File name: password.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Derive and verify salted password hashes for local authentication.
 
@@ -26,6 +26,8 @@ def hash_password(plain: str, salt: bytes | None = None) -> str:
 
 def verify_password(plain: str, stored: str) -> bool:
     """Verify a plain text password against a stored hash."""
+    # Hashes that are unrecognized, malformed or made with a different
+    # iteration count fail closed instead of raising, so they cannot authenticate.
     if not stored.startswith(PREFIX):
         return False
 
@@ -42,4 +44,5 @@ def verify_password(plain: str, stored: str) -> bool:
         return False
 
     dk = hashlib.pbkdf2_hmac(ALGO, plain.encode("utf-8"), salt, ITERATIONS)
+    # Constant-time comparison avoids leaking how many bytes matched.
     return hmac.compare_digest(dk, stored_dk)

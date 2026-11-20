@@ -1,6 +1,6 @@
 # File name: evaluation.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: M06: model evaluation on incident cases with honest live vs contract coverage.
 
@@ -132,12 +132,16 @@ class EvaluationValidationError(ValueError):
 
 
 class _Contract(BaseModel):
+    # Base for evaluation records: immutable, strictly typed and closed to extra fields.
+
     model_config: ClassVar[ConfigDict] = ConfigDict(
         extra="forbid", strict=True, frozen=True
     )
 
 
 class EvaluationRecord(_Contract):
+    # One append-only result for a connection, model, case and track; no secrets stored.
+
     record_id: str
     run_id: str
     org_id: str
@@ -164,6 +168,8 @@ Count = Annotated[int, Field(ge=0)]
 
 
 class PairCoverage(_Contract):
+    # Latest-record state counts for one connection version and model.
+
     connection_id: str
     connection_version: int
     provider: str
@@ -178,6 +184,9 @@ class PairCoverage(_Contract):
 
 
 class CoverageSummary(_Contract):
+    # Organization-wide coverage, keeping contract-verified and live-verified totals
+    # separate.
+
     org_id: str
     pairs: tuple[PairCoverage, ...]
     live_verified_count: Count
@@ -243,6 +252,7 @@ def clean_reason(text: str) -> str:
 
 
 def _clean_reasons(reasons: tuple[str, ...] | list[str]) -> tuple[str, ...]:
+    """Sanitize at most MAX_REASONS failure reasons."""
     return tuple(clean_reason(item) for item in list(reasons)[:MAX_REASONS])
 
 
@@ -279,6 +289,7 @@ def encode_fixture_body(
 
 
 def _default_cases() -> tuple[EvaluationCaseLike, ...]:
+    """Load the built-in evaluation cases lazily, avoiding an import cycle at module load."""
     from terminus.model_gateway.evaluation_cases import all_cases
 
     return cast("tuple[EvaluationCaseLike, ...]", all_cases())
@@ -291,6 +302,8 @@ def valid_live_transport(candidate: object) -> bool:
 
 @dataclass
 class _Outcome:
+    """Mutable result of one track for one pair, before it is persisted as a record."""
+
     state: CoverageState
     reasons: tuple[str, ...] = ()
     fixture_only: bool = True
@@ -311,6 +324,7 @@ class ModelEvaluationService:
         fixture_output: FixtureOutput | None = None,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
+        """Bind routing, case source, fixture output and clock, and create the append-only table."""
         self.routing: ModelRoutingService = routing
         self.db: Database = routing.admission.scheduler.db
         self._cases: Callable[[], tuple[EvaluationCaseLike, ...]] = (
@@ -327,8 +341,11 @@ class ModelEvaluationService:
     # -- authorization -----------------------------------------------------
 
     def _role(self, org_id: str, actor_user_id: str) -> str:
+        """Return the actor's role in this organization, denying non-members."""
         if not 1 <= len(org_id) <= 200 or not actor_user_id:
             raise EvaluationDeniedError("Model evaluation access denied")
+        # Organization isolation: membership is looked up in the requested org
+        # only, and a missing row gives the same denial as a bad input.
         row = self.db.fetchone(
             "SELECT role FROM memberships WHERE org_id = ? AND user_id = ?",
             (org_id, actor_user_id),
@@ -338,6 +355,7 @@ class ModelEvaluationService:
         return str(row["role"])
 
     def _now(self) -> str:
+        """Return the current UTC time as an ISO string from the injectable clock."""
         return self._clock().astimezone(UTC).isoformat()
 
     # -- running -----------------------------------------------------------
@@ -395,6 +413,7 @@ class ModelEvaluationService:
         return tuple(records)
 
     def _policy_version(self, org_id: str, actor_user_id: str) -> int:
+        """Return the org policy version, or 0 if the policy cannot be read."""
         try:
             return self.routing.admission.policies.get(org_id, actor_user_id).version
         except Exception:
@@ -413,6 +432,7 @@ class ModelEvaluationService:
         policy_version: int,
         started: str,
     ) -> EvaluationRecord:
+        """Persist one immutable record, storing cost only when it is known (never zero)."""
         reasons = _clean_reasons(outcome.reasons)
         cost_known = outcome.cost_known and outcome.cost_micro_usd is not None
         record = EvaluationRecord(
@@ -477,6 +497,13 @@ class ModelEvaluationService:
         task_provider: TaskProvider | None,
         live_transports: LiveTransportFactory | None,
     ) -> tuple[_Outcome, _Outcome]:
+        """Run both tracks for one pair, or record why neither could run.
+
+        A disabled connection, an unsupported capability, a missing task or a role
+        mismatch yields the same non-passing outcome for both tracks.
+        """
+        # Cheapest local checks first (enabled, capabilities, task, role); the
+        # tracks run only once a valid task exists, contract before live.
         if not connection.enabled:
             both = _Outcome("not_configured", ("connection_disabled",))
             return both, both
@@ -513,6 +540,7 @@ class ModelEvaluationService:
     def _route_reasons(
         self, org_id: str, since_rowid: int, connection_id: str
     ) -> list[str]:
+        """Collect route exclusion and denial codes the routing audit recorded after since_rowid."""
         rows = self.db.fetchall(
             """SELECT kind, outcome, connection_id FROM model_routing_audit
                WHERE rowid > ? AND org_id = ? ORDER BY rowid""",
@@ -536,6 +564,10 @@ class ModelEvaluationService:
         task: EvaluationTask,
         required: frozenset[Capability],
     ) -> _Outcome:
+        """Run the case through real routing and admission using a recorded fixture response.
+
+        A pass is only contract_verified; no network call is made.
+        """
         try:
             output = self._fixture_output(case, connection)
             body = encode_fixture_body(connection.provider, model, output)
@@ -545,6 +577,7 @@ class ModelEvaluationService:
             )
 
         def make_client(candidate: ModelConnectionView) -> FixtureModelClient | None:
+            """Offer the fixture client only for the connection under test."""
             if candidate.connection_id != connection.connection_id:
                 return None
             return FixtureModelClient(
@@ -578,6 +611,7 @@ class ModelEvaluationService:
         attempt = result.selected
 
         def finish(state: CoverageState, reasons: tuple[str, ...]) -> _Outcome:
+            """Build an outcome carrying the attempt's cost, reservation and policy version."""
             return _Outcome(
                 state,
                 reasons,
@@ -611,6 +645,9 @@ class ModelEvaluationService:
         task: EvaluationTask,
         live_transports: LiveTransportFactory | None,
     ) -> _Outcome:
+        """Check credentials and the transport before attempting a live call."""
+        # Credentials and transport are checked before any call, so a missing
+        # prerequisite is recorded as such and is never counted as live evidence.
         if connection.provider != "local" and not connection.credential_configured:
             return _Outcome("credentials_missing", ("no_credential_configured",))
         transport = None if live_transports is None else live_transports(connection)
@@ -632,8 +669,13 @@ class ModelEvaluationService:
         task: EvaluationTask,
         transport: LiveModelTransport,
     ) -> _Outcome:
+        """Admit and execute one live call, mapping failures to recorded states.
+
+        Only a validated successful response becomes live_verified.
+        """
         admission = self.routing.admission
         budgets = self.routing.budgets
+        # Tenant boundary: a lease from another organization is never funded or run.
         if task.lease.org_id != org_id:
             return _Outcome("policy_denied", ("live_tenant_mismatch",))
         try:
@@ -656,6 +698,8 @@ class ModelEvaluationService:
         except asyncio.CancelledError:
             raise
         except Exception as exc:
+            # I/O may have started, so this stays fixture_only=False; only a
+            # ValueError is a policy denial, everything else is a transport fault.
             return _Outcome(
                 "policy_denied"
                 if isinstance(exc, ValueError)
@@ -665,6 +709,8 @@ class ModelEvaluationService:
             )
         response, settled = result.response, result.reservation
         rid = settled.reservation_id
+        # Cost is known only for settled/reconciled reservations; otherwise it
+        # stays None (unknown), never zero.
         cost = (
             settled.actual_cost_micro_usd
             if settled.state in ("settled", "reconciled")
@@ -672,6 +718,7 @@ class ModelEvaluationService:
         )
 
         def finish(state: CoverageState, reasons: tuple[str, ...]) -> _Outcome:
+            """Build a live outcome with the settled reservation; unsettled cost stays unknown."""
             return _Outcome(
                 state,
                 reasons,
@@ -696,6 +743,7 @@ class ModelEvaluationService:
 
     @staticmethod
     def _record(row: dict[str, object]) -> EvaluationRecord:
+        """Rebuild an EvaluationRecord from a database row."""
         values = dict(row)
         values["failure_reasons"] = tuple(json.loads(str(values["failure_reasons"])))
         values["fixture_only"] = bool(values["fixture_only"])
@@ -722,6 +770,8 @@ class ModelEvaluationService:
         return tuple(self._record(row) for row in rows)
 
     def _latest(self, org_id: str) -> list[EvaluationRecord]:
+        """Return the newest record per connection version, model, case and track in the org."""
+        # Latest record per connection version/model/case/track, scoped to the org.
         rows = self.db.fetchall(
             f"""SELECT {_COLUMNS} FROM model_evaluation_records
                WHERE seq IN (SELECT MAX(seq) FROM model_evaluation_records
@@ -805,6 +855,7 @@ class ModelEvaluationService:
         demo_model: RouteRef | None,
         demo_case_ids: frozenset[str] | None,
     ) -> tuple[tuple[str, ...], tuple[str, ...], bool]:
+        """Return the required demo case ids, those lacking live evidence, and readiness."""
         if demo_model is None:
             return (), (), False
         required = (
@@ -818,6 +869,8 @@ class ModelEvaluationService:
             ).version
         except Exception:
             return required, required, False
+        # Only a non-fixture live_verified record on the connection's current
+        # version counts, so edited connections must be re-verified.
         verified = {
             r.case_id
             for r in latest

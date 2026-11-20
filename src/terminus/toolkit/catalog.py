@@ -1,6 +1,6 @@
 # File name: catalog.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Assemble and validate roadmap metadata, never an executable registry.
 
@@ -38,6 +38,8 @@ CORE_ROLES = frozenset(
 
 
 class ConnectorDescriptor(Contract):
+    # Roadmap metadata for a data connector; credentials are scoped to an organization
+    # and any external egress must be policy-gated.
     connector_id: Id
     name: Text
     availability: Availability
@@ -48,6 +50,8 @@ class ConnectorDescriptor(Contract):
 
 
 class SpecialtyDescriptor(Contract):
+    # Planned specialist capability with its tools, telemetry, permissions and
+    # acceptance checks; it is metadata only and never enabled.
     specialty_id: Id
     name: Text
     area: Literal[
@@ -67,6 +71,8 @@ class SpecialtyDescriptor(Contract):
 
 
 class CoreBundle(Contract):
+    # The fixed tool list for one core role, capped at 20 invocations and still pending
+    # implementation.
     role: CoreRole
     tool_ids: Annotated[tuple[Id, ...], Field(min_length=1)]
     max_invocations: Literal[20]
@@ -74,6 +80,8 @@ class CoreBundle(Contract):
 
 
 class ToolkitCatalog(Contract):
+    # Complete non-executable catalog of connectors, tools, 60 specialties and 8 core
+    # bundles, validated for cross-references.
     connectors: tuple[ConnectorDescriptor, ...]
     tools: tuple[ToolDescriptor, ...]
     specialties: Annotated[
@@ -83,6 +91,10 @@ class ToolkitCatalog(Contract):
 
     @model_validator(mode="after")
     def coherent_non_executable_catalog(self) -> ToolkitCatalog:  # noqa: C901, PLR0912
+        """Check that ids are unique and cross-references resolve, that no tool or
+        connector is marked available, and that egress, release and role grants stay
+        consistent, so the catalog can never enable execution.
+        """
         tools = {item.tool_id: item for item in self.tools}
         connectors = {item.connector_id: item for item in self.connectors}
         specialties = {item.specialty_id: item for item in self.specialties}

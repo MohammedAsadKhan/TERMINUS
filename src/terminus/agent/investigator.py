@@ -1,6 +1,6 @@
 # File name: investigator.py
 # Author: Team LARP
-# Revision date: 2026-11-12
+# Revision date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Investigation Agent module for TERMINUS.
 
@@ -36,6 +36,9 @@ class InvestigationAgent:
         llm: LlmClient | None = None,
         policy_engine: PolicyEngine | None = None,
     ) -> None:
+        """Accept the model client and policy engine by keyword or in either positional slot,
+        defaulting the policy engine and requiring a model client.
+        """
         actual_llm = llm
         actual_policy = policy_engine
 
@@ -68,8 +71,13 @@ class InvestigationAgent:
         persona_prompt: str | None = None,
         role_instructions: str | None = None,
     ) -> InvestigationReport:
+        """Triage the alert with the policy engine and, unless it is filtered out, run the ReAct
+        investigation to produce a report.
+        """
         policy = self.policy_engine.evaluate(alert, org_id)
 
+        # Deterministic policy runs before any model or external lookup, so filtered alerts never
+        # cost a model call.
         if not policy.should_investigate:
             return InvestigationReport(
                 alert_id=alert.id,

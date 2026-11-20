@@ -1,6 +1,6 @@
 # File name: ioc.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: High-speed IOC (Indicators of Compromise) extraction and pattern matching.
 
@@ -14,6 +14,9 @@ from dataclasses import dataclass, field
 
 @dataclass
 class ExtractedIocs:
+    # Indicators extracted from text, grouped by type. (Comment, not a docstring: pydantic
+    # would copy a dataclass docstring into the JSON schema of models that embed it.)
+
     ipv4s: list[str] = field(default_factory=list)
     ipv6s: list[str] = field(default_factory=list)
     sha256s: list[str] = field(default_factory=list)
@@ -40,6 +43,9 @@ class IocExtractor:
 
     @classmethod
     def extract(cls, text: str) -> ExtractedIocs:
+        """Extract deduplicated indicators from text, returning an empty result for empty input and
+        excluding a short list of ignored domains.
+        """
         if not text:
             return ExtractedIocs()
 

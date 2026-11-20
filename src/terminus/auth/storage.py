@@ -1,6 +1,6 @@
 # File name: storage.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: SQLite identity adapters backed by the platform's configured database.
 
@@ -28,15 +28,20 @@ class SqliteUserStore(UserStore):
     """Persist identities without copying or rehashing their password hashes."""
 
     def __init__(self, db: Database | None = None) -> None:
+        """Bind an optional database; the shared singleton is used when none is given."""
         super().__init__()
         self._db_override: Database | None = db
 
     @property
     def _db(self) -> Database:
+        """Return the injected database, or the process-wide singleton."""
         return self._db_override if self._db_override is not None else Database.get_instance()
 
     @override
     def add(self, user: User) -> None:
+        """Insert a user after a case-insensitive duplicate-email check, atomically
+        under the writer lock.
+        """
         email = normalize_email(user.email)
         # The writer lock makes the normalized lookup and insert atomic across
         # workers, including databases whose existing emails use mixed case.
@@ -67,6 +72,9 @@ class SqliteUserStore(UserStore):
 
     @override
     def get_by_email(self, email: str) -> User | None:
+        """Look a user up by normalized email, preferring the earliest-created row if
+        legacy data holds mixed-case duplicates.
+        """
         row = self._db.fetchone(
             """SELECT * FROM users WHERE lower(trim(email)) = ?
                ORDER BY created_at, user_id LIMIT 1""",
@@ -76,12 +84,14 @@ class SqliteUserStore(UserStore):
 
     @override
     def get(self, user_id: UserId) -> User | None:
+        """Look a user up by ID, or None."""
         return self._user(
             self._db.fetchone("SELECT * FROM users WHERE user_id = ?", (str(user_id),))
         )
 
     @staticmethod
     def _user(row: Mapping[str, object] | None) -> User | None:
+        """Convert a stored row into a User, or None for a missing row."""
         if row is None:
             return None
         return User(
@@ -97,13 +107,16 @@ class SqliteSessionStore:
     """Persist token digests, UTC expiry, and revocation across restarts."""
 
     def __init__(self, db: Database | None = None) -> None:
+        """Bind an optional database; the shared singleton is used when none is given."""
         self._db_override: Database | None = db
 
     @property
     def _db(self) -> Database:
+        """Return the injected database, or the process-wide singleton."""
         return self._db_override if self._db_override is not None else Database.get_instance()
 
     def add(self, token_hash: str, user_id: UserId, expires_at: datetime) -> None:
+        """Persist a session keyed by token digest with its expiry normalized to UTC."""
         _ = self._db.execute(
             """INSERT INTO sessions (token_hash, user_id, created_at, expires_at)
                VALUES (?, ?, ?, ?)""",
@@ -116,6 +129,10 @@ class SqliteSessionStore:
         )
 
     def get(self, token_hash: str) -> Session | None:
+        """Return the session for a digest unless it was revoked; expiry is checked by
+        the caller.
+        """
+        # Revoked sessions are filtered out here; expiry is checked by AuthService.
         row: Mapping[str, object] | None = self._db.fetchone(
             """SELECT user_id, expires_at FROM sessions
                WHERE token_hash = ? AND revoked_at IS NULL""",
@@ -127,10 +144,12 @@ class SqliteSessionStore:
 
     @staticmethod
     def _session(row: Mapping[str, object]) -> Session:
+        """Convert a stored session row into a Session."""
         expires_at = datetime.fromisoformat(str(row["expires_at"]))
         return Session(UserId(str(row["user_id"])), expires_at)
 
     def revoke(self, token_hash: str) -> None:
+        """Mark a session revoked once; later calls leave the original revocation time."""
         _ = self._db.execute(
             """UPDATE sessions SET revoked_at = ?
                WHERE token_hash = ? AND revoked_at IS NULL""",

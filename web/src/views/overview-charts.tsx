@@ -1,6 +1,6 @@
 // File: overview-charts.tsx
 // Author: Team LARP
-// Date: 2026-11-12
+// Date: 2026-11-19 (comments revised)
 // Version: 0.1.0
 // Purpose: Render recorded-incident timeline, endpoint severity, and attack surface charts.
 
@@ -20,6 +20,8 @@ import {
 import { useNavigate } from 'react-router-dom';
 import type { Incident } from '../types';
 
+// Short display names for common ATT&CK technique ids. It is a curated subset, and some names are shorthand rather than
+// MITRE's official titles.
 export const MITRE_TECHNIQUE_NAMES: Record<string, string> = {
   'T1110': 'Brute Force / Password Spray',
   'T1110.001': 'Password Guessing',
@@ -119,6 +121,9 @@ export const MITRE_TECHNIQUE_NAMES: Record<string, string> = {
   'T1547': 'Boot or Logon Autostart Execution',
 };
 
+// Resolves a display name in order: the exact id, its parent technique (before the dot), an id embedded in the text, a
+// cleaned version of the rule description (at most 32 characters), and finally a generic label that keeps the id, so an
+// unknown technique is never given an invented name.
 export function getMitreTechniqueName(code: string, fallbackDesc?: string): string {
   if (!code) return 'Adversary Technique';
   const cleanCode = code.trim().toUpperCase();
@@ -148,6 +153,7 @@ export function getMitreTechniqueName(code: string, fallbackDesc?: string): stri
   return `Adversary Technique (${cleanCode})`;
 }
 
+// One plotted incident marker with its position, color and size.
 interface AlertNode {
   incident: Incident;
   x: number;
@@ -158,6 +164,7 @@ interface AlertNode {
   radius: number;
 }
 
+// One bar of the timeline: a time interval and the number of incidents in it.
 interface TimelineBucket {
   x: number;
   width: number;
@@ -166,10 +173,14 @@ interface TimelineBucket {
   count: number;
 }
 
+// A label on the time axis.
 interface TimelineTick {
   label: string;
 }
 
+// Overview timeline of stored incident records: twelve equal intervals across the span of their recorded timestamps, plus
+// one marker per incident. Only the incidents passed in (the signed-in organization's) are plotted; records without a
+// parseable timestamp are counted but not drawn. Clicking a marker opens a dossier of recorded fields.
 export function IncidentTimelineChart({
   incidents,
   onSelectIncident,
@@ -197,6 +208,7 @@ export function IncidentTimelineChart({
     timedCount,
     undatedCount,
   } = useMemo(() => {
+    // The severity totals in the filter badges ignore the active filter; only the plotted data are filtered.
     const totalCritical = incidents.filter(i => (i.severity || '').toLowerCase() === 'critical').length;
     const totalHigh = incidents.filter(i => (i.severity || '').toLowerCase() === 'high').length;
     const totalMedium = incidents.filter(i => (i.severity || '').toLowerCase() === 'medium').length;
@@ -217,6 +229,7 @@ export function IncidentTimelineChart({
       return true;
     });
 
+    // Records whose created_at or timestamp cannot be parsed are left out of the plot and reported as undated.
     const timed = filtered
       .map(incident => ({ incident, time: Date.parse(incident.created_at || incident.timestamp) }))
       .filter(entry => Number.isFinite(entry.time))
@@ -249,6 +262,7 @@ export function IncidentTimelineChart({
     const windowSpan = maxTime - minTime;
 
     const bucketSpan = windowSpan / bucketCount;
+    // Clamped so the newest incident always lands in the last interval.
     const bucketFor = (time: number) => Math.min(bucketCount - 1, Math.max(0, Math.floor((time - minTime) / bucketSpan)));
 
     const counts = new Array<number>(bucketCount).fill(0);
@@ -261,6 +275,7 @@ export function IncidentTimelineChart({
     const plotHeight = chartBottom - chartTop;
     const slotWidth = plotWidth / bucketCount;
 
+    // Bar heights are relative to the busiest interval; a non-empty interval is at least 4 units tall so a single incident stays visible.
     const buckets: TimelineBucket[] = counts.map((count, index) => {
       const barHeight = count === 0 ? 0 : Math.max(4, (count / Math.max(peakBucket, 1)) * plotHeight);
       return {
@@ -272,6 +287,7 @@ export function IncidentTimelineChart({
       };
     });
 
+    // Each marker sits just above its interval's bar; only critical markers pulse.
     const alertNodes: AlertNode[] = timed.map(({ incident, time }) => {
       const sev = (incident.severity || 'low').toLowerCase();
       let color = '#06b6d4';
@@ -302,6 +318,7 @@ export function IncidentTimelineChart({
     });
 
     const spanSeconds = windowSpan / 1000;
+    // Five axis labels across the window; seconds are shown only when the whole window is shorter than an hour.
     const timeTicks: TimelineTick[] = Array.from({ length: 5 }, (_, index) => {
       const moment = new Date(minTime + (index / 4) * windowSpan);
       const hh = moment.getHours().toString().padStart(2, '0');
@@ -324,6 +341,7 @@ export function IncidentTimelineChart({
     };
   }, [incidents, activeSeverityFilter]);
 
+  // Opens the dossier and also notifies the parent, if it asked to be told.
   const handleNodeClick = (inc: Incident) => {
     setSelectedIncident(inc);
     if (onSelectIncident) {
@@ -331,6 +349,7 @@ export function IncidentTimelineChart({
     }
   };
 
+  // Uses the recorded MITRE field, otherwise a technique id quoted in the rule text or log. Returns null rather than guessing.
   const getMitreTechnique = (inc: Incident) => {
     if (Array.isArray(inc.mitre)) return inc.mitre[0];
     if (inc.mitre) return inc.mitre;
@@ -663,9 +682,12 @@ export function IncidentTimelineChart({
 
 // Backwards-compatible exports for callers that still use the former chart names.
 export const LiveTrafficAlertChart = IncidentTimelineChart;
+// Earlier name for the same chart.
 export const ThreatVelocityChart = IncidentTimelineChart;
 
 
+// Top four ATT&CK techniques and top four hosts among the incidents supplied. Percentages are shares of the displayed
+// techniques only, not of all incidents, and incidents with no technique contribute to hosts but not to techniques.
 export function AttackSurfaceMatrix({ incidents }: { incidents: Incident[] }) {
   const { techniques, topHosts, totalTagged } = useMemo(() => {
     const techCounts: Record<string, { count: number; name: string; severities: Record<string, number> }> = {};
@@ -703,6 +725,7 @@ export function AttackSurfaceMatrix({ incidents }: { incidents: Incident[] }) {
       });
     });
 
+    // Only the four most frequent techniques and hosts are shown.
     const sortedTech = Object.entries(techCounts)
       .map(([code, val]) => ({ code, ...val }))
       .sort((a, b) => b.count - a.count)
@@ -713,6 +736,7 @@ export function AttackSurfaceMatrix({ incidents }: { incidents: Incident[] }) {
       .sort((a, b) => b.count - a.count)
       .slice(0, 4);
 
+    // Sum over the displayed techniques (never zero, to avoid dividing by zero); it is the denominator for the percentages.
     const totalTagged = sortedTech.reduce((acc, t) => acc + t.count, 0) || 1;
 
     return {
@@ -800,6 +824,8 @@ export function AttackSurfaceMatrix({ incidents }: { incidents: Incident[] }) {
   );
 }
 
+// Four donuts, one per severity, split by affected host, built from the stored incidents (a missing severity counts as
+// low). Clicking a slice or legend row calls onSelectHost, or otherwise opens the incident list filtered by that host.
 export function ProtectedEndpointThreatMatrix({
   incidents,
   onSelectHost,
@@ -818,6 +844,7 @@ export function ProtectedEndpointThreatMatrix({
     };
   }
 
+  // Builds a donut-segment path; sweep angles are kept between 0.01 and 359.99 degrees so the arc's start and end points never coincide.
   function describeArc(cx: number, cy: number, rInner: number, rOuter: number, startAngle: number, endAngle: number) {
     let delta = endAngle - startAngle;
     if (delta >= 359.99) delta = 359.99;
@@ -840,6 +867,8 @@ export function ProtectedEndpointThreatMatrix({
     ].join(' ');
   }
 
+  // Fixed colors for the demo hosts. Other hosts get a position-based color in the donut and a fixed blue in the legend, so
+  // those colors are not a stable identity.
   const hostColorMap: Record<string, string> = {
     'dc01.corp.internal': '#06b6d4',
     'bank-core-ledger-01': '#a855f7',
@@ -851,6 +880,7 @@ export function ProtectedEndpointThreatMatrix({
     'laptop-fin-04.corp.internal': '#94a3b8',
   };
 
+  // Severity tiers drawn, in display order.
   const severities: Array<{
     key: 'critical' | 'high' | 'medium' | 'low';
     label: string;

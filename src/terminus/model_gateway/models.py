@@ -1,6 +1,6 @@
 # File name: models.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Strict public contracts for tenant-scoped model connections.
 
@@ -50,12 +50,15 @@ _SECRET_MARKER = re.compile(
 
 
 class _StrictContract(BaseModel):
+    # Base for public contracts: strict types, no extra fields and no NaN or infinity.
+
     model_config: ClassVar[ConfigDict] = ConfigDict(
         extra="forbid", strict=True, allow_inf_nan=False
     )
 
 
 def _validate_name(value: str) -> str:
+    """Return the trimmed name, rejecting odd characters and credential-looking text."""
     normalized = value.strip()
     if not _NAME.fullmatch(normalized):
         raise ValueError("name contains unsupported characters")
@@ -65,6 +68,7 @@ def _validate_name(value: str) -> str:
 
 
 def _validate_models(value: list[str]) -> list[str]:
+    """Require 1 to 50 unique model identifiers made of safe characters."""
     if not value:
         raise ValueError("at least one model is required")
     if len(value) > 50:
@@ -77,6 +81,7 @@ def _validate_models(value: list[str]) -> list[str]:
 
 
 def _validate_secret(value: SecretStr | None) -> SecretStr | None:
+    """Allow no key or a non-blank key of at most 4096 bytes, without exposing it."""
     if value is None:
         return None
     secret = value.get_secret_value()
@@ -88,6 +93,10 @@ def _validate_secret(value: SecretStr | None) -> SecretStr | None:
 
 
 def _normalize_cloud_url(provider: Provider, value: str | None) -> str | None:
+    """Return the fixed URL for a hosted provider, or None for self-specified providers.
+
+    An override that differs from the fixed endpoint is rejected.
+    """
     fixed = CLOUD_PROVIDER_URLS.get(provider)
     if fixed is None:
         return None
@@ -97,6 +106,7 @@ def _normalize_cloud_url(provider: Provider, value: str | None) -> str | None:
 
 
 def _validate_local_host(hostname: str) -> None:
+    """Allow only localhost or a loopback/private IP literal as a plain-HTTP host."""
     if hostname == "localhost":
         return
     try:
@@ -111,6 +121,8 @@ def _validate_local_host(hostname: str) -> None:
 
 def normalize_base_url(provider: Provider, value: str | None) -> str:
     """Return the canonical safe endpoint for a provider."""
+    # Hosted providers use a fixed endpoint; a caller-supplied URL can never
+    # redirect their credentials elsewhere.
     fixed = _normalize_cloud_url(provider, value)
     if fixed is not None:
         return fixed
@@ -127,6 +139,8 @@ def normalize_base_url(provider: Provider, value: str | None) -> str:
         or parsed.fragment
     ):
         raise ValueError("base_url must not contain credentials, query, or fragment")
+    # Credential-looking text is rejected after URL-decoding, so a key hidden
+    # with percent-escapes in the path is still caught.
     if _SECRET_MARKER.search(unquote(parsed.path)):
         raise ValueError("base_url must not contain credential material")
     if provider == "openai_compatible":
@@ -135,6 +149,8 @@ def normalize_base_url(provider: Provider, value: str | None) -> str:
     else:
         if parsed.scheme not in {"http", "https"}:
             raise ValueError("local endpoints require HTTP or HTTPS")
+        # Plain HTTP is only allowed to localhost or a private address, so
+        # unencrypted traffic cannot be pointed at an arbitrary public host.
         if parsed.scheme == "http":
             _validate_local_host(parsed.hostname)
     return value.rstrip("/")
@@ -153,20 +169,24 @@ class ModelConnectionCreate(_StrictContract):
     @field_validator("name")
     @classmethod
     def valid_name(cls, value: str) -> str:
+        """Validate and normalize the connection name."""
         return _validate_name(value)
 
     @field_validator("models")
     @classmethod
     def valid_models(cls, value: list[str]) -> list[str]:
+        """Validate the model identifier list."""
         return _validate_models(value)
 
     @field_validator("api_key")
     @classmethod
     def valid_secret(cls, value: SecretStr | None) -> SecretStr | None:
+        """Validate the write-only API key."""
         return _validate_secret(value)
 
     @model_validator(mode="after")
     def valid_endpoint(self) -> ModelConnectionCreate:
+        """Replace base_url with its canonical, safety-checked form for the provider."""
         canonical = normalize_base_url(self.provider, self.base_url)
         object.__setattr__(self, "base_url", canonical)
         return self
@@ -186,16 +206,19 @@ class ModelConnectionUpdate(_StrictContract):
     @field_validator("name")
     @classmethod
     def valid_name(cls, value: str | None) -> str | None:
+        """Validate the name when one is supplied."""
         return None if value is None else _validate_name(value)
 
     @field_validator("models")
     @classmethod
     def valid_models(cls, value: list[str] | None) -> list[str] | None:
+        """Validate the model list when one is supplied."""
         return None if value is None else _validate_models(value)
 
     @field_validator("api_key")
     @classmethod
     def valid_secret(cls, value: SecretStr | None) -> SecretStr | None:
+        """Validate the replacement API key when one is supplied."""
         return _validate_secret(value)
 
 

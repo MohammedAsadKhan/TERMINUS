@@ -1,6 +1,6 @@
 // File: shell.tsx
 // Author: Team LARP
-// Date: 2026-11-12
+// Date: 2026-11-19 (comments revised)
 // Version: 0.1.0
 // Purpose: Render authentication, organization selection, navigation, and console routes with accurate workspace copy.
 
@@ -19,6 +19,7 @@ import type { Organization, OrgDetail, SystemInfo, User } from './types';
 import terminusLogo from './assets/terminus-logo.png';
 
 
+// Custom inline SVG icon for the Virtual machines navigation entry.
 function VirtualMachineIcon() {
   return <svg className="vm-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
     <path d="M8 3h12v10H8zM4 7H2v12h14v-2M8 17h12M14 13v4" />
@@ -26,15 +27,24 @@ function VirtualMachineIcon() {
   </svg>;
 }
 
+// Views are loaded on demand so the sign-in screen does not download the whole console.
 const Operations = lazy(() => import('./views/workbench'));
+// Route /reports.
 const Reports = lazy(() => import('./views/reports'));
+// Route /agents.
 const Agents = lazy(() => import('./views/agents'));
+// Route /workflows.
 const Workflows = lazy(() => import('./views/workflows'));
+// Serves both /organization and /settings, selected by its section prop.
 const Settings = lazy(() => import('./views/settings'));
+// Route /assets/:kind.
 const Assets = lazy(() => import('./views/assets'));
+// Route /qa; it has no sidebar entry at the moment.
 const QaWalkthroughs = lazy(() => import('./views/qa-walkthroughs'));
+// Route /incidents/graph.
 const InvestigationGraph = lazy(() => import('./views/investigation-graph'));
 
+// TERMINUS logo used on the sign-in, loading and sidebar screens.
 function Brand() {
   return (
     <div className="brand brand-real-logo">
@@ -43,9 +53,13 @@ function Brand() {
   );
 }
 
+// Sign-in and account-creation screen shown when /auth/me reports no session. The session itself is an HttpOnly
+// cookie set by the server, so the browser code never handles a token.
 function Login() {
   const [register, setRegister] = useState(false);
   const query = useQueryClient();
+  // Registration is followed by a normal login. On success the cached 'me' query is invalidated, which makes
+  // ConsoleApp reload the user and leave this screen.
   const mutation = useMutation({
     mutationFn: async (values: { email: string; password: string; display_name?: string }) => {
       if (register) await api('/auth/register', undefined, body('POST', values));
@@ -86,18 +100,27 @@ function Login() {
   );
 }
 
+// Authenticated console shell: loads the user, organizations and system info, lets the user pick an organization,
+// and renders the navigation and the routed views. Everything inside the SessionContext is scoped to the selected organization.
 export function ConsoleApp() {
   const { themeId, setThemeId, availableThemes } = useTheme();
   const query = useQueryClient(); const { message } = App.useApp(); const navigate = useNavigate(); const location = useLocation();
   const [orgId, setOrgId] = useState(''); const [createOpen, setCreateOpen] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
 
+  // Session check; a 401 here means signed out and is not retried. The other queries wait for it.
   const user = useQuery({ queryKey: ['me'], queryFn: () => api<User>('/auth/me'), retry: false, staleTime: 60000 });
+  // Organizations the user belongs to. The user id is in the cache key so another user never sees cached organizations.
   const orgs = useQuery({ queryKey: ['orgs', user.data?.user_id], queryFn: () => api<Organization[]>('/orgs'), enabled: !!user.data });
+  // Role, members and license for the selected organization; org_id is sent as X-Org-ID by api().
   const detail = useQuery({ queryKey: ['org', orgId], queryFn: () => api<OrgDetail>('/orgs/current', orgId), enabled: !!orgId && !!user.data });
+  // Platform-wide info (not per organization), refreshed every 30 seconds so feature flags stay current.
   const system = useQuery({ queryKey: ['system'], queryFn: () => api<SystemInfo>('/system'), enabled: !!user.data, refetchInterval: 30000 });
+  // Only used for the per-category counts in the sidebar; they show a dash until this loads.
   const assets = useQuery({ queryKey: ['assets', orgId], queryFn: () => api<Asset[]>('/assets', orgId), enabled: !!user.data && !!orgId });
 
+  // Pick the active organization once the list loads: keep the current one if it is still listed, otherwise restore
+  // this user's saved choice, otherwise use the first organization.
   useEffect(() => {
     if (!user.data || !orgs.data) return;
     if (orgs.data.some(org => org.org_id === orgId)) return;
@@ -105,12 +128,15 @@ export function ConsoleApp() {
     setOrgId(orgs.data.find(org => org.org_id === saved)?.org_id || orgs.data[0]?.org_id || '');
   }, [orgs.data, orgId, user.data]);
 
+  // api() raises 'session-expired' on a 401. Discard all cached data (it belongs to the old session), clear the
+  // selected organization and re-check /auth/me, which returns the user to sign-in.
   useEffect(() => {
     const expire = () => { query.clear(); setOrgId(''); void user.refetch(); };
     window.addEventListener('session-expired', expire);
     return () => window.removeEventListener('session-expired', expire);
   }, [query, user.refetch]);
 
+  // Creates an organization, then refreshes the list and switches to the new one.
   const create = useMutation({
     mutationFn: (values: { name: string }) => api<Organization>('/orgs', undefined, body('POST', values)),
     onSuccess: async org => {
@@ -121,6 +147,7 @@ export function ConsoleApp() {
     },
   });
 
+  // The server call may fail (for example the session already expired); local state is cleared either way.
   async function logout() {
     try { await api('/auth/logout', undefined, body('POST')); } catch { }
     query.clear();
@@ -129,6 +156,8 @@ export function ConsoleApp() {
     navigate('/');
   }
 
+  // Drops cached data for the previous organization (everything except the user, organization list and system info)
+  // so it cannot appear under the new one, then remembers the choice for this user.
   function switchOrg(value: string) {
     query.removeQueries({ predicate: item => !['me', 'orgs', 'system'].includes(String(item.queryKey[0])) });
     setOrgId(value);
@@ -136,12 +165,16 @@ export function ConsoleApp() {
     navigate('/');
   }
 
+  // Render order: loading spinner while the session is unknown, then sign-in, then the console.
   if (user.isPending) return <div className="boot"><Brand /><Spin size="large" /></div>;
   if (!user.data) return <Login />;
 
+  // Asset pages match on the full path so each category highlights on its own; other pages match on the first segment.
   const currentPath = '/' + location.pathname.split('/')[1];
   const activePath = currentPath === '/assets' ? location.pathname : currentPath;
+  // Icons in the same order as ASSET_KINDS.
   const assetIcons = [<GithubOutlined />, <DockerOutlined />, <CloudOutlined />, <VirtualMachineIcon />, <GlobalOutlined />, <DesktopOutlined />];
+  // Sidebar groups. Items with a count property are the asset categories.
   const navigation = [
     // Future Intro Walkthrough Tutorial (temporarily hidden for presentation):
     // { label: 'Start here', items: [
@@ -163,8 +196,10 @@ export function ConsoleApp() {
       { key: '/settings', label: 'Settings', icon: <SettingOutlined /> },
     ] },
   ];
+  // Breadcrumb label; falls back to Overview for routes without a menu entry.
   const currentPage = navigation.flatMap(group => group.items).find(item => item.key === activePath)?.label || 'Overview';
 
+    // Display name only; falls back until the organization list or detail has loaded.
     const currentOrg = orgs.data?.find(o => o.org_id === orgId)?.name || detail.data?.organization.name || 'Workspace';
 
     return (

@@ -1,6 +1,6 @@
 # File name: models.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Bounded response policy and draft inputs without caller-supplied scope.
 
@@ -40,10 +40,13 @@ class ResponsePolicy(Contract):
 
     @property
     def policy_version(self) -> str:
+        """Return the versioned policy label that proposals and bindings must cite."""
         return f"response-policy:{self.version}"
 
 
 class RegisteredTarget(Contract):
+    # A target registered for one incident and provider connection, with flags marking
+    # protected and management hosts.
     target_id: OpaqueTargetId
     org_id: Id
     incident_id: Id
@@ -81,6 +84,9 @@ class ProposalDraft(Contract):
 
     @model_validator(mode="after")
     def exact_parameter_reference(self) -> ProposalDraft:
+        """Require that the effect's parameter evidence is among the cited evidence and
+        that target and evidence ids contain no duplicates.
+        """
         if self.effect.parameter_evidence_id not in self.evidence_ids:
             raise ValueError("parameter evidence must be included in cited evidence")
         if len(set(self.effect.target_ids)) != len(self.effect.target_ids):

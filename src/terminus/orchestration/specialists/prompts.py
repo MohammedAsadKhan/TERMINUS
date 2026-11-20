@@ -1,6 +1,6 @@
 # File name: prompts.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Fixed prompt material for the optional specialist model step.
 
@@ -59,11 +59,16 @@ FINDING_OUTPUT_SCHEMA: Final[dict[str, JsonValue]] = {
 
 
 def system_prompt(role: str) -> str:
+    """Render the fixed system text with the role reduced to letters, digits, underscore and hyphen
+    (at most 60 characters) so it cannot inject instructions.
+    """
     safe = "".join(c for c in role if c.isalnum() or c in "_-")[:60] or "specialist"
     return SYSTEM_TEMPLATE.format(role=safe)
 
 
 def _truncate(value: JsonValue, depth: int = 0) -> JsonValue:
+    """Cap string length, list and dict size and nesting depth so evidence cannot bloat the prompt.
+    """
     if isinstance(value, str):
         return (
             value if len(value) <= MAX_STRING else value[:MAX_STRING] + "...[truncated]"

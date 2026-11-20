@@ -1,6 +1,6 @@
 # File name: copilot.py
 # Author: Team LARP
-# Revision date: 2026-11-12
+# Revision date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Interactive Incident Analyst Copilot Endpoint for TERMINUS.
 
@@ -34,10 +34,12 @@ logger = logging.getLogger("terminus.server.copilot")
 
 
 class CopilotChatRequest(BaseModel):
+    # Analyst question about a single incident.
     prompt: str = Field(min_length=1)
 
 
 class CopilotChatResponse(BaseModel):
+    # Copilot answer with the names of the tools it consulted.
     ticket_id: str
     response: str
     tools_consulted: list[str] = Field(default_factory=list)
@@ -53,6 +55,8 @@ async def chat_with_incident_copilot(
     actor_role: Annotated[str, Depends(get_current_user_role)],
 ) -> CopilotChatResponse:
     """Interactively interrogate the AI SOC Copilot regarding a specific incident."""
+    # Tickets are looked up by organization, so another tenant's incident cannot be
+    # read through the copilot.
     ticket = await runner.deployment.ticket_store.get_ticket(ticket_id, org_id)
     if not ticket:
         raise HTTPException(status_code=404, detail="Incident not found")
@@ -66,6 +70,8 @@ async def chat_with_incident_copilot(
     from terminus.privacy.redactor import SecretRedactor
     from terminus.privacy.sanitizer import PromptInjectionSanitizer
 
+    # The raw log is attacker-influenced: redact secrets first, then wrap it as untrusted
+    # data so it cannot act as instructions for the model.
     raw_log = str(ticket.get("full_log") or "")
     sanitized_log = PromptInjectionSanitizer.wrap_untrusted_data(
         "untrusted_incident_log", SecretRedactor.redact(raw_log)
@@ -93,6 +99,7 @@ Provide a direct, authoritative forensic response:"""
             raw_res = await llm.respond_json(system_prompt, user_prompt)
             res_text = str(raw_res.get("summary") or raw_res.get("response") or raw_res.get("message") or "No answer returned.")
     except Exception as exc:
+        # Any model failure degrades to a deterministic summary of the stored record.
         logger.warning("Incident copilot model request failed: %s", exc)
         res_text = (
             "The model is unavailable. Here is the recorded incident context:\n"
@@ -114,11 +121,14 @@ global_copilot_router = APIRouter(prefix="/copilot", tags=["Global AI Copilot"])
 
 
 class GlobalChatRequest(BaseModel):
+    # Analyst question for the organization-wide copilot, optionally focused on one
+    # ticket.
     prompt: str = Field(min_length=1)
     ticket_id: str | None = None
 
 
 class GlobalChatResponse(BaseModel):
+    # Organization-wide copilot answer, the tools consulted, and suggested actions.
     response: str
     tools_consulted: list[str] = Field(default_factory=list)
     suggested_actions: list[str] = Field(default_factory=list)

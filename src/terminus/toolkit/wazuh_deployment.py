@@ -1,6 +1,6 @@
 # File name: wazuh_deployment.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Explicit tenant-bound Wazuh readers for a trusted worker deployment.
 
@@ -24,6 +24,8 @@ def readers_from_environ(
 ) -> tuple[WazuhManagerReader | None, WazuhIndexerReader | None]:
     """Never grant another tenant access to deployment credentials."""
     prefix = "TERMINUS_SPECIALIST_WAZUH_"
+    # Credentials are bound to one configured organization; any other tenant gets no
+    # readers rather than a shared connection.
     bound_org = environ.get(prefix + "ORG_ID", "").strip()
     if not bound_org or bound_org != org_id:
         return None, None
@@ -34,6 +36,10 @@ def readers_from_environ(
         raise ValueError("Unverified Wazuh TLS is restricted to local labs")
 
     def connection(kind: str) -> dict[str, object] | None:
+        """Build one connector's settings from its URL, user and password variables;
+        returns None when none are set and raises when only some are, so a partial
+        configuration never connects.
+        """
         values = [
             environ.get(prefix + kind + "_" + key, "")
             for key in ("URL", "USER", "PASSWORD")

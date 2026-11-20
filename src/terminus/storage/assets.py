@@ -1,6 +1,6 @@
 # File name: assets.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Organization-scoped inventory asset persistence.
 
@@ -19,13 +19,20 @@ class SqliteAssetRepository:
     """Store plain inventory metadata without connecting to the asset itself."""
 
     def __init__(self, db: Database | None = None) -> None:
+        """Bind an optional database; the shared singleton is used when none is given."""
         self._db = db
 
     @property
     def db(self) -> Database:
+        """Return the injected database, or the process-wide singleton when none was
+        injected.
+        """
         return self._db if self._db is not None else Database.get_instance()
 
     def get(self, org_id: str, asset_id: str) -> dict[str, Any] | None:
+        """Fetch one asset by ID; the organization filter keeps tenants from reading
+        each other's assets.
+        """
         return self.db.fetchone(
             "SELECT asset_id, org_id, kind, name, locator, notes, source, "
             "agent_id, hostname, criticality, owner, environment, exposure, created_at "
@@ -34,6 +41,9 @@ class SqliteAssetRepository:
         )
 
     def find_for_target(self, org_id: str, target: str) -> dict[str, Any] | None:
+        """Resolve a host reference to an asset within the organization, trying agent
+        ID, then hostname, then locator, then name; the first match wins.
+        """
         cleaned = (target or "").strip()
         if not cleaned:
             return None
@@ -81,6 +91,9 @@ class SqliteAssetRepository:
         limit: int = 200,
         offset: int = 0,
     ) -> list[dict[str, Any]]:
+        """List the organization's assets newest first, with optional kind and text
+        filters and the page size capped at 200.
+        """
         limit = min(max(1, limit), 200)
         offset = max(0, offset)
 
@@ -123,6 +136,9 @@ class SqliteAssetRepository:
         exposure: str | None = None,
         source: str = "manual",
     ) -> dict[str, Any]:
+        """Insert an inventory asset for the organization (creating a placeholder
+        organization row if needed) and return the stored row.
+        """
         asset_id = str(uuid.uuid4())
         created_at = datetime.now(UTC).isoformat()
         self.db.execute(
@@ -162,6 +178,9 @@ class SqliteAssetRepository:
         asset_id: str,
         updates: dict[str, Any],
     ) -> dict[str, Any] | None:
+        """Apply only whitelisted fields to an asset in the organization; None when no
+        such asset exists.
+        """
         allowed_fields = {
             "name",
             "locator",
@@ -190,6 +209,7 @@ class SqliteAssetRepository:
         return self.get(org_id, asset_id)
 
     def delete(self, org_id: str, asset_id: str) -> bool:
+        """Delete an asset within the organization; True if a row was removed."""
         cursor = self.db.execute(
             "DELETE FROM assets WHERE asset_id = ? AND org_id = ?",
             (asset_id, str(org_id)),

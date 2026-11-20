@@ -1,6 +1,6 @@
 # File name: validation.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Workflow DAG Validation and Policy Gate Enforcement for TERMINUS.
 
@@ -129,6 +129,7 @@ def validate_workflow(
     visited: dict[str, int] = {}  # 0: unvisited, 1: visiting, 2: visited
 
     def has_cycle(node_id: str) -> bool:
+        """Depth-first search that reports whether a cycle is reachable from the node."""
         visited[node_id] = 1
         for e in adj.get(node_id, []):
             nxt = e.target
@@ -150,6 +151,7 @@ def validate_workflow(
     # Every path from any root/trigger node to a containment node must pass through either:
     # (a) the 'true' edge of a condition_approval node, OR
     # (b) the 'true' edge of a condition_severity node with min_level > 0.
+    # Skipped when a cycle was found, because the gate search assumes an acyclic graph.
     if has_containment and not any("cycle" in e.lower() for e in errors):
         containment_nodes = [n for n in wf.nodes if n.type in CONTAINMENT_NODE_TYPES]
         root_nodes = [n for n in wf.nodes if in_degree[n.id] == 0]
@@ -210,6 +212,8 @@ def _find_ungated_path(
                         parsed = ConditionSeverityConfig.model_validate(cfg)
                         if parsed.min_level > 0:
                             nxt_gated = True
+                    # A severity gate whose config cannot be parsed does not count as a gate, so
+                    # containment stays blocked.
                     except Exception:
                         pass
 

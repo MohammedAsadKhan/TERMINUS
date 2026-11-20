@@ -1,6 +1,6 @@
 # File name: repositories.py
 # Author: Team LARP
-# Revision date: 2026-11-12
+# Revision date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Persistence repositories for TERMINUS.
 
@@ -39,13 +39,20 @@ class SqliteIncidentRepository:
     """Persistent SQLite-backed ticket and incident store."""
 
     def __init__(self, db: Database | None = None) -> None:
+        """Bind an optional database; the shared singleton is used when none is given."""
         self._db = db
 
     @property
     def db(self) -> Database:
+        """Return the injected database, or the process-wide singleton when none was
+        injected.
+        """
         return self._db if self._db is not None else Database.get_instance()
 
     def _ensure_org(self, org_id: str) -> None:
+        """Create a placeholder organization row if missing so rows keyed by
+        organization always have a parent record.
+        """
         now_iso = datetime.now(UTC).isoformat()
         self.db.execute(
             "INSERT OR IGNORE INTO organizations (org_id, name, created_at, license_ref, settings_json) VALUES (?, ?, ?, '', '{}')",
@@ -59,6 +66,9 @@ class SqliteIncidentRepository:
         evidence_citations: list[dict[str, Any]] | None = None,
         raw_payload: dict[str, Any] | None = None,
     ) -> TicketId:
+        """Store a new incident for the alert, or return the existing ticket ID when the
+        same organization already has one for that alert (idempotent).
+        """
         if report.alert_id != report.evidence.alert.id:
             raise ConflictError("Report and evidence must refer to the same alert")
         self._ensure_org(str(org_id))
@@ -147,6 +157,9 @@ class SqliteIncidentRepository:
             return ticket_id
 
     async def get_by_alert(self, alert_id: str, org_id: OrgId | str) -> dict[str, Any] | None:
+        """Look up the incident linked to an alert, scoped to the organization; None if
+        absent.
+        """
         row = self.db.fetchone(
             "SELECT i.* FROM incidents i JOIN incident_alert_links l "
             "ON i.org_id = l.org_id AND i.ticket_id = l.ticket_id "
@@ -172,6 +185,8 @@ class SqliteIncidentRepository:
         if report.alert_id != alert.id:
             raise ConflictError("Report and evidence must refer to the same alert")
         with self.db.transaction() as conn:
+            # Read and compare inside the transaction, scoped to the organization, so a
+            # report cannot rebind an incident to a different alert after the check.
             row = conn.execute(
                 "SELECT alert_id FROM incidents WHERE ticket_id = ? AND org_id = ?",
                 (str(ticket_id), str(org_id)),
@@ -208,6 +223,8 @@ class SqliteIncidentRepository:
     ) -> bool:
         """Reserve one external dispatch; an uncertain prior dispatch stays reserved."""
         await self.get_ticket(ticket_id, org_id)
+        # INSERT OR IGNORE on the (org, ticket, provider) key makes the claim atomic:
+        # only the first caller sees rowcount 1, and any earlier row blocks re-dispatch.
         cursor = self.db.execute(
             "INSERT OR IGNORE INTO incident_external_tickets "
             "(org_id, ticket_id, provider, state, updated_at) VALUES (?, ?, ?, 'pending', ?)",
@@ -219,6 +236,9 @@ class SqliteIncidentRepository:
         self, ticket_id: TicketId | str, org_id: OrgId | str, external_id: str,
         provider: str = "jira",
     ) -> dict[str, Any]:
+        """Record the external tracker ID for an incident; refuses to overwrite a
+        different existing ID.
+        """
         if not external_id:
             raise ValueError("External ticket ID cannot be empty")
         await self.get_ticket(ticket_id, org_id)
@@ -245,7 +265,11 @@ class SqliteIncidentRepository:
     async def get_external_ticket(
         self, ticket_id: TicketId | str, org_id: OrgId | str, provider: str = "jira"
     ) -> dict[str, Any] | None:
+        """Read the external ticket binding for an incident after confirming it belongs
+        to the organization.
+        """
         await self.get_ticket(ticket_id, org_id)
+        # get_ticket above raises unless the incident belongs to this organization.
         return self.db.fetchone(
             "SELECT * FROM incident_external_tickets WHERE org_id = ? AND ticket_id = ? AND provider = ?",
             (str(org_id), str(ticket_id), provider),
@@ -255,7 +279,12 @@ class SqliteIncidentRepository:
         self, ticket_id: TicketId | str, org_id: OrgId | str, error: str,
         provider: str = "jira",
     ) -> None:
+        """Flag a still-pending external dispatch as unknown so it is not blindly re-
+        sent.
+        """
         await self.get_ticket(ticket_id, org_id)
+        # Only a still-pending dispatch becomes unknown; a bound ticket is never
+        # downgraded, and the unknown row keeps blocking automatic re-dispatch.
         self.db.execute(
             "UPDATE incident_external_tickets SET state = 'unknown', error = ?, updated_at = ? "
             "WHERE org_id = ? AND ticket_id = ? AND provider = ? AND state = 'pending'",
@@ -263,6 +292,9 @@ class SqliteIncidentRepository:
         )
 
     async def get_ticket(self, ticket_id: TicketId | str, org_id: OrgId | str) -> dict[str, Any]:
+        """Fetch one incident by ticket ID within the organization, or raise
+        NotFoundError.
+        """
         sql = "SELECT * FROM incidents WHERE ticket_id = ? AND org_id = ?"
         row = self.db.fetchone(sql, (str(ticket_id), str(org_id)))
         if not row:
@@ -276,6 +308,9 @@ class SqliteIncidentRepository:
         status: str | None = None,
         severity: str | None = None,
     ) -> list[dict[str, Any]]:
+        """List the organization's incidents newest first, optionally filtered by status
+        and severity.
+        """
         sql = (
             "SELECT i.* FROM incidents i JOIN incident_alert_links l "
             "ON i.org_id = l.org_id AND i.ticket_id = l.ticket_id WHERE i.org_id = ?"
@@ -315,6 +350,9 @@ class SqliteIncidentRepository:
         resolution_category: str | None = None,
         resolution_notes: str | None = None,
     ) -> dict[str, Any]:
+        """Set an incident's lifecycle status (stamping resolved_at for closing states)
+        plus optional mitigation and resolution fields.
+        """
         now_iso = datetime.now(UTC).isoformat()
         resolved_at = now_iso if new_status in ("RESOLVED", "CLOSED", "FALSE_POSITIVE") else ""
         sql = """
@@ -337,6 +375,9 @@ class SqliteIncidentRepository:
         return await self.get_ticket(ticket_id, org_id)
 
     def _format_ticket(self, row: dict[str, Any]) -> dict[str, Any]:
+        """Expand stored JSON columns into structured fields, falling back to empty
+        values when a column is malformed.
+        """
         res = dict(row)
         res["id"] = res["ticket_id"]
         try:
@@ -378,13 +419,18 @@ class SqliteOrgRepository:
     """Persistent SQLite-backed organization store."""
 
     def __init__(self, db: Database | None = None) -> None:
+        """Bind an optional database; the shared singleton is used when none is given."""
         self._db = db
 
     @property
     def db(self) -> Database:
+        """Return the injected database, or the process-wide singleton when none was
+        injected.
+        """
         return self._db if self._db is not None else Database.get_instance()
 
     def create(self, org: Organization, org_id: OrgId) -> Organization:
+        """Insert an organization row under the given ID."""
         sql = """
         INSERT INTO organizations (org_id, name, created_at, license_ref, settings_json)
         VALUES (?, ?, ?, ?, ?)
@@ -394,6 +440,9 @@ class SqliteOrgRepository:
         return org
 
     def get(self, org_id: OrgId, caller_org: OrgId | None = None) -> Organization:
+        """Load an organization by ID or raise NotFoundError; caller_org is not used for
+        filtering at this layer.
+        """
         sql = "SELECT * FROM organizations WHERE org_id = ?"
         row = self.db.fetchone(sql, (str(org_id),))
         if not row:
@@ -407,11 +456,15 @@ class SqliteOrgRepository:
         )
 
     def update(self, org: Organization, caller_org: OrgId | None = None) -> Organization:
+        """Persist the organization's name and license reference; caller_org is not
+        checked here.
+        """
         sql = "UPDATE organizations SET name = ?, license_ref = ? WHERE org_id = ?"
         self.db.execute(sql, (org.name, org.license_ref, str(org.org_id)))
         return org
 
     def list_all(self) -> list[Organization]:
+        """Return every organization row (not tenant-scoped; for administrative use)."""
         sql = "SELECT * FROM organizations"
         rows = self.db.fetchall(sql)
         orgs = []
@@ -430,18 +483,24 @@ class SqliteMembershipRepository:
     """Persistent SQLite-backed organization membership store."""
 
     def __init__(self, db: Database | None = None) -> None:
+        """Bind an optional database; the shared singleton is used when none is given."""
         self._db = db
 
     @property
     def db(self) -> Database:
+        """Return the injected database, or the process-wide singleton when none was
+        injected.
+        """
         return self._db if self._db is not None else Database.get_instance()
 
     def create(self, membership: Membership) -> Membership:
+        """Insert a user's role membership in an organization."""
         sql = "INSERT INTO memberships (org_id, user_id, role) VALUES (?, ?, ?)"
         self.db.execute(sql, (str(membership.org_id), str(membership.user_id), membership.role.value))
         return membership
 
     def get(self, org_id: OrgId, user_id: UserId) -> Membership:
+        """Load a user's membership in one organization or raise NotFoundError."""
         sql = "SELECT * FROM memberships WHERE org_id = ? AND user_id = ?"
         row = self.db.fetchone(sql, (str(org_id), str(user_id)))
         if not row:
@@ -453,15 +512,18 @@ class SqliteMembershipRepository:
         )
 
     def update(self, membership: Membership) -> Membership:
+        """Change the role stored for an existing membership."""
         sql = "UPDATE memberships SET role = ? WHERE org_id = ? AND user_id = ?"
         self.db.execute(sql, (membership.role.value, str(membership.org_id), str(membership.user_id)))
         return membership
 
     def delete(self, org_id: OrgId, user_id: UserId) -> None:
+        """Remove a user's membership from one organization."""
         sql = "DELETE FROM memberships WHERE org_id = ? AND user_id = ?"
         self.db.execute(sql, (str(org_id), str(user_id)))
 
     def memberships_for(self, org_id: OrgId) -> list[Membership]:
+        """List all memberships belonging to one organization."""
         sql = "SELECT * FROM memberships WHERE org_id = ?"
         rows = self.db.fetchall(sql, (str(org_id),))
         return [
@@ -474,6 +536,7 @@ class SqliteMembershipRepository:
         ]
 
     def orgs_for_user(self, user_id: UserId) -> list[Membership]:
+        """List every organization membership held by a user."""
         sql = "SELECT * FROM memberships WHERE user_id = ?"
         rows = self.db.fetchall(sql, (str(user_id),))
         return [
@@ -486,6 +549,7 @@ class SqliteMembershipRepository:
         ]
 
     def role_of(self, org_id: OrgId, user_id: UserId) -> OrganizationRole | None:
+        """Return the user's role in the organization, or None if they are not a member."""
         sql = "SELECT role FROM memberships WHERE org_id = ? AND user_id = ?"
         row = self.db.fetchone(sql, (str(org_id), str(user_id)))
         if not row:
@@ -497,13 +561,20 @@ class SqliteUserRepository:
     """Persistent SQLite-backed user identity store."""
 
     def __init__(self, db: Database | None = None) -> None:
+        """Bind an optional database; the shared singleton is used when none is given."""
         self._db = db
 
     @property
     def db(self) -> Database:
+        """Return the injected database, or the process-wide singleton when none was
+        injected.
+        """
         return self._db if self._db is not None else Database.get_instance()
 
     def add(self, user: User) -> None:
+        """Insert a user, lowercasing the email; only the already-hashed password is
+        stored.
+        """
         sql = """
         INSERT INTO users (user_id, email, password_hash, display_name, created_at)
         VALUES (?, ?, ?, ?, ?)
@@ -512,6 +583,7 @@ class SqliteUserRepository:
         self.db.execute(sql, (str(user.user_id), user.email.lower(), user.password_hash, user.display_name, created_str))
 
     def get_by_email(self, email: str) -> User | None:
+        """Find a user by case-insensitive email, or None."""
         sql = "SELECT * FROM users WHERE email = ?"
         row = self.db.fetchone(sql, (email.lower(),))
         if not row:
@@ -526,6 +598,7 @@ class SqliteUserRepository:
         )
 
     def get(self, user_id: UserId | str) -> User | None:
+        """Find a user by ID, or None."""
         sql = "SELECT * FROM users WHERE user_id = ?"
         row = self.db.fetchone(sql, (str(user_id),))
         if not row:
@@ -544,13 +617,20 @@ class SqliteWorkflowRepository:
     """Persistent SQLite-backed visual workflow store with concurrency versioning (D18)."""
 
     def __init__(self, db: Database | None = None) -> None:
+        """Bind an optional database; the shared singleton is used when none is given."""
         self._db = db
 
     @property
     def db(self) -> Database:
+        """Return the injected database, or the process-wide singleton when none was
+        injected.
+        """
         return self._db if self._db is not None else Database.get_instance()
 
     def _ensure_org(self, org_id: str) -> None:
+        """Create a placeholder organization row if missing so rows keyed by
+        organization always have a parent record.
+        """
         now_iso = datetime.now(UTC).isoformat()
         self.db.execute(
             "INSERT OR IGNORE INTO organizations (org_id, name, created_at, license_ref, settings_json) VALUES (?, ?, ?, '', '{}')",
@@ -564,6 +644,9 @@ class SqliteWorkflowRepository:
         expected_version: int | None = None,
         created_by: str | None = None,
     ) -> Workflow:
+        """Upsert a workflow for the organization, bumping its version and raising
+        ConflictError when expected_version is stale (optimistic concurrency).
+        """
         self._ensure_org(str(org_id))
         existing = self.db.fetchone(
             "SELECT version, created_at FROM workflows WHERE workflow_id = ? AND org_id = ?",
@@ -623,6 +706,7 @@ class SqliteWorkflowRepository:
         return self.save(workflow=workflow, org_id=org_id, created_by=created_by, expected_version=expected_version)
 
     def get(self, workflow_id: str, org_id: OrgId | str) -> Workflow | None:
+        """Load one workflow by ID within the organization, or None."""
         sql = "SELECT * FROM workflows WHERE workflow_id = ? AND org_id = ?"
         row = self.db.fetchone(sql, (workflow_id, str(org_id)))
         if not row:
@@ -630,6 +714,9 @@ class SqliteWorkflowRepository:
         return self._row_to_workflow(row)
 
     def list_for_org(self, org_id: OrgId | str) -> list[Workflow]:
+        """List the organization's workflows by priority, seeding two disabled defaults
+        the first time it is empty.
+        """
         sql = "SELECT * FROM workflows WHERE org_id = ? ORDER BY priority ASC, created_at ASC"
         rows = self.db.fetchall(sql, (str(org_id),))
         if not rows:
@@ -639,6 +726,9 @@ class SqliteWorkflowRepository:
         return [self._row_to_workflow(r) for r in rows]
 
     def _default_seeds(self) -> list[Workflow]:
+        """Build the two disabled starter workflows (containment gate and Slack
+        escalation).
+        """
         return [
             Workflow(
                 id="wf-auto-contain",
@@ -681,6 +771,9 @@ class SqliteWorkflowRepository:
         return [self._row_to_workflow(r) for r in rows]
 
     def set_enabled(self, workflow_id: str, org_id: OrgId | str, enabled: bool) -> Workflow | None:
+        """Enable or disable a workflow within the organization; None if it does not
+        exist.
+        """
         now_iso = datetime.now(UTC).isoformat()
         sql = "UPDATE workflows SET enabled = ?, updated_at = ? WHERE workflow_id = ? AND org_id = ?"
         cur = self.db.execute(sql, (1 if enabled else 0, now_iso, workflow_id, str(org_id)))
@@ -689,11 +782,15 @@ class SqliteWorkflowRepository:
         return self.get(workflow_id, org_id)
 
     def delete(self, workflow_id: str, org_id: OrgId | str) -> bool:
+        """Delete a workflow within the organization; True if a row was removed."""
         sql = "DELETE FROM workflows WHERE workflow_id = ? AND org_id = ?"
         cur = self.db.execute(sql, (workflow_id, str(org_id)))
         return cur.rowcount > 0
 
     def _row_to_workflow(self, row: dict[str, Any]) -> Workflow:
+        """Rebuild a Workflow model from a stored row, validating the JSON nodes and
+        edges.
+        """
         nodes_raw = json.loads(row.get("nodes_json") or "[]")
         edges_raw = json.loads(row.get("edges_json") or "[]")
         nodes = [WorkflowNode.model_validate(n) for n in nodes_raw]
@@ -717,13 +814,20 @@ class SqliteAgentRepository:
     """Persistent SQLite-backed SOC agent fleet repository."""
 
     def __init__(self, db: Database | None = None) -> None:
+        """Bind an optional database; the shared singleton is used when none is given."""
         self._db = db
 
     @property
     def db(self) -> Database:
+        """Return the injected database, or the process-wide singleton when none was
+        injected.
+        """
         return self._db if self._db is not None else Database.get_instance()
 
     def _ensure_org(self, org_id: str) -> None:
+        """Create a placeholder organization row if missing so rows keyed by
+        organization always have a parent record.
+        """
         now_iso = datetime.now(UTC).isoformat()
         self.db.execute(
             "INSERT OR IGNORE INTO organizations (org_id, name, created_at, license_ref, settings_json) VALUES (?, ?, ?, '', '{}')",
@@ -731,6 +835,7 @@ class SqliteAgentRepository:
         )
 
     def save(self, agent: SocAgent, org_id: OrgId | str) -> SocAgent:
+        """Upsert a SOC agent definition for the organization."""
         self._ensure_org(str(org_id))
         now_iso = agent.created_at or datetime.now(UTC).isoformat()
         sql = """
@@ -752,6 +857,7 @@ class SqliteAgentRepository:
         return agent
 
     def get(self, agent_id: str, org_id: OrgId | str) -> SocAgent | None:
+        """Load one agent by ID within the organization, or None."""
         sql = "SELECT * FROM soc_agents WHERE agent_id = ? AND org_id = ?"
         row = self.db.fetchone(sql, (agent_id, str(org_id)))
         if not row:
@@ -768,6 +874,9 @@ class SqliteAgentRepository:
         )
 
     def list_for_org(self, org_id: OrgId | str) -> list[SocAgent]:
+        """List the organization's agents; demo agents are seeded only in local mode
+        with demo seeding enabled.
+        """
         sql = "SELECT * FROM soc_agents WHERE org_id = ? ORDER BY created_at ASC"
         rows = self.db.fetchall(sql, (str(org_id),))
         from terminus.config import get_settings
@@ -791,6 +900,7 @@ class SqliteAgentRepository:
         ]
 
     def _default_seeds(self) -> list[SocAgent]:
+        """Build the four built-in demo SOC agents used for local seeding."""
         return [
             SocAgent(
                 id="agent-triage",
@@ -835,6 +945,7 @@ class SqliteAgentRepository:
         ]
 
     def delete(self, agent_id: str, org_id: OrgId | str) -> bool:
+        """Delete an agent within the organization; True if a row was removed."""
         sql = "DELETE FROM soc_agents WHERE agent_id = ? AND org_id = ?"
         cur = self.db.execute(sql, (agent_id, str(org_id)))
         return cur.rowcount > 0
@@ -844,13 +955,20 @@ class SqliteWorkflowRunRepository:
     """Persistent SQLite-backed workflow execution run & node trace repository."""
 
     def __init__(self, db: Database | None = None) -> None:
+        """Bind an optional database; the shared singleton is used when none is given."""
         self._db = db
 
     @property
     def db(self) -> Database:
+        """Return the injected database, or the process-wide singleton when none was
+        injected.
+        """
         return self._db if self._db is not None else Database.get_instance()
 
     def _ensure_org(self, org_id: str) -> None:
+        """Create a placeholder organization row if missing so rows keyed by
+        organization always have a parent record.
+        """
         now_iso = datetime.now(UTC).isoformat()
         self.db.execute(
             "INSERT OR IGNORE INTO organizations (org_id, name, created_at, license_ref, settings_json) VALUES (?, ?, ?, '', '{}')",
@@ -869,6 +987,9 @@ class SqliteWorkflowRunRepository:
         attempt: int = 1,
         incident_id: str | None = None,
     ) -> dict[str, Any]:
+        """Record a new RUNNING workflow run with frozen snapshots of the workflow,
+        alert and base report.
+        """
         self._ensure_org(str(org_id))
         now_iso = datetime.now(UTC).isoformat()
         snap_json = json.dumps(definition_snapshot.model_dump() if hasattr(definition_snapshot, "model_dump") else definition_snapshot)
@@ -915,6 +1036,7 @@ class SqliteWorkflowRunRepository:
             )
 
     def get_run(self, org_id: str, run_id: str) -> dict[str, Any] | None:
+        """Load one run by ID within the organization, or None."""
         sql = "SELECT * FROM workflow_runs WHERE run_id = ? AND org_id = ?"
         row = self.db.fetchone(sql, (run_id, str(org_id)))
         if not row:
@@ -922,6 +1044,7 @@ class SqliteWorkflowRunRepository:
         return self._format_run(row)
 
     def list_runs_for_org(self, org_id: str, limit: int = 50) -> list[dict[str, Any]]:
+        """List the organization's most recent runs, newest first."""
         sql = "SELECT * FROM workflow_runs WHERE org_id = ? ORDER BY started_at DESC LIMIT ?"
         rows = self.db.fetchall(sql, (str(org_id), limit))
         return [self._format_run(r) for r in rows]
@@ -943,6 +1066,9 @@ class SqliteWorkflowRunRepository:
         heartbeat_at: str | None = None,
         completed_at: str | None = None,
     ) -> None:
+        """Update a run's status plus only the optional fields provided, scoped to the
+        organization.
+        """
         updates = ["status = ?"]
         params: list[Any] = [status]
 
@@ -985,6 +1111,7 @@ class SqliteWorkflowRunRepository:
         heartbeat_at: str | None = None,
         completed_at: str | None = None,
     ) -> None:
+        """Alias for update_run_status."""
         self.update_run_status(
             org_id=org_id,
             run_id=run_id,
@@ -999,6 +1126,7 @@ class SqliteWorkflowRunRepository:
         )
 
     def update_heartbeat(self, org_id: str, run_id: str) -> None:
+        """Refresh the run's heartbeat so stale-run recovery treats it as alive."""
         now_iso = datetime.now(UTC).isoformat()
         sql = "UPDATE workflow_runs SET heartbeat_at = ? WHERE run_id = ? AND org_id = ?"
         self.db.execute(sql, (now_iso, run_id, str(org_id)))
@@ -1017,6 +1145,7 @@ class SqliteWorkflowRunRepository:
         error_message: str | None = None,
         completed_at: str | None = None,
     ) -> None:
+        """Record one node execution trace (inputs and outputs as JSON) for a run."""
         self._ensure_org(str(org_id))
         sql = """
         INSERT INTO node_runs (
@@ -1045,6 +1174,7 @@ class SqliteWorkflowRunRepository:
         error_message: str | None = None,
         completed_at: str | None = None,
     ) -> None:
+        """Alias for create_node_run."""
         self.create_node_run(
             node_run_id=node_run_id,
             run_id=run_id,
@@ -1067,6 +1197,9 @@ class SqliteWorkflowRunRepository:
         error_message: str | None = None,
         completed_at: str | None = None,
     ) -> None:
+        """Update a node run's status plus only the optional outputs, error and
+        completion time provided.
+        """
         updates = ["status = ?"]
         params: list[Any] = [status]
         if outputs is not None:
@@ -1084,6 +1217,9 @@ class SqliteWorkflowRunRepository:
         self.db.execute(sql, tuple(params))
 
     def get_node_runs(self, org_id: str, run_id: str) -> list[dict[str, Any]]:
+        """Return a run's node traces in start order, with JSON inputs and outputs
+        decoded.
+        """
         sql = "SELECT * FROM node_runs WHERE org_id = ? AND run_id = ? ORDER BY started_at ASC"
         rows = self.db.fetchall(sql, (str(org_id), run_id))
         result = []
@@ -1101,8 +1237,12 @@ class SqliteWorkflowRunRepository:
         return result
 
     def get_stale_running_runs(self, max_heartbeat_age_seconds: int = 300) -> list[dict[str, Any]]:
+        """Find RUNNING runs whose heartbeat is older than the cutoff so recovery can
+        inspect them (across all organizations).
+        """
         now_ts = datetime.now(UTC).timestamp()
         cutoff_iso = datetime.fromtimestamp(now_ts - max_heartbeat_age_seconds, UTC).isoformat()
+        # Heartbeats are ISO-8601 UTC strings, so string comparison orders them in time.
         sql = "SELECT * FROM workflow_runs WHERE status = 'RUNNING' AND heartbeat_at < ?"
         rows = self.db.fetchall(sql, (cutoff_iso,))
         return [self._format_run(r) for r in rows]
@@ -1123,6 +1263,9 @@ class SqliteWorkflowRunRepository:
         return cur.rowcount > 0
 
     def _format_run(self, row: dict[str, Any]) -> dict[str, Any]:
+        """Decode a run row's JSON columns, defaulting to empty values if one is
+        malformed.
+        """
         d = dict(row)
         d["side_effects_executed"] = bool(d.get("side_effects", 0))
         d["unknown_outcome"] = bool(d.get("unknown_outcome", 0))
@@ -1153,13 +1296,20 @@ class SqliteApprovalRepository:
     """Persistent SQLite-backed human approval gate repository (D14)."""
 
     def __init__(self, db: Database | None = None) -> None:
+        """Bind an optional database; the shared singleton is used when none is given."""
         self._db = db
 
     @property
     def db(self) -> Database:
+        """Return the injected database, or the process-wide singleton when none was
+        injected.
+        """
         return self._db if self._db is not None else Database.get_instance()
 
     def _ensure_org(self, org_id: str) -> None:
+        """Create a placeholder organization row if missing so rows keyed by
+        organization always have a parent record.
+        """
         now_iso = datetime.now(UTC).isoformat()
         self.db.execute(
             "INSERT OR IGNORE INTO organizations (org_id, name, created_at, license_ref, settings_json) VALUES (?, ?, ?, '', '{}')",
@@ -1178,6 +1328,9 @@ class SqliteApprovalRepository:
         expires_at: str = "",
         created_at: str = "",
     ) -> dict[str, Any]:
+        """Open a PENDING human approval for a workflow node, with the required role and
+        expiry.
+        """
         self._ensure_org(str(org_id))
         now_iso = created_at or datetime.now(UTC).isoformat()
         sql = """
@@ -1193,21 +1346,25 @@ class SqliteApprovalRepository:
         return self.get_approval(org_id, approval_id) or {}
 
     def get_approval(self, org_id: str, approval_id: str) -> dict[str, Any] | None:
+        """Load one approval by ID within the organization, or None."""
         sql = "SELECT * FROM workflow_approvals WHERE approval_id = ? AND org_id = ?"
         row = self.db.fetchone(sql, (approval_id, str(org_id)))
         return dict(row) if row else None
 
     def get_pending_approval_for_node(self, org_id: str, run_id: str, node_id: str) -> dict[str, Any] | None:
+        """Find the still-pending approval for a run's node, if any."""
         sql = "SELECT * FROM workflow_approvals WHERE org_id = ? AND run_id = ? AND node_id = ? AND status = 'PENDING'"
         row = self.db.fetchone(sql, (str(org_id), run_id, node_id))
         return dict(row) if row else None
 
     def list_pending(self, org_id: str) -> list[dict[str, Any]]:
+        """List the organization's pending approvals, newest first."""
         sql = "SELECT * FROM workflow_approvals WHERE org_id = ? AND status = 'PENDING' ORDER BY created_at DESC"
         rows = self.db.fetchall(sql, (str(org_id),))
         return [dict(r) for r in rows]
 
     def list_for_run(self, org_id: str, run_id: str) -> list[dict[str, Any]]:
+        """List all approvals raised by one run, oldest first."""
         sql = "SELECT * FROM workflow_approvals WHERE org_id = ? AND run_id = ? ORDER BY created_at ASC"
         rows = self.db.fetchall(sql, (str(org_id), run_id))
         return [dict(r) for r in rows]
@@ -1220,6 +1377,9 @@ class SqliteApprovalRepository:
         resolved_by: str,
         resolved_at: str = "",
     ) -> bool:
+        """Decide a pending approval; the PENDING guard makes the first decision win and
+        returns False for any later attempt.
+        """
         now_iso = resolved_at or datetime.now(UTC).isoformat()
         sql = """
         UPDATE workflow_approvals
@@ -1230,6 +1390,9 @@ class SqliteApprovalRepository:
         return cur.rowcount > 0
 
     def get_expired_pending_approvals(self, now_iso: str = "") -> list[dict[str, Any]]:
+        """Find pending approvals past their expiry across all organizations, for the
+        expiry sweeper.
+        """
         now_str = now_iso or datetime.now(UTC).isoformat()
         sql = "SELECT * FROM workflow_approvals WHERE status = 'PENDING' AND expires_at < ?"
         rows = self.db.fetchall(sql, (now_str,))
@@ -1240,13 +1403,20 @@ class SqliteAlertClaimRepository:
     """Persistent SQLite-backed idempotent alert claim store (D5)."""
 
     def __init__(self, db: Database | None = None) -> None:
+        """Bind an optional database; the shared singleton is used when none is given."""
         self._db = db
 
     @property
     def db(self) -> Database:
+        """Return the injected database, or the process-wide singleton when none was
+        injected.
+        """
         return self._db if self._db is not None else Database.get_instance()
 
     def _ensure_org(self, org_id: str) -> None:
+        """Create a placeholder organization row if missing so rows keyed by
+        organization always have a parent record.
+        """
         now_iso = datetime.now(UTC).isoformat()
         self.db.execute(
             "INSERT OR IGNORE INTO organizations (org_id, name, created_at, license_ref, settings_json) VALUES (?, ?, ?, '', '{}')",
@@ -1254,8 +1424,13 @@ class SqliteAlertClaimRepository:
         )
 
     def claim_alert(self, org_id: str, alert_id: str, claimed_at: str = "") -> tuple[bool, dict[str, Any] | None]:
+        """Try to claim an alert for processing; the unique key makes this atomic, so a
+        duplicate returns False with the existing claim.
+        """
         self._ensure_org(str(org_id))
         now_iso = claimed_at or datetime.now(UTC).isoformat()
+        # The (org_id, alert_id) primary key rejects a second claim, so duplicate
+        # deliveries of one alert are processed only once per organization.
         try:
             sql = """
             INSERT INTO alert_claims (org_id, alert_id, attempt, status, outcome, side_effects, claimed_at)
@@ -1267,6 +1442,7 @@ class SqliteAlertClaimRepository:
             return False, self.get_claim(org_id, alert_id)
 
     def get_claim(self, org_id: str, alert_id: str) -> dict[str, Any] | None:
+        """Load an alert's claim within the organization, decoding any stored report."""
         sql = "SELECT * FROM alert_claims WHERE org_id = ? AND alert_id = ?"
         row = self.db.fetchone(sql, (str(org_id), alert_id))
         if not row:
@@ -1286,6 +1462,8 @@ class SqliteAlertClaimRepository:
     ) -> tuple[bool, dict[str, Any] | None]:
         """Atomically re-claims alert if prior run had no side effects (D5)."""
         now_iso = claimed_at or datetime.now(UTC).isoformat()
+        # Only a claim known to have caused no side effects may be retried; any other
+        # outcome stays final so an action is never repeated blindly.
         sql = """
         UPDATE alert_claims
         SET attempt = attempt + 1, status = 'RUNNING', outcome = NULL, claimed_at = ?
@@ -1306,6 +1484,9 @@ class SqliteAlertClaimRepository:
         incident_id: str | None = None,
         completed_at: str = "",
     ) -> None:
+        """Record the claim's outcome and whether side effects ran; a stored report or
+        incident ID is kept when None is passed.
+        """
         now_iso = completed_at or datetime.now(UTC).isoformat()
         report_json = json.dumps(report.to_dict() if hasattr(report, "to_dict") else report) if report is not None else None
 
@@ -1324,13 +1505,20 @@ class SqliteAllowlistRepository:
     """Persistent SQLite-backed containment safety allowlist store (D12)."""
 
     def __init__(self, db: Database | None = None) -> None:
+        """Bind an optional database; the shared singleton is used when none is given."""
         self._db = db
 
     @property
     def db(self) -> Database:
+        """Return the injected database, or the process-wide singleton when none was
+        injected.
+        """
         return self._db if self._db is not None else Database.get_instance()
 
     def _ensure_org(self, org_id: str) -> None:
+        """Create a placeholder organization row if missing so rows keyed by
+        organization always have a parent record.
+        """
         now_iso = datetime.now(UTC).isoformat()
         self.db.execute(
             "INSERT OR IGNORE INTO organizations (org_id, name, created_at, license_ref, settings_json) VALUES (?, ?, ?, '', '{}')",
@@ -1347,6 +1535,7 @@ class SqliteAllowlistRepository:
         created_by: str | None = None,
         created_at: str = "",
     ) -> dict[str, Any]:
+        """Add a containment safety allowlist entry for the organization."""
         self._ensure_org(str(org_id))
         now_iso = created_at or datetime.now(UTC).isoformat()
         sql = """
@@ -1358,17 +1547,22 @@ class SqliteAllowlistRepository:
         return dict(row) if row else {}
 
     def is_allowlisted(self, org_id: str, target_value: str) -> bool:
+        """Case-insensitively check whether a target value is allowlisted for this
+        organization only.
+        """
         val = target_value.strip().lower()
         sql = "SELECT 1 FROM containment_allowlist WHERE org_id = ? AND LOWER(value) = ? LIMIT 1"
         row = self.db.fetchone(sql, (str(org_id), val))
         return row is not None
 
     def list_entries(self, org_id: str) -> list[dict[str, Any]]:
+        """List the organization's allowlist entries, newest first."""
         sql = "SELECT * FROM containment_allowlist WHERE org_id = ? ORDER BY created_at DESC"
         rows = self.db.fetchall(sql, (str(org_id),))
         return [dict(r) for r in rows]
 
     def delete_entry(self, org_id: str, entry_id: str) -> bool:
+        """Delete an allowlist entry within the organization; True if removed."""
         sql = "DELETE FROM containment_allowlist WHERE entry_id = ? AND org_id = ?"
         cur = self.db.execute(sql, (entry_id, str(org_id)))
         return cur.rowcount > 0
@@ -1378,13 +1572,20 @@ class SqliteActionLogRepository:
     """Persistent SQLite-backed action log repository for AI agents, workflows, and guardrails."""
 
     def __init__(self, db: Database | None = None) -> None:
+        """Bind an optional database; the shared singleton is used when none is given."""
         self._db = db
 
     @property
     def db(self) -> Database:
+        """Return the injected database, or the process-wide singleton when none was
+        injected.
+        """
         return self._db if self._db is not None else Database.get_instance()
 
     def _ensure_org(self, org_id: str) -> None:
+        """Create a placeholder organization row if missing so rows keyed by
+        organization always have a parent record.
+        """
         now_iso = datetime.now(UTC).isoformat()
         self.db.execute(
             "INSERT OR IGNORE INTO organizations (org_id, name, created_at, license_ref, settings_json) VALUES (?, ?, ?, '', '{}')",
@@ -1405,6 +1606,9 @@ class SqliteActionLogRepository:
         alert_id: str | None = None,
         timestamp: str = "",
     ) -> dict[str, Any]:
+        """Append an audit action record for the organization with a generated action
+        ID.
+        """
         self._ensure_org(str(org_id))
         action_id = f"act-{secrets.token_hex(6)}"
         now_iso = timestamp or datetime.now(UTC).isoformat()
@@ -1439,6 +1643,9 @@ class SqliteActionLogRepository:
         actor_type: str | None = None,
         action_type: str | None = None,
     ) -> list[dict[str, Any]]:
+        """List the organization's recent actions; when few are logged, derive extra
+        entries from node runs and incidents (display only, not persisted).
+        """
         self._ensure_org(str(org_id))
         params: list[Any] = [str(org_id)]
         clauses: list[str] = ["org_id = ?"]

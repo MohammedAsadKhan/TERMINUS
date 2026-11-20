@@ -1,6 +1,6 @@
 # File name: lab_import.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Trusted administrator import of bounded authentication and isolated FIM evidence.
 
@@ -23,6 +23,8 @@ from terminus.toolkit.sources import ReadCollection, ReadObservation
 
 
 def _object(value: JsonValue) -> dict[str, JsonValue]:
+    """Return the value as a JSON object, raising if the source data has another shape.
+    """
     if not isinstance(value, dict):
         raise ValueError("Expected source object")
     return value
@@ -54,6 +56,8 @@ def _import_incident(  # noqa: C901, PLR0912 -- ordered source admission
     kind: str,
 ) -> str:
     """Preserve provider records; grant reads only after current admin admission."""
+    # Admission order: current admin first, then a complete bounded collection, then
+    # per-record endpoint and lab-path checks; nothing is written until all pass.
     if (
         SqliteMembershipStore(db).role_of(OrgId(org_id), UserId(actor))
         != OrganizationRole.ADMIN

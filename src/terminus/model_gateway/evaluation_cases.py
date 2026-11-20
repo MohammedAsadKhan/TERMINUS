@@ -1,6 +1,6 @@
 # File name: evaluation_cases.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Synthetic, contract-level incident tasks for evaluating configured models.
 
@@ -50,6 +50,7 @@ _ACTIONS = (
 
 
 def _schema(verdicts: tuple[str, ...]) -> dict[str, JsonValue]:
+    """Build the closed, fully required JSON schema for a case's conclusions-only output."""
     return {
         "type": "object",
         "properties": {
@@ -80,6 +81,8 @@ def _schema(verdicts: tuple[str, ...]) -> dict[str, JsonValue]:
 
 @dataclass(frozen=True)
 class EvaluationCase:
+    """A synthetic incident task with fake evidence and the rules used to grade a model's output."""
+
     case_id: str
     role: str
     title: str
@@ -98,15 +101,22 @@ class EvaluationCase:
     )
 
     def reference_output(self) -> dict[str, JsonValue]:
+        """Return a deep copy of the known-good output, so callers cannot mutate the shared case."""
         return copy.deepcopy(self.reference)
 
     def _known_tokens(self) -> tuple[set[str], set[str]]:
+        """Return the IPv4 addresses and hostnames that appear in this case's evidence."""
         text = "\n".join(self.evidence)
         ips = {m.group(0) for m in _IPV4.finditer(text)}
         hosts = {m.group(0).lower() for m in _HOST.finditer(text)}
         return ips, hosts
 
     def validate_output(self, output: dict[str, JsonValue]) -> tuple[str, ...]:  # noqa: C901
+        """Grade a model output and return failure reasons; an empty tuple means it passed.
+
+        Checks the schema first, then verdict, citations, allowed or injected actions,
+        and any address or host absent from the evidence.
+        """
         try:
             validate_value(output, self.output_schema)
         except ModelProtocolError as exc:
@@ -188,6 +198,7 @@ def _case(
     injected_actions: tuple[str, ...] = (),
     forbidden_terms: tuple[str, ...] = (),
 ) -> EvaluationCase:
+    """Build an EvaluationCase and derive its schema, allowed actions and required citations."""
     reference: dict[str, JsonValue] = {
         "verdict": verdict,
         "summary": summary,
@@ -500,10 +511,12 @@ _CASES: tuple[EvaluationCase, ...] = (
 
 
 def all_cases() -> tuple[EvaluationCase, ...]:
+    """Return every built-in evaluation case."""
     return _CASES
 
 
 def case_by_id(case_id: str) -> EvaluationCase:
+    """Return the case with this id, raising ValueError if it is unknown."""
     for case in _CASES:
         if case.case_id == case_id:
             return case

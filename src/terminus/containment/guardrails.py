@@ -1,6 +1,6 @@
 # File name: guardrails.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Blast-Radius Calculation & Critical Asset Protection Guardrails for TERMINUS.
 
@@ -25,6 +25,9 @@ from typing import Any
 
 
 class AssetCriticalityTier(StrEnum):
+    """Criticality ladder for assets; lower numbers are more protected from automated
+    containment.
+    """
     TIER_0 = "TIER_0"  # Domain Controllers, DNS Root, Core Auth, Payment Switch
     TIER_1 = "TIER_1"  # Production DBs, Core APIs, Main Gateways
     TIER_2 = "TIER_2"  # Standard Worker nodes, Dev Servers, Staging
@@ -33,6 +36,9 @@ class AssetCriticalityTier(StrEnum):
 
 @dataclass
 class BlastRadiusAssessment:
+    """Verdict of a guardrail check: whether containment is allowed, why, and the
+    associated risk and rollback lease.
+    """
     allowed: bool
     reason: str | None
     target: str = ""
@@ -44,9 +50,11 @@ class BlastRadiusAssessment:
 
     @property
     def rationale(self) -> str:
+        """Return the reason text, or an empty string when none was given."""
         return self.reason or ""
 
     def __iter__(self):
+        """Allow unpacking the assessment as an (allowed, reason) pair."""
         yield self.allowed
         yield self.reason
 
@@ -167,6 +175,8 @@ class ContainmentGuardrail:
         target_str = target.strip()
         target_lower = target_str.lower()
 
+        # Protected networks are checked first and ignore force_override, so no flag
+        # can authorize containment against infrastructure address ranges.
         # 1. IP Parsing and Protected Subnet Checks
         try:
             ip_obj = ipaddress.ip_address(target_str)

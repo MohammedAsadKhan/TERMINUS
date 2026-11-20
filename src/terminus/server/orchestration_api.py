@@ -1,6 +1,6 @@
 # File name: orchestration_api.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Authenticated inspection and control endpoints for durable orchestration.
 
@@ -33,14 +33,17 @@ CurrentOrg = Annotated[OrgId, Depends(get_current_org)]
 
 
 def get_orchestration_store() -> OrchestrationStore:
+    """FastAPI dependency building an orchestration store on the active database."""
     return OrchestrationStore(Database.get_instance())
 
 
 def get_scheduler_store() -> SchedulerStore:
+    """FastAPI dependency building a scheduler store on the active database."""
     return SchedulerStore(Database.get_instance())
 
 
 class EnqueueRequest(BaseModel):
+    # Strict body for enqueueing a task; max_attempts is bounded to 1-5.
     model_config = ConfigDict(extra="forbid", strict=True)
 
     max_attempts: int = Field(default=3, ge=1, le=5)
@@ -84,6 +87,9 @@ def _redact(value: JsonValue) -> JsonValue:
 
 
 def _record(record: BaseModel) -> dict[str, Any]:
+    """Dump a model to JSON and redact credential-shaped keys and values before it
+    leaves the API.
+    """
     return cast(dict[str, Any], _redact(record.model_dump(mode="json")))
 
 
@@ -111,6 +117,9 @@ _PUBLIC_JOB_FIELDS = (
 
 
 def _public_job(job: SchedulerJob | None) -> dict[str, Any] | None:
+    """Project a scheduler job onto the public field allowlist, then redact it; internal
+    fields are never returned.
+    """
     if job is None:
         return None
     values = job.model_dump(mode="json", include=set(_PUBLIC_JOB_FIELDS))
@@ -118,6 +127,9 @@ def _public_job(job: SchedulerJob | None) -> dict[str, Any] | None:
 
 
 def _get_job(store: SchedulerStore, org_id: str, task_id: str) -> SchedulerJob | None:
+    """Return the task's scheduler job for the organization, or None if the task has not
+    been enqueued.
+    """
     try:
         return store.get_job(org_id, task_id)
     except OrchestrationNotFoundError:
@@ -125,6 +137,10 @@ def _get_job(store: SchedulerStore, org_id: str, task_id: str) -> SchedulerJob |
 
 
 def _handle_store_error(exc: Exception) -> HTTPException:
+    """Map orchestration store errors to HTTP errors (404 not found, 409 conflict or
+    invalid transition, 400 invalid input); any other exception is re-raised rather than
+    disguised.
+    """
     if isinstance(exc, OrchestrationNotFoundError):
         return HTTPException(status_code=404, detail="Orchestration record not found")
     if isinstance(exc, (OrchestrationConflictError, OrchestrationTransitionError)):
@@ -135,6 +151,9 @@ def _handle_store_error(exc: Exception) -> HTTPException:
 
 
 def _parse_enqueue_payload(payload: dict[str, Any]) -> EnqueueRequest:
+    """Validate the enqueue body, returning 400 with field errors that omit the
+    submitted input.
+    """
     try:
         return EnqueueRequest.model_validate(payload)
     except ValidationError as exc:
@@ -142,11 +161,16 @@ def _parse_enqueue_payload(payload: dict[str, Any]) -> EnqueueRequest:
 
 
 def _validate_paging(limit: int, offset: int) -> None:
+    """Reject paging values outside limit 1-200 or a negative offset with 400."""
     if not 1 <= limit <= 200 or offset < 0:
         raise HTTPException(status_code=400, detail="limit must be 1..200 and offset nonnegative")
 
 
 def _detail(org_id: str, task: Task, store: OrchestrationStore, scheduler: SchedulerStore) -> dict[str, Any]:
+    """Assemble a task's detail view (runs, evidence, help requests, action attempts,
+    scheduler job), each child list capped at 200 with a flag showing when truncation
+    may have occurred.
+    """
     task_id = task.task_id
     runs = store.list_agent_runs(org_id, task_id=task_id, limit=200)
     evidence = store.list_evidence(org_id, task_id=task_id, limit=200)
@@ -177,6 +201,9 @@ def list_tasks(
     task_status: Annotated[str | None, Query(alias="status")] = None,
     newest_first: bool = False,
 ) -> dict[str, Any]:
+    """List the caller's organization's orchestration tasks with paging and optional
+    incident and status filters, each with its redacted scheduler job.
+    """
     _validate_paging(limit, offset)
     try:
         tasks = store.list_tasks(str(org_id), incident_id=incident_id, status=task_status, limit=limit, offset=offset, newest_first=newest_first)
@@ -202,6 +229,9 @@ def get_task(
     store: Annotated[OrchestrationStore, Depends(get_orchestration_store)],
     scheduler: Annotated[SchedulerStore, Depends(get_scheduler_store)],
 ) -> dict[str, Any]:
+    """Return one task in the caller's organization with its redacted child records; 404
+    if it does not exist there.
+    """
     try:
         task = store.get_task(str(org_id), task_id)
         return _detail(str(org_id), task, store, scheduler)
@@ -217,6 +247,9 @@ def enqueue_task(
     scheduler: Annotated[SchedulerStore, Depends(get_scheduler_store)],
     payload: Annotated[dict[str, Any] | None, Body()] = None,
 ) -> dict[str, Any]:
+    """Operator-only: queue a task in the caller's organization for the scheduler with a
+    bounded attempt count and return the public job view.
+    """
     request = _parse_enqueue_payload(payload or {})
     try:
         job = scheduler.enqueue_task(str(org_id), task_id, max_attempts=request.max_attempts)
@@ -232,6 +265,9 @@ def cancel_task(
     _: Annotated[None, Depends(require_operator)],
     scheduler: Annotated[SchedulerStore, Depends(get_scheduler_store)],
 ) -> dict[str, Any]:
+    """Operator-only: request cancellation of the task's scheduler job in the caller's
+    organization and return the public job view.
+    """
     try:
         job = scheduler.request_cancel(str(org_id), task_id)
         return _public_job(job) or {}

@@ -1,6 +1,6 @@
 # File name: deployment.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Wire investigation, SIEM, ticketing, and notification dependencies.
 
@@ -18,6 +18,10 @@ from terminus.ticketing.base import TicketStore
 
 @dataclass(frozen=True)
 class PipelineDeployment:
+    """The dependencies a pipeline run uses: policy engine, investigation agent, notifier, canonical
+    ticket store and an optional external ticket store.
+    """
+
     policy_engine: PolicyEngine
     agent: InvestigationAgent
     notifier: Notifier
@@ -39,6 +43,8 @@ class PipelineDeployment:
                 incident_id, org_id, str(external_id)
             )
             return str(external_id)
+        # The external write may or may not have succeeded, so the ticket is marked unknown for
+        # reconciliation and the error is re-raised rather than retried.
         except Exception:
             await self.ticket_store.mark_external_ticket_unknown(
                 incident_id,

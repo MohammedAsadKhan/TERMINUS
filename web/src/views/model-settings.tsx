@@ -1,6 +1,6 @@
 // File: model-settings.tsx
 // Author: Team LARP
-// Date: 2026-11-09
+// Date: 2026-11-19 (comments revised)
 // Version: 0.1.0
 // Purpose: Manage model connections, routing, and usage settings.
 
@@ -33,10 +33,15 @@ import { ApiError, api, body } from '../api';
 import { useSession } from '../context';
 import './model-settings.css';
 
+// Provider ids accepted by the model registry.
 type Provider = 'openai' | 'anthropic' | 'gemini' | 'openrouter' | 'deepseek' | 'local' | 'openai_compatible';
+// Evidence classifications a policy grant can permit.
 type Classification = 'local_only' | 'approved_cloud' | 'redacted_cloud';
+// Orchestration areas; only area orchestrator grants carry one.
 type Area = 'alert_handling' | 'investigation' | 'infrastructure' | 'applications_data' | 'response_improvement';
 
+// A saved connection. The API never returns the key: only credential_configured and a fixed mask. verification_status is
+// always unverified because saving does not contact the provider.
 interface Connection {
   org_id: string;
   connection_id: string;
@@ -52,6 +57,7 @@ interface Connection {
   verification_status: 'unverified';
 }
 
+// Gateway readiness; setup_required lists server-side steps still needed before credentials can be stored.
 interface Status {
   credential_storage_ready: boolean;
   registered_connections: number;
@@ -59,6 +65,8 @@ interface Status {
   setup_required: string[];
 }
 
+// Binds an agent role (and an area, for area orchestrators) to one connection version, a pool of allowed models and the
+// evidence classifications it may send.
 interface Grant {
   role: string;
   area: Area | null;
@@ -68,6 +76,7 @@ interface Grant {
   classifications: Classification[];
 }
 
+// The organization's routing policy. version supports optimistic concurrency: saves send it back as expected_version.
 interface Policy {
   org_id: string;
   version: number;
@@ -75,6 +84,7 @@ interface Policy {
   enabled: boolean;
 }
 
+// Daily spending limit for one UTC window, in integer micro-USD (1,000,000 is one dollar).
 interface Budget {
   window_key: string;
   limit_micro_usd: number;
@@ -82,6 +92,8 @@ interface Budget {
   version: number;
 }
 
+// Ledger summary for a window. Amounts are estimates from configured rates, not provider invoices; unknown and ambiguous
+// costs are reported separately from known cost.
 interface Usage {
   window_key: string;
   limit_micro_usd: number | null;
@@ -95,6 +107,7 @@ interface Usage {
   over_limit: boolean;
 }
 
+// Manually configured per-million-token rate for one model; the gateway assumes no provider prices.
 interface Price {
   connection_id: string;
   model: string;
@@ -105,6 +118,8 @@ interface Price {
   version: number;
 }
 
+// Form state for the connection dialog. apiKey exists only while editing; credentialAction says whether to keep,
+// replace or clear the stored credential.
 interface ConnectionDraft {
   name: string;
   provider: Provider;
@@ -115,6 +130,7 @@ interface ConnectionDraft {
   credentialAction: 'keep' | 'replace' | 'clear';
 }
 
+// Provider choices shown in the connection dialog.
 const PROVIDERS: Array<{ value: Provider; label: string }> = [
   { value: 'openai', label: 'OpenAI' },
   { value: 'anthropic', label: 'Anthropic' },
@@ -124,26 +140,39 @@ const PROVIDERS: Array<{ value: Provider; label: string }> = [
   { value: 'local', label: 'Local endpoint' },
   { value: 'openai_compatible', label: 'OpenAI-compatible endpoint' },
 ];
+// Hosted providers; this form takes no base URL for them, while local and OpenAI-compatible endpoints require one.
 const CLOUD_PROVIDERS = new Set<Provider>(['openai', 'anthropic', 'gemini', 'openrouter', 'deepseek']);
+// Agent roles a grant can target.
 const ROLES = ['triage', 'identity', 'endpoint', 'network', 'response_planner', 'verification', 'evidence_reporting', 'application_api', 'main_orchestrator', 'area_orchestrator'];
+// Areas an area-orchestrator grant can be scoped to.
 const AREAS: Area[] = ['alert_handling', 'investigation', 'infrastructure', 'applications_data', 'response_improvement'];
+// Evidence classifications a grant can permit.
 const CLASSIFICATIONS: Classification[] = ['local_only', 'approved_cloud', 'redacted_cloud'];
 
+// New connections start disabled and without a credential.
 const emptyConnection = (): ConnectionDraft => ({
   name: '', provider: 'openai', base_url: '', models: [], enabled: false, apiKey: '', credentialAction: 'keep',
 });
+// Turns an id such as response_planner into Response Planner for display.
 const friendly = (value: string) => value.replaceAll('_', ' ').replace(/\b\w/g, letter => letter.toUpperCase());
+// Readable text for any thrown value.
 const requestMessage = (error: unknown) => error instanceof Error ? error.message : 'The request could not be completed.';
+// HTTP 409 is shown as a conflict with the saved configuration (for example a stale version); other errors use their own message.
 const conflictMessage = (error: unknown) => error instanceof ApiError && error.status === 409
   ? 'This request conflicts with the saved configuration. Refresh, then check the record version, connection name, endpoint, and credential choice before retrying.'
   : requestMessage(error);
+// Blank becomes null; otherwise the digits are parsed. Use validInteger first.
 const optionalInteger = (value: string) => value.trim() === '' ? null : Number(value);
+// Parses digits; validate with validInteger first.
 const requiredInteger = (value: string) => Number(value);
+// Whole numbers only (no signs or decimals); a blank value is accepted only when optional.
 const validInteger = (value: string, optional = false) => (optional && value.trim() === '') || /^\d+$/.test(value.trim());
+// Formats micro-USD as dollars. null means the cost is unknown, which is not the same as zero.
 const usd = (microUsd: number | null) => microUsd === null
   ? 'Unknown'
   : new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 6 }).format(microUsd / 1_000_000);
 
+// GET that treats 404 as not configured yet and returns null, so the page can show an empty form. Other errors still throw.
 async function optional<T>(path: string, orgId: string): Promise<T | null> {
   try {
     return await api<T>(path, orgId);
@@ -153,18 +182,23 @@ async function optional<T>(path: string, orgId: string): Promise<T | null> {
   }
 }
 
+// Labeled form row with an optional hint.
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return <label className="model-field"><span>{label}</span>{children}{hint && <small>{hint}</small>}</label>;
 }
 
+// Model gateway settings for the signed-in organization. Everything is saved configuration: saving a connection,
+// policy, budget or rate never contacts a provider, so nothing here shows verified connectivity. Only admins can edit.
 export default function ModelSettings() {
   const { orgId, detail } = useSession();
   const queryClient = useQueryClient();
   const canWrite = detail?.role === 'admin';
+  // Budget and usage are tracked per UTC calendar day.
   const windowKey = new Date().toISOString().slice(0, 10);
   const [connectionOpen, setConnectionOpen] = useState(false);
   const [editing, setEditing] = useState<Connection | null>(null);
   const [connectionDraft, setConnectionDraft] = useState<ConnectionDraft>(emptyConnection);
+  // Drafts hold unsaved edits apart from the saved records; the effects below reload them when the saved record changes.
   const [policyDraft, setPolicyDraft] = useState<{ enabled: boolean; grants: Grant[] }>({ enabled: true, grants: [] });
   const [budgetDraft, setBudgetDraft] = useState({ limit: '', tokens: '' });
   const [priceTarget, setPriceTarget] = useState({ connectionId: '', model: '' });
@@ -180,6 +214,7 @@ export default function ModelSettings() {
     queryFn: () => api<Connection[]>('/model-connections', orgId),
     enabled: Boolean(orgId),
   });
+  // A 404 means no policy has been saved yet and gives null.
   const policy = useQuery({
     queryKey: ['model-policy', orgId],
     queryFn: () => optional<Policy>('/model-settings/policy', orgId),
@@ -201,11 +236,13 @@ export default function ModelSettings() {
     enabled: Boolean(orgId && priceTarget.connectionId && priceTarget.model),
   });
 
+  // Registered models offered in the rate picker come from the chosen connection.
   const selectedPriceConnection = useMemo(
     () => connections.data?.find(item => item.connection_id === priceTarget.connectionId),
     [connections.data, priceTarget.connectionId],
   );
 
+  // Discard in-progress edits and open dialogs when the organization changes.
   useEffect(() => {
     setConnectionOpen(false);
     setEditing(null);
@@ -216,18 +253,21 @@ export default function ModelSettings() {
     setPriceDraft({ input: '', output: '', cached: '', reasoning: '' });
   }, [orgId]);
 
+  // Reset the policy draft from the saved policy. Any refetch resets it, so unsaved edits are replaced by the saved version.
   useEffect(() => {
     setPolicyDraft(policy.data
       ? { enabled: policy.data.enabled, grants: policy.data.grants.map(grant => ({ ...grant, models: [...grant.models], classifications: [...grant.classifications] })) }
       : { enabled: true, grants: [] });
   }, [orgId, policy.dataUpdatedAt]);
 
+  // Reset the budget draft from the saved budget, with the same refetch behavior.
   useEffect(() => {
     setBudgetDraft(budget.data
       ? { limit: String(budget.data.limit_micro_usd), tokens: budget.data.limit_tokens === null ? '' : String(budget.data.limit_tokens) }
       : { limit: '', tokens: '' });
   }, [orgId, budget.dataUpdatedAt]);
 
+  // Reset the rate draft when the connection, model or saved rate changes.
   useEffect(() => {
     setPriceDraft(price.data
       ? {
@@ -239,6 +279,7 @@ export default function ModelSettings() {
       : { input: '', output: '', cached: '', reasoning: '' });
   }, [orgId, priceTarget.connectionId, priceTarget.model, price.dataUpdatedAt]);
 
+  // Closes the dialog and clears its draft and any save error.
   function closeConnection() {
     setConnectionOpen(false);
     setEditing(null);
@@ -246,6 +287,8 @@ export default function ModelSettings() {
     connectionSave.reset();
   }
 
+  // Opens the dialog for a new connection, or for editing with the credential action set to keep. The stored key is never
+  // loaded into the form.
   function openConnection(item?: Connection) {
     connectionSave.reset();
     setEditing(item || null);
@@ -261,6 +304,8 @@ export default function ModelSettings() {
     setConnectionOpen(true);
   }
 
+  // Each mutation carries the organization it was started for (tenant), so a late response updates that organization's cache
+  // and closes the dialog only if the user is still in it.
   const connectionSave = useMutation({
     mutationFn: ({ tenant, payload, id }: { tenant: string; payload: Record<string, unknown>; id?: string }) =>
       api<Connection>(id ? `/model-connections/${encodeURIComponent(id)}` : '/model-connections', tenant, body(id ? 'PATCH' : 'POST', payload)),
@@ -271,6 +316,7 @@ export default function ModelSettings() {
     },
   });
 
+  // Sends the version the user saw as expected_version.
   const connectionDelete = useMutation({
     mutationFn: ({ tenant, item }: { tenant: string; item: Connection }) =>
       api<void>(`/model-connections/${encodeURIComponent(item.connection_id)}?expected_version=${item.version}`, tenant, body('DELETE')),
@@ -280,6 +326,7 @@ export default function ModelSettings() {
     },
   });
 
+  // The whole policy is written as one versioned document; the server's response replaces the cached copy.
   const policySave = useMutation({
     mutationFn: ({ tenant, payload }: { tenant: string; payload: Record<string, unknown> }) =>
       api<Policy>('/model-settings/policy', tenant, body('PUT', payload)),
@@ -289,6 +336,7 @@ export default function ModelSettings() {
     },
   });
 
+  // Saving also refreshes usage, which depends on the budget.
   const budgetSave = useMutation({
     mutationFn: ({ tenant, payload }: { tenant: string; payload: Record<string, unknown> }) =>
       api<Budget>(`/model-settings/budget/${windowKey}`, tenant, body('PUT', payload)),
@@ -298,6 +346,7 @@ export default function ModelSettings() {
     },
   });
 
+  // Rates are per connection and model; the response replaces the cached rate.
   const priceSave = useMutation({
     mutationFn: ({ tenant, connectionId, model, payload }: { tenant: string; connectionId: string; model: string; payload: Record<string, unknown> }) =>
       api<Price>(`/model-settings/prices/${encodeURIComponent(connectionId)}/${encodeURIComponent(model)}`, tenant, body('PUT', payload)),
@@ -306,6 +355,8 @@ export default function ModelSettings() {
     },
   });
 
+  // Applies the same rules as the dialog's validity check. For the key: replace sends api_key, clear sends null, and keep
+  // omits the field so the stored credential is unchanged. Only non-hosted providers send a base URL.
   function submitConnection() {
     const name = connectionDraft.name.trim();
     const baseUrl = connectionDraft.base_url.trim();
@@ -326,10 +377,12 @@ export default function ModelSettings() {
     connectionSave.mutate({ tenant: orgId, id: editing?.connection_id, payload });
   }
 
+  // Applies a partial change to one grant in the draft.
   function updateGrant(index: number, patch: Partial<Grant>) {
     setPolicyDraft(current => ({ ...current, grants: current.grants.map((grant, itemIndex) => itemIndex === index ? { ...grant, ...patch } : grant) }));
   }
 
+  // Adds a grant for the first connection, its first model, the triage role and the redacted_cloud classification.
   function addGrant() {
     const connection = connections.data?.[0];
     if (!connection) return;
@@ -342,6 +395,8 @@ export default function ModelSettings() {
     }));
   }
 
+  // Refreshes each grant's connection_version to the connection's current version before saving (the grant card shows will
+  // update on save). expected_version 0 creates the first policy.
   function submitPolicy() {
     const currentConnections = new Map((connections.data || []).map(item => [item.connection_id, item]));
     const grants = policyDraft.grants.map(grant => {
@@ -351,6 +406,7 @@ export default function ModelSettings() {
     policySave.mutate({ tenant: orgId, payload: { expected_version: policy.data?.version || 0, enabled: policyDraft.enabled, grants } });
   }
 
+  // Refetches every gateway query for this organization.
   function refresh() {
     void Promise.all([
       queryClient.invalidateQueries({ queryKey: ['model-settings-status', orgId] }),
@@ -363,11 +419,14 @@ export default function ModelSettings() {
   }
 
   const connectionError = connections.error || status.error;
+  // Same rules as submitConnection; gates the dialog's save button.
   const connectionValid = connectionDraft.name.trim() !== ''
     && connectionDraft.models.length > 0
     && (CLOUD_PROVIDERS.has(connectionDraft.provider) || connectionDraft.base_url.trim() !== '')
     && (connectionDraft.credentialAction !== 'replace' || connectionDraft.apiKey.trim() !== '');
+  // Limit must be whole micro-USD; the token limit is optional.
   const budgetValid = validInteger(budgetDraft.limit) && validInteger(budgetDraft.tokens, true);
+  // Input and output rates are required; cached and reasoning rates are optional.
   const priceValid = validInteger(priceDraft.input) && validInteger(priceDraft.output)
     && validInteger(priceDraft.cached, true) && validInteger(priceDraft.reasoning, true);
 
