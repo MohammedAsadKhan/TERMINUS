@@ -1,6 +1,6 @@
 # File name: storage.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Durable fixture response records, with immutable plans and approvals.
 
@@ -29,6 +29,9 @@ class ResponseNotFoundError(LookupError):
 
 
 def canonical(value: object) -> str:
+    """Serialize a value to deterministic JSON (sorted keys, compact, no NaN) so equal
+    values always hash the same.
+    """
     return json.dumps(
         value,
         sort_keys=True,
@@ -39,18 +42,30 @@ def canonical(value: object) -> str:
 
 
 def digest(value: object) -> str:
+    """Return the SHA-256 hex digest of a value's canonical JSON, used to bind approvals
+    to exact content.
+    """
     return hashlib.sha256(canonical(value).encode()).hexdigest()
 
 
 @final
 class ResponseStore:
+    """SQLite access for response records; it creates the schema, including triggers
+    that make approved proposals and decisions immutable.
+    """
     def __init__(self, db: Database) -> None:
+        """Bind to a database and create the response tables and immutability triggers
+        if absent.
+        """
         self.db = db
         with db.transaction() as conn:
             for statement in _SCHEMA:
                 _ = conn.execute(statement)
 
     def proposal(self, org_id: str, proposal_id: str) -> dict[str, Any]:
+        """Load a proposal by organization and id; a missing or foreign-tenant id raises
+        the same not-found error.
+        """
         row = self.db.fetchone(
             "SELECT * FROM response_proposals WHERE org_id=? AND proposal_id=?",
             (org_id, proposal_id),
@@ -60,6 +75,9 @@ class ResponseStore:
         return row
 
     def intent(self, org_id: str, intent_id: str) -> dict[str, Any]:
+        """Load an execution intent by organization and id; a missing or foreign-tenant
+        id raises the same not-found error.
+        """
         row = self.db.fetchone(
             "SELECT * FROM response_intents WHERE org_id=? AND intent_id=?",
             (org_id, intent_id),

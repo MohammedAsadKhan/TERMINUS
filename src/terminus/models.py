@@ -1,6 +1,6 @@
 # File name: models.py
 # Author: Team LARP
-# Revision date: 2026-11-12
+# Revision date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Domain models with explicit analysis provenance for the SOC pipeline.
 
@@ -95,6 +95,7 @@ class SiemAlert(BaseModel):
 
     @property
     def rule_description(self) -> str:
+        """Alias for the alert description."""
         return self.description
 
     mitre: str | None = Field(
@@ -178,6 +179,7 @@ class Evidence:
     context_notes: str
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize the evidence, including the full alert, to plain data for storage."""
         return {
             "alert": self.alert.model_dump(),
             "agent_name": self.agent_name,
@@ -187,6 +189,9 @@ class Evidence:
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> Evidence:
+        """Rebuild evidence from stored data, validating the nested alert and defaulting
+        missing text fields.
+        """
         return cls(
             alert=SiemAlert.model_validate(d["alert"]),
             agent_name=d.get("agent_name"),
@@ -211,6 +216,9 @@ class InvestigationReport:
     source_receipt_sha256: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize the report and its nested policy, verdict and evidence to plain
+        data for storage.
+        """
         return {
             "alert_id": self.alert_id,
             "policy": self.policy.model_dump(),
@@ -226,6 +234,9 @@ class InvestigationReport:
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> InvestigationReport:
+        """Rebuild a report from stored data, validating nested models and applying
+        defaults for optional fields.
+        """
         return cls(
             alert_id=d["alert_id"],
             policy=PolicyResult.model_validate(d["policy"]),
@@ -312,6 +323,7 @@ class Workflow(BaseModel):
 
 
 class WorkflowRunStatus(StrEnum):
+    """Lifecycle states of a workflow run."""
     RUNNING = "RUNNING"
     WAITING_APPROVAL = "WAITING_APPROVAL"
     WAITING_SPECIALIST = "WAITING_SPECIALIST"
@@ -321,6 +333,9 @@ class WorkflowRunStatus(StrEnum):
 
 
 class RunOutcome(StrEnum):
+    """Recovery-relevant result of a run; the FAILED variants record whether any side
+    effect already happened.
+    """
     HANDLED = "HANDLED"
     WAITING_APPROVAL = "WAITING_APPROVAL"
     WAITING_SPECIALIST = "WAITING_SPECIALIST"
@@ -330,6 +345,7 @@ class RunOutcome(StrEnum):
 
 
 class NodeRunStatus(StrEnum):
+    """Result states of a single workflow node execution."""
     SUCCESS = "SUCCESS"
     FAILED = "FAILED"
     BLOCKED = "BLOCKED"
@@ -341,6 +357,7 @@ class NodeRunStatus(StrEnum):
 
 
 class ApprovalStatus(StrEnum):
+    """States of a human approval request; only PENDING can still be decided."""
     PENDING = "PENDING"
     APPROVED = "APPROVED"
     REJECTED = "REJECTED"

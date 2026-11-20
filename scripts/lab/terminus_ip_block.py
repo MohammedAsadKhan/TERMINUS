@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 # File name: terminus_ip_block.py
 # Author: Team LARP
-# Date: 2026-11-14
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Wazuh endpoint command for the isolated Scenario A lab only.
 
@@ -11,8 +11,6 @@ Install root-owned on terminus-target-a. No model arguments, shell, arbitrary
 targets or credentials. nftables expires the blocked set element independently
 of the Windows worker. A bounded maintenance pass removes only empty owned tables.
 """
-
-# ruff: noqa: ERA001 -- required source header
 
 from __future__ import annotations
 
@@ -36,6 +34,7 @@ IDENTITY = re.compile(r"[a-f0-9]{64}\Z")
 
 
 def log_status(state: str) -> None:
+    """Append a short outcome line to the Wazuh active-response log, ignoring write errors."""
     # Wazuh's API acknowledges delivery before this endpoint runs. A bounded
     # local line makes endpoint failures diagnosable without logging alert data.
     with (
@@ -46,6 +45,12 @@ def log_status(state: str) -> None:
 
 
 def plan(message: dict) -> tuple[str, str, str, int]:
+    """Validate a Wazuh message and derive the command, table name, identity, and duration.
+
+    Every field is checked before any nft call because the message crosses a trust
+    boundary. The table name comes from a hash of the intent and proposal digest, so a table
+    can be found again only by the same approved action.
+    """
     if message.get("command") not in {"add", "delete"}:
         raise ValueError("Unsupported command")
     data = message["parameters"]["alert"]["data"]
@@ -67,6 +72,7 @@ def plan(message: dict) -> tuple[str, str, str, int]:
 
 
 def batch(table: str, identity: str, duration: int) -> str:
+    """Build the nft batch: an owned table whose set element expires on its own timer."""
     return (
         f'add table inet {table} {{ comment "{identity}"; }}\n'
         f"add set inet {table} blocked {{ type ipv4_addr; flags timeout; }}\n"
@@ -77,6 +83,11 @@ def batch(table: str, identity: str, duration: int) -> str:
 
 
 def execute(message: dict, runner: Callable[..., Any] = subprocess.run) -> dict:
+    """Apply one add or delete and return its state; ``verified`` is always False here.
+
+    A successful nft exit status only means the command was accepted. Independent
+    verification of the block or its recovery is done by the observer outside this script.
+    """
     command, table, identity, duration = plan(message)
     observed = runner(
         [NFT, "--json", "list", "table", "inet", table],
@@ -177,6 +188,11 @@ def cleanup_expired(runner: Callable[..., Any] = subprocess.run) -> dict[str, ob
 
 
 def _expired_owned_table(table: str, payload: bytes) -> bool:  # noqa: PLR0911 -- fail closed at each malformed boundary
+    """Return True only for an unmodified owned table whose blocked set is now empty.
+
+    Any unexpected shape, extra object, or identity mismatch returns False so that the
+    cleanup never deletes a table this script did not create.
+    """
     try:
         records = json.loads(payload).get("nftables", [])
     except (ValueError, AttributeError):
@@ -221,6 +237,12 @@ def _expired_owned_table(table: str, payload: bytes) -> bool:  # noqa: PLR0911 -
 
 
 def main() -> int:
+    """Run cleanup or handle one stdin message; every failure is reported as unknown.
+
+    For a stdin message the exit status is 0 only for an accepted or already-owned result.
+    A failure prints a generic unknown state and logs a truncated reason, so alert data is
+    never echoed back.
+    """
     try:
         if len(sys.argv) == 2 and sys.argv[1] == "--cleanup-expired":
             result = cleanup_expired()

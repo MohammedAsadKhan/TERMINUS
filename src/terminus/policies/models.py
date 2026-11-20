@@ -1,6 +1,6 @@
 # File name: models.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Configurable Multi-Tenant Policy Engine Models for TERMINUS.
 
@@ -12,12 +12,14 @@ from pydantic import BaseModel, Field
 
 
 class IpSuppressionRule(BaseModel):
+    # A source IP or CIDR range whose alerts are dropped before triage.
     cidr_or_ip: str
     description: str
     enabled: bool = True
 
 
 class CustomPolicyRule(BaseModel):
+    # A tenant regex rule that maps an alert field to a fixed tier.
     rule_id: str
     name: str
     match_field: str  # e.g., "description", "rule_id", "mitre", "src_ip"
@@ -28,6 +30,7 @@ class CustomPolicyRule(BaseModel):
 
 
 class TenantPolicyProfile(BaseModel):
+    # One organization's triage thresholds plus its suppression and custom rules.
     org_id: str
     min_triage_level: int = 5
     min_escalate_level: int = 10

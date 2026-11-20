@@ -1,6 +1,6 @@
 # File name: live_attack_wave.py
 # Author: Team LARP
-# Revision date: 2026-11-18
+# Revision date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Stream a staged multi-host attack wave into a local loopback TERMINUS instance for live demos.
 
@@ -62,6 +62,11 @@ def api_req(
     body: dict[str, Any] | None = None,
     headers: dict[str, str] | None = None,
 ) -> tuple[int, Any]:
+    """Send one JSON request and return the status with the decoded body.
+
+    An HTTP error status is returned with its raw text instead of raising, so callers can
+    report it and continue. Connection failures and timeouts still raise.
+    """
     url = f"{base_url}{path}"
     req_headers = {"Content-Type": "application/json"}
     if headers:
@@ -78,6 +83,7 @@ def api_req(
 
 
 def login_headers(base_url: str, email: str, password: str, org_id: str) -> dict[str, str]:
+    """Sign in and return the bearer and organization headers; fail if no token comes back."""
     code, resp = api_req(base_url, "POST", "/auth/login", {"email": email, "password": password})
     if code != 200 or not isinstance(resp, dict) or "session_token" not in resp:
         raise RuntimeError(f"Login failed ({code}): {resp}")
@@ -86,6 +92,8 @@ def login_headers(base_url: str, email: str, password: str, org_id: str) -> dict
 
 def configure_containment_gate(base_url: str, headers: dict[str, str]) -> None:
     """Ensure the gated containment workflow evaluates ahead of Slack-only triage on critical alerts."""
+    # Isolation sits behind the human approval node, so containment waits for an admin
+    # decision instead of running automatically.
     wf_body = {
         "id": "wf-ransomware-containment",
         "name": "Critical Threat Containment Gate",
@@ -116,6 +124,7 @@ def configure_containment_gate(base_url: str, headers: dict[str, str]) -> None:
             {"id": "e4", "source": "n4", "target": "n5", "source_handle": "default"},
         ],
     }
+    # Update in place first so a re-run does not create a duplicate; create only if absent.
     code, resp = api_req(base_url, "PUT", "/workflows/wf-ransomware-containment", wf_body, headers)
     if code == 404:
         code, resp = api_req(base_url, "POST", "/workflows", wf_body, headers)
@@ -125,6 +134,11 @@ def configure_containment_gate(base_url: str, headers: dict[str, str]) -> None:
 
 
 def send_alert(base_url: str, headers: dict[str, str], alert: dict[str, Any], run_tag: str) -> None:
+    """Post one synthetic alert and print its status, severity, and analysis mode.
+
+    The run tag is appended to the alert id so repeating the demo is not rejected as a
+    duplicate. A failed post is printed but does not stop the wave.
+    """
     payload = dict(alert)
     payload["id"] = f"{alert['id']}-{run_tag}"
     t0 = time.time()
@@ -135,6 +149,8 @@ def send_alert(base_url: str, headers: dict[str, str], alert: dict[str, Any], ru
     print(f"[wave] {payload['id']} -> HTTP {code} ({dt:.1f}s) sev={sev} mode={mode}", flush=True)
 
 
+# All alerts below are synthetic. Source addresses come from the documentation ranges
+# reserved for examples or from private ranges, so none point at a real host.
 BASELINE_ALERTS: list[dict[str, Any]] = [
     {
         "id": "bank-base-01",
@@ -158,6 +174,8 @@ BASELINE_ALERTS: list[dict[str, Any]] = [
     },
 ]
 
+# Each entry is the number of seconds after the wave starts, then the alert to send. Stages
+# 3, 5 and 6 are level 15, above the containment gate's minimum level of 12.
 LIVE_WAVE: list[tuple[float, dict[str, Any]]] = [
     (
         2.0,
@@ -241,6 +259,7 @@ LIVE_WAVE: list[tuple[float, dict[str, Any]]] = [
 
 
 def main() -> None:
+    """Parse options, check the target is loopback, sign in, then run the chosen stages."""
     parser = argparse.ArgumentParser(description="Stream a staged attack wave into a local loopback TERMINUS server.")
     parser.add_argument(
         "--base-url",
@@ -256,13 +275,16 @@ def main() -> None:
     parser.add_argument("--delay-scale", type=float, default=1.0, help="Multiply wave delays (e.g. 0.5 for faster, 1.5 for slower)")
     args = parser.parse_args()
 
+    # Validate before any request so the demo password is never sent off this machine.
     try:
         base_url = validate_loopback(args.base_url)
     except ValueError as exc:
         parser.error(str(exc))
 
+    # With no mode flag, both stages run; --all is the explicit spelling of the same thing.
     run_baseline = args.seed_baseline or args.all or (not args.seed_baseline and not args.stream)
     run_stream = args.stream or args.all or (not args.seed_baseline and not args.stream)
+    # Short per-run suffix that keeps alert ids unique across repeated demo runs.
     run_tag = str(int(time.time()))[-6:]
 
     print(f"[connect] Signing in to {base_url} (org={args.org_id})...", flush=True)
@@ -278,6 +300,8 @@ def main() -> None:
         print(f"[wave] Streaming 6-stage attack wave into {base_url}...", flush=True)
         start = time.time()
         for delay_sec, alert in LIVE_WAVE:
+            # Delays are measured from the wave start, so slow responses do not accumulate;
+            # a negative scale is clamped to zero.
             wait = (delay_sec * max(0.0, args.delay_scale)) - (time.time() - start)
             if wait > 0:
                 time.sleep(wait)

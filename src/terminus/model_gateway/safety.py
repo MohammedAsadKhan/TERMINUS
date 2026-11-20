@@ -1,6 +1,6 @@
 # File name: safety.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Bounded payload redaction and private-destination verification.
 
@@ -33,6 +33,7 @@ class DataSafetyError(ValueError):
 
 
 def _failure() -> DataSafetyError:
+    """Build the single generic error used for every data-safety failure, leaking no input."""
     return DataSafetyError("Data safety validation failed")
 
 
@@ -84,6 +85,7 @@ _SECRET_KEY = re.compile(
 
 
 def _luhn(candidate: re.Match[str]) -> str:
+    """Redact a digit run only when it has card length and a valid Luhn checksum."""
     raw = candidate.group(0)
     digits = "".join(character for character in raw if character.isdigit())
     if not 13 <= len(digits) <= 19:
@@ -101,6 +103,10 @@ def _luhn(candidate: re.Match[str]) -> str:
 
 
 def _plain_text(text: str) -> str:
+    """Apply every redaction pattern to free text, in a fixed order."""
+    # Order: multi-line and structured secrets (private keys, cookie and
+    # authorization headers) go first so the broader patterns do not leave
+    # fragments; card numbers last, as only Luhn-valid ones are redacted.
     redacted = _PRIVATE_KEY.sub(_REDACTED, text)
     redacted = _COOKIE_HEADER.sub(
         lambda match: f"{match.group(1)}: {_REDACTED}", redacted
@@ -120,14 +126,18 @@ def _plain_text(text: str) -> str:
 
 @final
 class _WalkState:
+    """Counters and ancestor ids that bound size and detect cycles during a JSON walk."""
+
     __slots__: ClassVar[tuple[str, ...]] = ("ancestors", "bytes_seen", "nodes")
 
     def __init__(self) -> None:
+        """Start with no ancestors and zero bytes and nodes."""
         self.ancestors: set[int] = set()
         self.bytes_seen = 0
         self.nodes = 0
 
     def consume(self, value: str = "") -> None:
+        """Count one node and its bytes, raising once the node or byte cap is exceeded."""
         self.nodes += 1
         self.bytes_seen += len(value.encode("utf-8"))
         if self.nodes > _MAX_NODES or self.bytes_seen > _MAX_BYTES:
@@ -135,6 +145,7 @@ class _WalkState:
 
 
 def _json_pairs(pairs: list[tuple[str, JsonValue]]) -> dict[str, JsonValue]:
+    """Reject objects with duplicate keys, which could hide a secret from redaction."""
     result: dict[str, JsonValue] = {}
     for key, value in pairs:
         if key in result:
@@ -144,6 +155,10 @@ def _json_pairs(pairs: list[tuple[str, JsonValue]]) -> dict[str, JsonValue]:
 
 
 def _load_embedded(text: str) -> JsonValue | None:
+    """Parse text that looks like JSON, or return None if it is not JSON.
+
+    Duplicate keys and non-finite constants are rejected.
+    """
     stripped = text.strip()
     if not stripped.startswith(("{", "[")):
         return None
@@ -165,6 +180,11 @@ def _load_embedded(text: str) -> JsonValue | None:
 def _walk(  # noqa: C901, PLR0911, PLR0912
     value: object, depth: int, state: _WalkState
 ) -> JsonValue:
+    """Return a redacted copy of a value, enforcing depth, size and cycle limits.
+
+    JSON embedded in strings is redacted too, and values under secret-named keys are
+    replaced.
+    """
     if depth > _MAX_DEPTH:
         raise _failure()
     if value is None or isinstance(value, bool):
@@ -209,6 +229,8 @@ def _walk(  # noqa: C901, PLR0911, PLR0912
             key = _plain_text(raw_key)
             if key in output:
                 raise _failure()
+            # A secret-named key hides its value entirely, but the value is still
+            # walked so the depth, node and size limits apply to it too.
             if _SECRET_KEY.search(raw_key):
                 _ = _walk(item, depth + 1, state)
                 output[key] = _REDACTED
@@ -220,6 +242,7 @@ def _walk(  # noqa: C901, PLR0911, PLR0912
 
 
 def _ensure_output_size(value: JsonValue) -> JsonValue:
+    """Confirm the redacted output still fits the byte cap."""
     try:
         encoded = json.dumps(
             value, ensure_ascii=False, allow_nan=False, separators=(",", ":")
@@ -271,15 +294,19 @@ _ULA = ipaddress.ip_network("fc00::/7")
 
 
 def _safe_address(raw: str) -> ipaddress.IPv4Address | ipaddress.IPv6Address:
+    """Parse an IP literal and accept only loopback or private addresses, else raise."""
     if not raw or raw != raw.strip() or "%" in raw:
         raise _failure()
     try:
         address = ipaddress.ip_address(raw)
     except ValueError:
         raise _failure() from None
+    # An IPv4-mapped IPv6 address is only as safe as the IPv4 address inside it.
     if isinstance(address, ipaddress.IPv6Address) and address.ipv4_mapped is not None:
         _ = _safe_address(str(address.ipv4_mapped))
         return address
+    # Only loopback and private ranges pass: this is the private-destination
+    # boundary that keeps local-provider traffic off public hosts.
     allowed = address.is_loopback
     if isinstance(address, ipaddress.IPv4Address):
         allowed = allowed or any(address in network for network in _RFC1918)
@@ -293,10 +320,12 @@ def _safe_address(raw: str) -> ipaddress.IPv4Address | ipaddress.IPv6Address:
 def _address_sort_key(
     address: ipaddress.IPv4Address | ipaddress.IPv6Address,
 ) -> tuple[int, int]:
+    """Sort IPv4 before IPv6, each by numeric value, for a canonical order."""
     return address.version, int(address)
 
 
 def _canonical_addresses(addresses: object) -> tuple[str, ...]:
+    """Validate and sort a non-empty tuple of at most 64 unique safe addresses."""
     if not isinstance(addresses, tuple):
         raise _failure()
     raw_addresses = cast("tuple[object, ...]", addresses)
@@ -314,6 +343,11 @@ def _canonical_addresses(addresses: object) -> tuple[str, ...]:
 
 
 def _canonical_endpoint(endpoint: str) -> tuple[str, str]:
+    """Normalize an http(s) endpoint and return it with its IDNA host.
+
+    Credentials, queries, fragments, control characters and malformed hosts are
+    rejected.
+    """
     if (
         not isinstance(endpoint, str)  # pyright: ignore[reportUnnecessaryIsInstance]
         or not endpoint
@@ -384,12 +418,14 @@ class VerifiedDestination(BaseModel):
     @field_validator("verified_at", "expires_at")
     @classmethod
     def aware_datetime(cls, value: datetime) -> datetime:
+        """Require timezone-aware timestamps."""
         if value.tzinfo is None or value.utcoffset() is None:
             raise ValueError("destination verification is invalid")
         return value
 
     @model_validator(mode="after")
     def valid_binding(self) -> VerifiedDestination:
+        """Require canonical endpoint and addresses and a lifetime of at most 60 seconds."""
         canonical, _ = _canonical_endpoint(self.endpoint)
         addresses = _canonical_addresses(self.addresses)
         if (
@@ -407,6 +443,7 @@ Clock = Callable[[], datetime]
 
 
 def _seconds(value: object, maximum: float) -> float:
+    """Return a finite positive number of seconds no greater than the maximum."""
     if (
         isinstance(value, bool)
         or not isinstance(value, (int, float))
@@ -428,12 +465,14 @@ class EndpointVerifier:
         ttl_seconds: float = 30,
         resolver_timeout: float = 1,
     ) -> None:
+        """Set the injected resolver and clock, a short binding TTL and the resolver timeout."""
         self._resolver = resolver
         self._clock = clock or (lambda: datetime.now(UTC))
         self._ttl = _seconds(ttl_seconds, 60)
         self._resolver_timeout = _seconds(resolver_timeout, 2)
 
     def _now(self) -> datetime:
+        """Return the clock time, requiring a timezone-aware datetime."""
         try:
             current = self._clock()
         except Exception:
@@ -453,6 +492,8 @@ class EndpointVerifier:
             literal = ipaddress.ip_address(host)
         except ValueError:
             literal = None
+        # A literal IP skips DNS but still must pass the private-address check;
+        # a hostname is resolved once under a timeout and every result is checked.
         if literal is not None:
             addresses = (str(_safe_address(host)),)
         else:
@@ -483,6 +524,8 @@ class EndpointVerifier:
         except (TypeError, ValueError):
             raise _failure() from None
         now = self._now()
+        # Fail closed: the binding must match this exact endpoint, be unexpired,
+        # and not be dated in the future.
         if (
             checked.endpoint != canonical
             or checked.addresses != _canonical_addresses(checked.addresses)
@@ -493,6 +536,7 @@ class EndpointVerifier:
 
 
 def _validated_record(value: object) -> VerifiedDestination:
+    """Re-validate a destination record from its dump, rejecting any other type."""
     if not isinstance(value, VerifiedDestination):
         raise _failure()
     return VerifiedDestination.model_validate(value.model_dump())

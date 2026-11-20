@@ -1,6 +1,6 @@
 # File name: model_connections_api.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Authenticated, organization-scoped model connection metadata API.
 
@@ -52,9 +52,15 @@ class RedactedValidationRoute(APIRoute):
     def get_route_handler(
         self,
     ) -> Callable[[Request], Coroutine[Any, Any, Response]]:  # pyright: ignore[reportExplicitAny] - matches FastAPI's override contract
+        """Wrap the route handler so request validation failures return a fixed 422
+        message instead of FastAPI's default body.
+        """
         original = super().get_route_handler()
 
         async def redacted_handler(request: Request) -> Response:
+            """Convert RequestValidationError into a generic 422 so submitted values,
+            which may include credentials, are never echoed back.
+            """
             try:
                 return await original(request)
             except RequestValidationError:
@@ -148,6 +154,9 @@ def list_model_connections(
     user: Annotated[User, Depends(get_current_user)],
     store: Annotated[ModelConnectionStore, Depends(get_model_connection_store)],
 ) -> list[ModelConnectionView]:
+    """List the model connections of the caller's organization; credentials are never
+    part of the returned view.
+    """
     try:
         return store.list_for_org(str(org_id), str(user.user_id))
     except Exception as exc:
@@ -161,6 +170,9 @@ def get_model_connection(
     user: Annotated[User, Depends(get_current_user)],
     store: Annotated[ModelConnectionStore, Depends(get_model_connection_store)],
 ) -> ModelConnectionView:
+    """Return one model connection in the caller's organization; storage errors are
+    mapped to generic HTTP errors.
+    """
     try:
         return store.get(str(org_id), str(user.user_id), connection_id)
     except Exception as exc:
@@ -179,6 +191,9 @@ def create_model_connection(
     user: Annotated[User, Depends(get_current_user)],
     store: Annotated[ModelConnectionStore, Depends(get_model_connection_store)],
 ) -> ModelConnectionView:
+    """Admin-only: register a model connection in the caller's organization from a
+    validated payload.
+    """
     request = _request(ModelConnectionCreate, payload)
     try:
         return store.create(str(org_id), str(user.user_id), request)
@@ -198,6 +213,9 @@ def update_model_connection(
     user: Annotated[User, Depends(get_current_user)],
     store: Annotated[ModelConnectionStore, Depends(get_model_connection_store)],
 ) -> ModelConnectionView:
+    """Admin-only: update a model connection in the caller's organization; version
+    conflicts map to 409.
+    """
     request = _request(ModelConnectionUpdate, payload)
     try:
         return store.update(str(org_id), str(user.user_id), connection_id, request)
@@ -217,6 +235,10 @@ def delete_model_connection(
     user: Annotated[User, Depends(get_current_user)],
     store: Annotated[ModelConnectionStore, Depends(get_model_connection_store)],
 ) -> None:
+    """Admin-only: delete a model connection in the caller's organization;
+    expected_version is required so a stale client cannot delete a connection that
+    changed after it last read it.
+    """
     try:
         store.delete(
             str(org_id),

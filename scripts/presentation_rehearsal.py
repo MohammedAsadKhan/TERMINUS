@@ -1,6 +1,6 @@
 # File name: presentation_rehearsal.py
 # Author: Team LARP
-# Revision date: 2026-11-14
+# Revision date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Isolated synthetic demo of intake, durable triage, and honest gaps.
 
@@ -38,6 +38,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 def checked(client: TestClient, method: str, path: str, *, expected: int, **kwargs: Any) -> Any:  # noqa: ANN401
+    """Call the API and return its JSON, failing on any status other than the expected one."""
     response = getattr(client, method)(path, **kwargs)
     if response.status_code != expected:
         raise RuntimeError(f"{path}: expected {expected}, got {response.status_code}: {response.text[:300]}")
@@ -45,11 +46,13 @@ def checked(client: TestClient, method: str, path: str, *, expected: int, **kwar
 
 
 def require(condition: bool, message: str) -> None:
+    """Fail the rehearsal with a message when an expected honesty or safety check is false."""
     if not condition:
         raise RuntimeError(message)
 
 
 def find_role(nodes: list[dict], role: str) -> dict | None:
+    """Return the first task node with the given role, searching children depth first."""
     for node in nodes:
         if node.get("role") == role:
             return node
@@ -60,9 +63,16 @@ def find_role(nodes: list[dict], role: str) -> dict | None:
 
 
 def _start_bank_demo(demo_dir: Path, org_id: str, duration_seconds: int) -> None:
+    """Run the fictional bank demo server and its traffic generator until Ctrl+C.
+
+    The server binds to loopback and the generator targets that same address. Both child
+    processes are always stopped on exit, including when either one fails.
+    """
     port = 8766
     base_url = f"http://127.0.0.1:{port}"
     server_env = os.environ.copy()
+    # The child imports this working tree's source, and its settings select the synthetic
+    # bank scenario for this organization only.
     server_env["PYTHONPATH"] = str(REPO_ROOT / "src") + os.pathsep + server_env.get("PYTHONPATH", "")
     server_env["TERMINUS_REPO_SCAN_ENABLED"] = "true"
     server_env["TERMINUS_BANK_DEMO_MODE"] = "1"
@@ -76,6 +86,8 @@ def _start_bank_demo(demo_dir: Path, org_id: str, duration_seconds: int) -> None
     )
     flood = None
     try:
+        # Wait for the bank page to answer before starting traffic; a server that exits
+        # during startup is reported rather than waited on.
         for _ in range(80):
             if server.poll() is not None:
                 raise RuntimeError("Demo server stopped during startup")
@@ -96,6 +108,8 @@ def _start_bank_demo(demo_dir: Path, org_id: str, duration_seconds: int) -> None
             # The bank demo uses its own port so the earlier rehearsal can stay open.
             cwd=demo_dir, env=server_env,
         )
+        # Keep the screens up after the stream ends; a generator that fails is an error,
+        # while a normal finish is announced once.
         while server.poll() is None:
             if flood is not None and flood.poll() is not None:
                 if flood.returncode != 0:
@@ -116,8 +130,15 @@ def _start_bank_demo(demo_dir: Path, org_id: str, duration_seconds: int) -> None
 
 
 def main(*, serve: bool = False, bank_demo: bool = False, duration_seconds: int = 600) -> None:
+    """Run the synthetic intake and triage rehearsal, then optionally serve a demo console.
+
+    The rehearsal fails loudly if any honesty check does not hold: offline mode disclosed,
+    low confidence, no invented counts, a refused live block, and surfaced telemetry gaps.
+    """
     demo_dir = Path(tempfile.mkdtemp(prefix="terminus-presentation-"))
     os.chdir(demo_dir)  # Prevent loading the repository's .env or live SQLite file.
+    # Blank every outbound provider setting so the rehearsal cannot reach a model, Wazuh,
+    # chat, SMS, or ticketing service, even if the shell has them configured.
     for key in (
         "TERMINUS_LLM_API_KEY", "TERMINUS_WAZUH_URL", "TERMINUS_SLACK_WEBHOOK",
         "TERMINUS_TWILIO_SID", "TERMINUS_TWILIO_TOKEN", "TERMINUS_JIRA_URL",
@@ -151,6 +172,8 @@ def main(*, serve: bool = False, bank_demo: bool = False, duration_seconds: int 
 
             seed_presentation_demo_data(db=Database.get_instance(), org_id=org_id)
 
+            # One deliberately thin, labelled-synthetic alert: it has no failure count, so the
+            # offline verdict must say the threat is unknown rather than invent a figure.
             alert_id = f"synthetic-presentation-{uuid4()}"
             alert = {
                 "id": alert_id,
@@ -166,18 +189,24 @@ def main(*, serve: bool = False, bank_demo: bool = False, duration_seconds: int 
             require(report["verdict"]["confidence"] == "low", "Offline confidence was overstated")
             require("unknown" in report["verdict"]["summary"].lower(), "Unknown threat was not disclosed")
             require("45 failed" not in report["verdict"]["summary"], "Verdict invented a failure count")
+            # The incident must be stored durably, not only returned in the response.
             incidents = checked(client, "get", "/incidents", expected=200, headers=headers)
             require(any(item["id"] == incident_id for item in incidents), "Incident was not persisted")
+            # Live blocking is not implemented here, so the API must refuse with 501 instead
+            # of pretending an action ran.
             refusal = checked(
                 client, "post", f"/incidents/{incident_id}/action", expected=501,
                 headers=headers, json={"action_type": "block_ip"},
             )
+            # An unreachable reserved-invalid host must never be reported as a good connection.
             connection = checked(
                 client, "post", "/settings/test-connection", expected=200,
                 headers=headers, json={"service": "wazuh", "target_url": "https://example.invalid"},
             )
             require(connection["success"] is False, "Connection check falsely reported success")
 
+            # Grant the triage role read-only tools for this incident and bind its resources.
+            # No Wazuh indexer is configured in this rehearsal, which produces the gaps below.
             policy = ToolReadPolicyStore(Database.get_instance())
             policy.put_policy(
                 user["user_id"], org_id, incident_id,
@@ -200,6 +229,7 @@ def main(*, serve: bool = False, bank_demo: bool = False, duration_seconds: int 
                 json={"objective": "Triage the synthetic SSH alert and report missing telemetry", "areas": ["alert_handling"], "idempotency_key": "presentation-triage-1"},
             )
 
+            # Run the specialist worker as a child process limited to the triage role.
             worker_env = os.environ.copy()
             worker_env["TERMINUS_SPECIALIST_DATABASE"] = str(db_path)
             worker_env["TERMINUS_SPECIALIST_ACTOR_USER_ID"] = user["user_id"]
@@ -214,6 +244,8 @@ def main(*, serve: bool = False, bank_demo: bool = False, duration_seconds: int 
                 stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True,
                 creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
             )
+            # Poll for at most 25 seconds. Incomplete is the expected aggregate because the
+            # missing telemetry must be reported as a gap, not as a clean result.
             tree = None
             triage = None
             deadline = time.monotonic() + 25
@@ -248,6 +280,7 @@ def main(*, serve: bool = False, bank_demo: bool = False, duration_seconds: int 
                 "live_block_message": refusal["detail"],
             }, indent=2))
         finally:
+            # Stop the worker even when a check failed; kill it if it ignores terminate.
             if worker is not None:
                 worker.terminate()
                 try:
@@ -255,6 +288,7 @@ def main(*, serve: bool = False, bank_demo: bool = False, duration_seconds: int 
                 except subprocess.TimeoutExpired:
                     worker.kill()
                     worker.communicate(timeout=5)
+    # Both options reuse the database prepared above; the bank demo takes precedence.
     if bank_demo:
         _start_bank_demo(demo_dir, org_id, duration_seconds)
     elif serve:

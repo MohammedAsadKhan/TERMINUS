@@ -1,6 +1,6 @@
 # File name: policy.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Durable tenant policy for model access and evidence data handling.
 
@@ -47,6 +47,9 @@ _MODEL_POOL = TypeAdapter(list[str])
 
 
 class _Contract(BaseModel):
+    # Base for policy contracts: immutable, strictly typed, closed to extra fields and
+    # NaN.
+
     model_config: ClassVar[ConfigDict] = ConfigDict(
         extra="forbid", strict=True, frozen=True, allow_inf_nan=False
     )
@@ -71,6 +74,7 @@ class PolicyGrant(_Contract):
 
     @model_validator(mode="after")
     def validate_scope(self) -> PolicyGrant:
+        """Require an eligible role, an area only for area orchestrators, and unique entries."""
         if self.role not in _ROLES:
             raise ValueError("role is not eligible for model access")
         if self.role == "area_orchestrator":
@@ -94,6 +98,7 @@ class ModelPolicyWrite(_Contract):
 
     @model_validator(mode="after")
     def unique_grants(self) -> ModelPolicyWrite:
+        """Reject two grants for the same role, area and connection."""
         identities = [
             (grant.role, grant.area, grant.connection_id) for grant in self.grants
         ]
@@ -112,6 +117,7 @@ class ModelPolicy(_Contract):
 
     @model_validator(mode="after")
     def unique_grants(self) -> ModelPolicy:
+        """Reject two grants for the same role, area and connection."""
         identities = [
             (grant.role, grant.area, grant.connection_id) for grant in self.grants
         ]
@@ -195,6 +201,7 @@ class ModelPolicyStore:
     """Tenant-scoped policy storage with live authorization and CAS writes."""
 
     def __init__(self, db: Database) -> None:
+        """Create the policy, classification and immutable audit tables."""
         self.db: Database = db
         with self.db.transaction() as conn:
             statement = ""
@@ -212,6 +219,9 @@ class ModelPolicyStore:
         *,
         write: bool,
     ) -> None:
+        """Require live membership in the org, and the admin role for writes."""
+        # Live membership lookup in the target org only; writes need admin, so a
+        # demoted or foreign user is refused at the time of the call.
         row = conn.execute(
             "SELECT role FROM memberships WHERE org_id = ? AND user_id = ?",
             (org_id, actor_user_id),
@@ -221,10 +231,12 @@ class ModelPolicyStore:
 
     @staticmethod
     def _missing() -> ModelPolicyNotFoundError:
+        """Build the not-found error used for absent tenant-scoped resources."""
         return ModelPolicyNotFoundError("Model policy resource not found")
 
     @staticmethod
     def _validate_write(request: ModelPolicyWrite) -> ModelPolicyWrite:
+        """Re-validate a write request from its dump, so a caller-built object is not trusted."""
         try:
             return ModelPolicyWrite.model_validate(request.model_dump(warnings=False))
         except (AttributeError, TypeError, ValidationError) as exc:
@@ -232,6 +244,7 @@ class ModelPolicyStore:
 
     @staticmethod
     def _policy(row: sqlite3.Row) -> ModelPolicy:
+        """Rebuild and validate a stored policy row, rejecting corrupt stored data."""
         try:
             payload = json.dumps(
                 {
@@ -248,6 +261,7 @@ class ModelPolicyStore:
 
     @staticmethod
     def _classification(row: sqlite3.Row) -> EvidenceClassification:
+        """Rebuild and validate a stored evidence classification row."""
         try:
             return EvidenceClassification.model_validate(
                 {
@@ -267,6 +281,7 @@ class ModelPolicyStore:
     def _canonical_evidence(
         conn: sqlite3.Connection, org_id: str, evidence_id: str
     ) -> EvidenceRecord:
+        """Load evidence from the org's canonical store and confirm its stored identity matches."""
         row = conn.execute(
             """SELECT payload_json FROM orchestration_evidence
                WHERE org_id = ? AND evidence_id = ?""",
@@ -286,10 +301,12 @@ class ModelPolicyStore:
     def _validate_connections(
         conn: sqlite3.Connection, org_id: str, grants: tuple[PolicyGrant, ...]
     ) -> None:
+        """Check each grant against its connection's current version and model pool."""
         cached: dict[str, tuple[int, frozenset[str]]] = {}
         for grant in grants:
             metadata = cached.get(grant.connection_id)
             if metadata is None:
+                # Connections are looked up within the same org only.
                 row = conn.execute(
                     """SELECT version, models_json FROM model_connections
                        WHERE org_id = ? AND connection_id = ?""",
@@ -315,6 +332,8 @@ class ModelPolicyStore:
                         "Referenced model connection metadata is invalid"
                     ) from exc
                 cached[grant.connection_id] = metadata
+            # A grant is only valid for the connection version it was written
+            # against, so editing a connection invalidates its grants.
             version, model_pool = metadata
             if version != grant.connection_version:
                 raise ModelPolicyConflictError("Model connection version conflict")
@@ -333,6 +352,7 @@ class ModelPolicyStore:
         version: int,
         timestamp: str,
     ) -> None:
+        """Append an immutable audit row for a policy or classification change."""
         _ = conn.execute(
             """INSERT INTO model_policy_audit
                (audit_id, org_id, actor_user_id, action, subject_id,
@@ -354,6 +374,8 @@ class ModelPolicyStore:
     ) -> ModelPolicy:
         """Replace the complete policy after validating its durable dependencies."""
         with self.db.transaction() as conn:
+            # Order: authorize, validate shape, compare-and-swap the version, then
+            # check connection references, all inside one transaction.
             self._authorize(conn, org_id, actor_user_id, write=True)
             request = self._validate_write(request)
             current = conn.execute(
@@ -463,6 +485,7 @@ class ModelPolicyStore:
                 raise ModelPolicyConflictError(
                     "Evidence classification version conflict"
                 )
+            # The label is bound to the evidence hash; changed evidence invalidates it.
             if current is not None and str(current["content_hash"]) != evidence.content_hash:
                 raise ModelPolicyValidationError(
                     "Evidence classification does not match canonical evidence"

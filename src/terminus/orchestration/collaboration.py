@@ -1,6 +1,6 @@
 # File name: collaboration.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Structured peer-help admission, shared-evidence linkage and ownership view.
 
@@ -51,18 +51,25 @@ Row = Mapping[str, object]
 
 
 def _cell(row: Row, key: str) -> object:
+    """Read one column from a row mapping."""
     return row[key]
 
 
 def _text(row: Row, key: str) -> str:
+    """Read a column as a string."""
     return str(_cell(row, key))
 
 
 def _string_list(row: Row, key: str) -> list[str]:
+    """Parse a column holding a JSON array of strings."""
     return _STRINGS.validate_json(_text(row, key))
 
 
 class CollaborationBackend(Protocol):
+    """The part of the coordination service that collaboration relies on: database, stores, the
+    role-to-area catalog, and task lookup and assignment.
+    """
+
     db: Database
     records: OrchestrationStore
     scheduler: SchedulerStore
@@ -82,11 +89,15 @@ class CollaborationRejectedError(ValueError):
     """Admission denied. ``code`` is a bounded machine-readable reason."""
 
     def __init__(self, code: str, message: str) -> None:
+        """Store the machine-readable code alongside the message."""
         super().__init__(message)
         self.code: str = code
 
 
 def objective_digest(objective: str) -> str:
+    """Hash an objective after case-folding and collapsing whitespace, so trivially reworded repeats
+    count as duplicates.
+    """
     normalized = " ".join(objective.casefold().split())
     return hashlib.sha256(normalized.encode()).hexdigest()
 
@@ -97,6 +108,9 @@ def _state(  # noqa: PLR0911 - lifecycle precedence is intentionally explicit
     peer: Task | None,
     result: SpecialistResult | None,
 ) -> tuple[str, str | None]:
+    """Map a help request, its delegated tasks and the peer's result to a coarse (state, reason
+    code) pair; a resolved request without a completed result is reported as incomplete.
+    """
     if request.status == "resolved":
         if result is None:
             return "incomplete", "peer_result_missing"
@@ -107,6 +121,8 @@ def _state(  # noqa: PLR0911 - lifecycle precedence is intentionally explicit
         return "rejected", "request_cancelled"
     if request.status == "open":
         return "requested", None
+    # A failed or cancelled peer or area task rejects the request before a completed peer is
+    # considered done, so a missing result is only reported once nothing has failed.
     for label, task in (("peer", peer), ("area", area)):
         if task is not None and task.status in {"failed", "cancelled"}:
             return "rejected", f"{label}_{task.status}"
@@ -117,7 +133,14 @@ def _state(  # noqa: PLR0911 - lifecycle precedence is intentionally explicit
 
 @final
 class CollaborationService:
+    """Admits peer-help requests, links shared evidence and reports ownership; every query is scoped
+    by org_id and, for evidence, by incident.
+    """
+
     def __init__(self, service: CollaborationBackend) -> None:
+        """Create the collaboration table and index if missing, and add result_json to a table
+        created by an older version.
+        """
         self.service: CollaborationBackend = service
         self.db: Database = service.db
         for statement in (
@@ -149,6 +172,7 @@ class CollaborationService:
 
     # -- internals ---------------------------------------------------------
     def _row(self, org_id: str, help_request_id: str) -> Row | None:
+        """Fetch the collaboration row for a help request within the organization."""
         return cast(
             "Row | None",
             self.db.fetchone(
@@ -160,6 +184,9 @@ class CollaborationService:
     def _evidence(
         self, org_id: str, incident_id: str, ids: list[str]
     ) -> list[EvidenceRecord]:
+        """Load shared evidence by ID, requiring each record to belong to the same organization and
+        incident.
+        """
         records: list[EvidenceRecord] = []
         for evidence_id in ids:
             row = cast(
@@ -179,6 +206,9 @@ class CollaborationService:
     def _delegated(
         self, org_id: str, request: HelpRequest
     ) -> tuple[Task | None, Task | None]:
+        """Find the area task and peer task created for a help request, or (None, None) when the
+        incident has no root coordination task.
+        """
         svc = self.service
         root = svc.root_task(org_id, request.incident_id)
         if root is None:
@@ -206,6 +236,8 @@ class CollaborationService:
         with self.db.transaction():
             requester = svc.records.get_task(org_id, requester_task_id)
             svc.require_incident(org_id, requester.incident_id)
+            # Duplicate check runs first so a repeated request returns the stored one without re-
+            # running policy checks or counting against the limits.
             existing = cast(
                 "Row | None",
                 self.db.fetchone(
@@ -280,6 +312,8 @@ class CollaborationService:
                 raise CoordinationLimitError(
                     f"incident help delegation limit ({MAX_HELP_PER_INCIDENT}) reached"
                 )
+            # Shared evidence is validated inside this organization and incident before anything is
+            # persisted, so foreign evidence IDs are rejected.
             _ = self._evidence(org_id, requester.incident_id, spec.shared_evidence_ids)
             request = svc.records.create_help_request(
                 org_id, requester_task_id, spec.target_role, spec.objective
@@ -386,6 +420,8 @@ class CollaborationService:
             raise CollaborationRejectedError(
                 "unstructured_request", "Help requires a structured admission contract"
             )
+        # The admission checks are repeated here: the stored contract is what the scheduler will act
+        # on, so it is re-validated against the current incident and catalog.
         requester = self.service.records.get_task(org_id, request.task_id)
         root = self.service.root_task(org_id, request.incident_id)
         if root is None:
@@ -447,6 +483,8 @@ class CollaborationService:
             )
         except (TypeError, ValueError):
             return None
+        # Only the first stored result is kept (result_json IS NULL), so a later run cannot
+        # overwrite what was reported.
         _ = self.db.execute(
             """UPDATE orchestration_help_collaboration SET result_json=?
                WHERE org_id=? AND help_request_id=? AND result_json IS NULL""",
@@ -456,9 +494,13 @@ class CollaborationService:
 
 
 def task_key(*parts: str) -> str:
+    """Build a deterministic idempotency key from the parts, joined with NUL bytes and hashed."""
     digest = hashlib.sha256("\0".join(parts).encode()).hexdigest()
     return f"coord:{digest}"
 
 
 def help_task_key(root_id: str, help_id: str) -> str:
+    """Build the idempotency key of the area task serving a help request; the shared prefix lets
+    help-delegated tasks be recognized.
+    """
     return "coord:help:" + task_key(root_id, "help", help_id)[6:]

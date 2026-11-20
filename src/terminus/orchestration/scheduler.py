@@ -1,6 +1,6 @@
 # File name: scheduler.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Dedicated, opt-in asyncio scheduler for explicitly registered handlers.
 
@@ -56,6 +56,9 @@ class JobContext:
     """Handler inputs and cooperative cancellation / ownership checkpoint."""
 
     def __init__(self, runtime: SchedulerRuntime, lease: JobLease) -> None:
+        """Bind the leased task and run to the runtime and create the cancellation event handlers
+        can wait on.
+        """
         self.lease = lease
         self.task: Task = lease.task
         self.run: AgentRun = lease.run
@@ -64,12 +67,16 @@ class JobContext:
         self._reason: str | None = None
 
     def _abort(self, reason: str) -> None:
+        """Record the first abort reason and wake anything waiting on the cancellation event."""
         if self._reason is None:
             self._reason = reason
         self.cancellation_event.set()
 
     async def checkpoint(self) -> None:
         """Verify the lease immediately before a handler performs more work."""
+        # Order matters: local shutdown and abort state are checked before touching the database,
+        # then cancellation, and only then is the lease renewed, so a cancelled job never extends
+        # its ownership.
         if self._runtime._stop_event.is_set():
             self._abort("shutdown")
         if self._reason is not None:
@@ -95,6 +102,9 @@ class JobContext:
             self._raise_aborted()
 
     def _raise_aborted(self) -> None:
+        """Raise the exception matching the abort reason: lease loss as JobLeaseLostError, anything
+        else as CancelledError.
+        """
         if self._reason == "lost":
             raise JobLeaseLostError("Job lease was lost")
         raise asyncio.CancelledError(self._reason)
@@ -126,6 +136,9 @@ class SchedulerRuntime:
         cancellation_grace_seconds: float = 1,
         owner_id: str | None = None,
     ) -> None:
+        """Validate every deployment bound and handler before storing them, so a misconfigured
+        runtime fails at construction rather than while running jobs.
+        """
         for name, value in (
             ("worker_count", worker_count),
             ("global_limit", global_limit),
@@ -195,6 +208,7 @@ class SchedulerRuntime:
 
     @property
     def running(self) -> bool:
+        """Whether the runtime is currently serving."""
         return self._running
 
     def request_stop(self) -> None:
@@ -211,6 +225,8 @@ class SchedulerRuntime:
     async def _call(
         self, function: Callable[..., _T], *args: object, **kwargs: object
     ) -> _T:
+        """Run a blocking store call on the single database thread without blocking the event loop.
+        """
         if self._executor is None:
             raise RuntimeError("Scheduler runtime is not running")
         return await asyncio.get_running_loop().run_in_executor(
@@ -218,10 +234,14 @@ class SchedulerRuntime:
         )
 
     async def _pause(self, seconds: float) -> None:
+        """Sleep for the given time, waking early when a stop is requested."""
         with suppress(TimeoutError):
             await asyncio.wait_for(self._stop_event.wait(), timeout=seconds)
 
     async def run(self) -> None:
+        """Acquire the coordinator lease, recover expired jobs, run the coordinator and worker tasks
+        until stopped, then release ownership and close the database.
+        """
         if self._running:
             raise RuntimeError("This scheduler runtime is already running")
         self._running = True
@@ -276,6 +296,9 @@ class SchedulerRuntime:
                 self._stopped_event.set()
 
     async def _coordinate(self) -> None:
+        """Periodically renew the coordinator lease and recover expired jobs, stopping the runtime
+        if ownership is lost.
+        """
         while not self._workers_drained.is_set():
             with suppress(TimeoutError):
                 await asyncio.wait_for(
@@ -303,6 +326,9 @@ class SchedulerRuntime:
                 raise
 
     async def _worker(self, index: int) -> None:
+        """Repeatedly claim and execute the next eligible job, polling when there is none and
+        stopping if coordinator ownership is lost.
+        """
         while not self._stop_event.is_set():
             try:
                 lease = await self._call(
@@ -324,6 +350,9 @@ class SchedulerRuntime:
             await self._execute(lease)
 
     async def _heartbeat(self, context: JobContext) -> None:
+        """Keep a running job's lease renewed until it ends, aborting the handler if the lease is
+        lost.
+        """
         while True:
             await asyncio.sleep(self.heartbeat_interval)
             try:
@@ -353,6 +382,9 @@ class SchedulerRuntime:
                 return
 
     async def _execute(self, lease: JobLease) -> None:
+        """Run one leased job's handler under the run timeout, then persist the completion, failure,
+        cancellation or hold that matches how it ended.
+        """
         context = JobContext(self, lease)
         self._contexts.add(context)
         try:
@@ -364,6 +396,7 @@ class SchedulerRuntime:
         except JobLeaseLostError:
             self._contexts.discard(context)
             return
+        # The handler is only started after the first checkpoint confirms the lease is still valid.
         handler = asyncio.create_task(self.handlers[lease.task.role](context))
         heartbeat = asyncio.create_task(self._heartbeat(context))
         abort = asyncio.create_task(context.cancellation_event.wait())
@@ -403,6 +436,9 @@ class SchedulerRuntime:
     async def _finish_handler(
         self, context: JobContext, handler: asyncio.Task[JsonValue]
     ) -> None:
+        """Persist a finished handler's outcome: complete on success after re-checking ownership,
+        otherwise fail (retryable unless the exception says otherwise).
+        """
         try:
             result = handler.result()
         except asyncio.CancelledError:
@@ -422,6 +458,8 @@ class SchedulerRuntime:
             await self._call(self.store.complete, context.lease, result)
 
     async def _cancel_handler(self, handler: asyncio.Task[JsonValue]) -> bool:
+        """Cancel the handler and wait the grace period, returning False if it ignored cancellation.
+        """
         if handler.done():
             # Always retrieve failures, including a return racing cancellation.
             with suppress(asyncio.CancelledError, Exception):
@@ -443,12 +481,20 @@ class SchedulerRuntime:
 
     @staticmethod
     def _consume_handler(handler: asyncio.Task[JsonValue]) -> None:
+        """Retrieve and discard a handler's outcome so asyncio does not warn about an unretrieved
+        exception.
+        """
         with suppress(asyncio.CancelledError, Exception):
             handler.result()
 
     async def _persist_abort(
         self, context: JobContext, *, cooperative: bool = True
     ) -> None:
+        # A lost lease means another owner may hold the job, so this process writes nothing rather
+        # than overwrite it.
+        """Record an aborted job's outcome: nothing if the lease was lost, a hold if the handler
+        ignored cancellation, otherwise cancelled or a retryable failure.
+        """
         if context._reason == "lost" or self._ownership_lost:
             return
         with suppress(SchedulerLeaseError):
@@ -470,4 +516,5 @@ class SchedulerRuntime:
 
     @staticmethod
     def _error(exc: Exception) -> str:
+        """Format an exception as a message capped at 16,000 characters."""
         return f"{type(exc).__name__}: {exc}"[:16000]

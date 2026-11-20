@@ -1,6 +1,6 @@
 # File name: coordination.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Opt-in, bounded main/area delegation on the existing durable scheduler.
 
@@ -62,20 +62,31 @@ class CoordinationRoleError(ValueError):
 
 
 def _key(*parts: str) -> str:
+    """Build the deterministic idempotency key for a coordination task."""
     return task_key(*parts)
 
 
 def _help_key(root_id: str, help_id: str) -> str:
+    """Build the deterministic idempotency key for the area task created for one help
+    request.
+    """
     return help_task_key(root_id, help_id)
 
 
 class CoordinationService:
+    """Delegation-only coordination: admits one main orchestrator per incident, which
+    fans out to area and specialty tasks on the durable scheduler without running
+    specialist work itself.
+    """
     def __init__(
         self,
         db: Database,
         *,
         catalog: Sequence[SpecialistDefinition] | None = None,
     ) -> None:
+        """Validate the specialist catalog (1 to 24 unique specialties, none named like
+        an orchestrator) and create the stores that share the one database.
+        """
         specs = list(DEFAULT_CATALOG if catalog is None else catalog)
         if not 1 <= len(specs) <= MAX_CATALOG_ROLES:
             raise CoordinationLimitError("catalog must contain 1..24 specialties")
@@ -92,15 +103,24 @@ class CoordinationService:
         self.collaboration = CollaborationService(self)
 
     def require_incident(self, org_id: str, incident_id: str) -> None:
+        """Raise not-found unless the incident exists in this organization."""
         self._incident(org_id, incident_id)
 
     def root_task(self, org_id: str, incident_id: str) -> Task | None:
+        """Return the incident's coordination main task, or None if coordination has not
+        started.
+        """
         return self._root(org_id, incident_id)
 
     def existing_task(self, org_id: str, key: str) -> Task | None:
+        """Return this organization's task with the given idempotency key, or None."""
         return self._existing(org_id, key)
 
     def _incident(self, org_id: str, incident_id: str) -> None:
+        """Raise the generic not-found error unless the incident belongs to this
+        organization, so another tenant's incident is indistinguishable from a missing
+        one.
+        """
         if not self.db.fetchone(
             "SELECT 1 FROM incidents WHERE org_id=? AND ticket_id=?",
             (org_id, incident_id),
@@ -108,6 +128,9 @@ class CoordinationService:
             raise OrchestrationNotFoundError("Orchestration record not found")
 
     def _root(self, org_id: str, incident_id: str) -> Task | None:
+        """Find the incident's coordination root: the oldest parentless main
+        orchestrator created by coordination.
+        """
         row = self.db.fetchone(
             "SELECT payload_json FROM orchestration_tasks WHERE org_id=? "
             "AND incident_id=? AND parent_task_id IS NULL "
@@ -119,6 +142,7 @@ class CoordinationService:
         return Task.model_validate_json(row["payload_json"]) if row else None
 
     def _existing(self, org_id: str, key: str) -> Task | None:
+        """Look up a task by organization and idempotency key."""
         row = self.db.fetchone(
             "SELECT payload_json FROM orchestration_tasks "
             "WHERE org_id=? AND idempotency_key=?",
@@ -138,6 +162,9 @@ class CoordinationService:
         parent: Task | None = None,
         priority: int = 100,
     ) -> Task:
+        """Create and enqueue a task, enforcing the 64-task incident limit only for new
+        keys so an idempotent replay still returns the existing task.
+        """
         if self._existing(org_id, key) is None:
             row = self.db.fetchone(
                 "SELECT COUNT(*) AS count FROM orchestration_tasks "
@@ -162,6 +189,10 @@ class CoordinationService:
     def start_incident(
         self, org_id: str, incident_id: str, request: IncidentObjective
     ) -> Task:
+        """Start coordination in one transaction: replay returns the existing root only
+        when the objective is identical, a different objective conflicts, and otherwise
+        a main task is admitted with the per-area plan.
+        """
         if not isinstance(request, IncidentObjective):
             raise TypeError("request must be an IncidentObjective")
         with self.db.transaction():
@@ -200,12 +231,16 @@ class CoordinationService:
             )
 
     def handlers(self) -> Mapping[str, JobHandler]:
+        """Return the scheduler handlers for the main and area orchestrator roles."""
         return {
             "main_orchestrator": self._main,
             "area_orchestrator": self._area,
         }
 
     def _fence(self, lease: JobLease) -> None:
+        """Check the scheduler's durable lease and cancellation state inside the write
+        transaction, so a lost or cancelled lease cannot create tasks.
+        """
         # A checkpoint alone leaves a cancellation/lease race before BEGIN.
         # Check the scheduler's durable fence inside the same write transaction.
         job = self.scheduler._owned(lease, self.scheduler._now())  # noqa: SLF001
@@ -213,12 +248,18 @@ class CoordinationService:
             raise SchedulerLeaseError("Cancellation requested")
 
     async def _main(self, context: JobContext) -> JsonValue:
+        """Scheduler handler for the main task: confirm it is the incident's managed
+        root, then admit one area task per planned area, fencing before and after; it
+        records delegation only.
+        """
         await context.checkpoint()
         task = context.task
         plan = MainObjective.model_validate_json(task.objective)
         with self.db.transaction():
             self._fence(context.lease)
             root = self._root(task.org_id, task.incident_id)
+            # Only the incident's recorded root may fan out, so a stray main task
+            # cannot create area tasks.
             if root is None or root.task_id != task.task_id:
                 raise OrchestrationConflictError("Unmanaged main coordinator")
             children = [
@@ -240,12 +281,19 @@ class CoordinationService:
         return {"delegation_only": True, "child_task_ids": children}
 
     async def _area(self, context: JobContext) -> JsonValue:
+        """Scheduler handler for an area task: confirm it is the managed child with its
+        expected key and area, check that every role is enabled for that area, and admit
+        the specialty tasks; a help request that is no longer assigned yields a gap and
+        no tasks.
+        """
         await context.checkpoint()
         task = context.task
         plan = AreaObjective.model_validate_json(task.objective)
         with self.db.transaction():
             self._fence(context.lease)
             root = self._root(task.org_id, task.incident_id)
+            # The expected key proves this task was created by this coordinator for
+            # this area (or help request), not copied from another incident.
             key = (
                 _help_key(root.task_id, plan.help_request_id)
                 if root and plan.help_request_id
@@ -328,6 +376,7 @@ class CoordinationService:
                     "Incident has no coordination objective"
                 )
             parent = self.records.get_task(org_id, request.task_id)
+            # Walk at most three levels up; help must trace back to the incident root.
             current = parent
             for _ in range(3):
                 if current.parent_task_id is None:
@@ -341,6 +390,8 @@ class CoordinationService:
             if area is None:
                 raise CoordinationRoleError("Requested specialty is not enabled")
             key = _help_key(root.task_id, help_request_id)
+            # Replay returns the existing area task before the status and limit
+            # checks, so a repeated assignment is idempotent.
             existing = self._existing(org_id, key)
             if existing:
                 return existing
@@ -389,6 +440,8 @@ class CoordinationService:
                     if area
                     else None
                 )
+                # Resolve only when the delegated specialist task itself completed;
+                # assignment alone never counts as resolution.
                 if child and child.status == "completed":
                     result = self.collaboration.persist_result(
                         org_id, help_request_id, child
@@ -404,6 +457,9 @@ class CoordinationService:
     def _aggregate(  # noqa: PLR0911 - ordered lifecycle precedence
         task: Task, children: list[dict[str, object]], gaps: list[str]
     ) -> str:
+        """Roll up status by fixed precedence: failed or cancelled, then running,
+        waiting, queued, then incomplete when gaps exist, otherwise completed.
+        """
         states = [str(child["aggregate_status"]) for child in children]
         if task.status in {"failed", "cancelled"}:
             return task.status
@@ -422,6 +478,10 @@ class CoordinationService:
     def _node(  # noqa: C901 - lifecycle gaps are accumulated in one bounded view
         self, task: Task, depth: int = 0
     ) -> dict[str, object]:
+        """Build the bounded status view of a task and its children (depth at most 3),
+        turning missing delegations, omitted children, unresolved help and record page
+        limits into explicit gaps rather than implied coverage.
+        """
         if depth > 3:
             raise CoordinationLimitError("coordinator tree depth exceeded")
         rows = self.db.fetchall(
@@ -510,6 +570,10 @@ class CoordinationService:
         return node
 
     def get_incident_tree(self, org_id: str, incident_id: str) -> dict[str, object]:
+        """Return the incident's coordination tree after verifying the incident in this
+        organization, refusing trees above 64 tasks; coordination never closes the
+        incident.
+        """
         with self.db.transaction():
             self._incident(org_id, incident_id)
             count = self.db.fetchone(

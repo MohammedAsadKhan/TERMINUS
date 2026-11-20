@@ -1,6 +1,6 @@
 # File name: app.py
 # Author: Team LARP
-# Revision date: 2026-11-13
+# Revision date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: FastAPI application factory and server entrypoint for TERMINUS.
 
@@ -147,10 +147,14 @@ def create_app() -> FastAPI:
 
     @app.exception_handler(NotFoundError)
     async def not_found(request: Request, exc: NotFoundError) -> JSONResponse:
+        """Return a generic 404 for NotFoundError so the response never leaks the
+        missing record's details.
+        """
         return JSONResponse({"detail": "Record not found"}, status_code=404)
 
     @app.exception_handler(ConflictError)
     async def conflict_handler(request: Request, exc: ConflictError) -> JSONResponse:
+        """Translate ConflictError into an HTTP 409 carrying the conflict message."""
         return JSONResponse({"detail": str(exc)}, status_code=409)
 
     @app.middleware("http")
@@ -158,10 +162,18 @@ def create_app() -> FastAPI:
         request: Request,
         call_next: Callable[[Request], Awaitable[Response]],
     ) -> Response:
+        """Reject cross-origin writes and cookie-authenticated writes lacking the
+        X-Terminus-Request header (CSRF defense), then add hardening headers and disable
+        caching for non-asset responses.
+        """
+        # Only state-changing methods need CSRF protection; safe methods pass through.
         if request.method not in {"GET", "HEAD", "OPTIONS"}:
             origin = request.headers.get("origin")
             if origin and origin != str(request.base_url).rstrip("/"):
                 return JSONResponse({"detail": "Cross-origin writes are not allowed"}, status_code=403)
+            # Cookie-only writes must carry a custom header, which a cross-site form
+            # cannot add. Callers sending an explicit token header are exempt, as are
+            # login/register (no session yet) and the bank, stream and repo webhook paths.
             if (
                 request.url.path not in {"/auth/login", "/auth/register"}
                 and not request.url.path.startswith("/bank")

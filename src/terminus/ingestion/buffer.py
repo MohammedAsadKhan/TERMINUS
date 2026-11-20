@@ -1,6 +1,6 @@
 # File name: buffer.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Asynchronous Ingestion Buffer & Token-Bucket Rate Limiter for TERMINUS.
 
@@ -27,6 +27,8 @@ logger = logging.getLogger("terminus.ingestion.buffer")
 
 @dataclass
 class BufferedAlert:
+    """An alert waiting in the buffer with its organization, enqueue time and retry count."""
+
     alert: SiemAlert
     org_id: OrgId
     enqueued_at: float
@@ -42,6 +44,9 @@ class IngestionBuffer:
         worker_count: int = 4,
         rate_limit_per_sec: float = 200.0,
     ) -> None:
+        """Configure queue size, worker count and rate limit; workers start only when start() is
+        called.
+        """
         self.max_queue_size = max_queue_size
         self.worker_count = worker_count
         self.rate_limit_per_sec = rate_limit_per_sec
@@ -56,6 +61,9 @@ class IngestionBuffer:
         self._last_token_update = time.time()
 
     def set_processor(self, processor: Callable[[SiemAlert, OrgId], Coroutine[Any, Any, Any]]) -> None:
+        """Set the coroutine workers call for each alert; with none set, dequeued alerts are
+        discarded.
+        """
         self._processor = processor
 
     async def start(self) -> None:
@@ -104,4 +112,5 @@ class IngestionBuffer:
 
     @property
     def queue_size(self) -> int:
+        """Number of alerts currently waiting."""
         return self._queue.qsize()

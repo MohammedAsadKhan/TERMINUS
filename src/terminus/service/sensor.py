@@ -1,6 +1,6 @@
 # File name: sensor.py
 # Author: Team LARP
-# Revision date: 2026-11-12
+# Revision date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Service Connection Sensor and Dynamic Auto-Configuration Engine for TERMINUS.
 
@@ -128,6 +128,7 @@ class ServiceConnectionSensor:
     """Manages telemetry service connectivity state and dynamic auto-configuration."""
 
     def __init__(self) -> None:
+        """Start with no telemetry seen and zeroed counters for this service run."""
         self.service_started_at: datetime = datetime.now(UTC)
         self.last_telemetry_at: datetime | None = None
         self.last_heartbeat_at: datetime | None = None

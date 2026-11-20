@@ -1,6 +1,6 @@
 # File name: context.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Durable operator read grants and contexts issued by trusted server code.
 
@@ -43,6 +43,8 @@ class ReadPolicyConflictError(ValueError):
 
 
 class ReadResource(Contract):
+    # An operator-verified resource (an incident or one provider endpoint) that tools
+    # may read for a single organization and incident.
     resource_id: Id
     org_id: Id
     incident_id: Id
@@ -51,12 +53,15 @@ class ReadResource(Contract):
 
     @model_validator(mode="after")
     def endpoint_identity(self) -> ReadResource:
+        """Require a provider agent id exactly when the resource is an endpoint."""
         if (self.kind == "endpoint") != (self.agent_id is not None):
             raise ValueError("Only endpoint resources require a provider agent ID")
         return self
 
 
 class ReadPolicy(Contract):
+    # Per-incident read policy: which tools each core role may use, which connectors
+    # are allowed, and whether the policy is still enabled.
     org_id: Id
     incident_id: Id
     version: int = Field(ge=1)
@@ -66,6 +71,9 @@ class ReadPolicy(Contract):
 
     @property
     def policy_version(self) -> str:
+        """Version label derived from the policy's integer revision; it is recorded with
+        each reservation.
+        """
         return f"read-policy:{self.version}"
 
 
@@ -73,6 +81,9 @@ class ToolReadPolicyStore:
     """Admin-edited incident read policy with optimistic version checks."""
 
     def __init__(self, db: Database) -> None:
+        """Create the policy and resource tables and a membership store on the same
+        database.
+        """
         self.db: Database = db
         self.memberships: SqliteMembershipStore = SqliteMembershipStore(db)
         with db.transaction() as conn:
@@ -92,6 +103,8 @@ class ToolReadPolicyStore:
             )""")
 
     def require_operator(self, org_id: str, actor_user_id: str) -> None:
+        """Require that the actor is currently an admin or member of the organization.
+        """
         _ = _ID.validate_python(actor_user_id)
         if self.memberships.role_of(OrgId(org_id), UserId(actor_user_id)) not in {
             OrganizationRole.ADMIN,
@@ -100,6 +113,10 @@ class ToolReadPolicyStore:
             raise ReadContextDeniedError("Current organization operator required")
 
     def _require_admin(self, org_id: str, incident_id: str, actor_user_id: str) -> None:
+        """Require that the actor is a current admin of the organization and that the
+        incident belongs to that same organization, so a policy cannot be edited across
+        tenants.
+        """
         for identifier in (org_id, incident_id, actor_user_id):
             _ = _ID.validate_python(identifier)
         if self.memberships.role_of(OrgId(org_id), UserId(actor_user_id)) != (
@@ -113,6 +130,9 @@ class ToolReadPolicyStore:
             raise ReadContextDeniedError("Canonical incident does not belong to org")
 
     def get_policy(self, org_id: str, incident_id: str) -> ReadPolicy:
+        """Load the incident's read policy, treating a missing policy as not configured
+        so reads are denied by default.
+        """
         row = self.db.fetchone(
             "SELECT payload_json FROM toolkit_read_policies WHERE org_id=? AND incident_id=?",
             (org_id, incident_id),
@@ -122,6 +142,10 @@ class ToolReadPolicyStore:
         return ReadPolicy.model_validate_json(cast("str", row["payload_json"]))
 
     def _version(self, org_id: str, incident_id: str, expected_version: int) -> int:
+        """Compare the caller's expected version with the stored one (0 means no policy
+        yet) and return the next version, raising on conflict so concurrent edits are
+        not overwritten.
+        """
         if type(expected_version) is not int or expected_version < 0:
             raise ValueError("expected_version must be a nonnegative integer")
         row = self.db.fetchone(
@@ -134,6 +158,7 @@ class ToolReadPolicyStore:
         return expected_version + 1
 
     def _save_policy(self, policy: ReadPolicy) -> ReadPolicy:
+        """Upsert the policy row at its new version."""
         _ = self.db.execute(
             """INSERT INTO toolkit_read_policies VALUES(?,?,?,?)
             ON CONFLICT(org_id,incident_id) DO UPDATE SET
@@ -176,6 +201,8 @@ class ToolReadPolicyStore:
                     or tool.input_contract != "read_query"
                 ):
                     raise ValueError("Read policy cannot grant effects or future tools")
+        # The admin and version checks share the write transaction, so a concurrent
+        # edit cannot slip between the version check and the save.
         with self.db.transaction():
             self._require_admin(org_id, incident_id, actor_user_id)
             version = self._version(org_id, incident_id, expected_version)
@@ -223,6 +250,9 @@ class ToolReadPolicyStore:
         *,
         expected_version: int,
     ) -> ReadPolicy:
+        """Admin removes a resource binding and bumps the policy version, so contexts
+        issued earlier no longer match.
+        """
         with self.db.transaction():
             self._require_admin(org_id, incident_id, actor_user_id)
             policy = self.get_policy(org_id, incident_id)
@@ -241,6 +271,9 @@ class ToolReadPolicyStore:
         *,
         expected_version: int,
     ) -> ReadPolicy:
+        """Admin disables the incident read policy and bumps its version; it is kept,
+        not deleted, so denial stays auditable.
+        """
         with self.db.transaction():
             self._require_admin(org_id, incident_id, actor_user_id)
             policy = self.get_policy(org_id, incident_id)
@@ -250,6 +283,7 @@ class ToolReadPolicyStore:
             )
 
     def resources(self, org_id: str, incident_id: str) -> tuple[ReadResource, ...]:
+        """List the resources bound to this organization's incident, ordered by id."""
         rows = self.db.fetchall(
             "SELECT payload_json FROM toolkit_read_resources WHERE org_id=? AND incident_id=? ORDER BY resource_id",
             (org_id, incident_id),
@@ -275,6 +309,9 @@ class TrustedReadContextFactory:
         policy_store: ToolReadPolicyStore,
         audit: ToolInvocationStore,
     ) -> None:
+        """Require that scheduler, policy store and audit share one database and start
+        with no issued contexts.
+        """
         if scheduler.db is not policy_store.db or scheduler.db is not audit.db:
             raise ValueError("Trusted read services must share one database")
         self.scheduler: SchedulerStore = scheduler
@@ -286,6 +323,10 @@ class TrustedReadContextFactory:
     def _context(
         self, lease: JobLease, actor_user_id: str, quota_ref: str
     ) -> ToolExecutionContext:
+        """Build a context from live canonical state: the lease must match the running
+        task, run and job, the actor must be a current operator, and the policy must be
+        enabled; grants are the intersection of registry and policy grants.
+        """
         lease = JobLease.model_validate(lease.model_dump())
         if self.scheduler.is_cancel_requested(lease):
             raise ReadContextDeniedError("Task ownership is stale or cancelled")
@@ -304,6 +345,8 @@ class TrustedReadContextFactory:
             or lease.run != run
         ):
             raise ReadContextDeniedError("Lease differs from canonical task/run")
+        # Membership is read live on every build and authorize, so removing an
+        # operator takes effect immediately instead of at the next policy edit.
         self.policy_store.require_operator(task.org_id, actor_user_id)
         policy = self.policy_store.get_policy(task.org_id, task.incident_id)
         if not policy.enabled:
@@ -342,6 +385,8 @@ class TrustedReadContextFactory:
     def authorize(self, context: ToolExecutionContext) -> None:
         """Recheck live membership, policy/resources and fencing before each read."""
         context = ToolExecutionContext.model_validate(context.model_dump())
+        # Contexts are matched to what this factory issued, in memory; one that was
+        # forged, copied from another process or evicted is denied (fail closed).
         binding = self._bindings.get(context.budget_reservation_id)
         if binding is None:
             raise ReadContextDeniedError("Context was not issued by this factory")
@@ -350,6 +395,8 @@ class TrustedReadContextFactory:
         if context.model_dump(exclude=ignored) != issued.model_dump(exclude=ignored):
             raise ReadContextDeniedError("Issued context grants or ownership changed")
         with self.scheduler.db.transaction():
+            # Rebuild from live state and compare with the issued grants, so revoked
+            # policies, resources or ownership change the result before the read.
             current = self._context(
                 context.lease, actor_user_id, context.budget_reservation_id
             )
@@ -361,6 +408,9 @@ class TrustedReadContextFactory:
     def resolve_resource(
         self, context: ToolExecutionContext, resource_id: str
     ) -> ReadResource:
+        """Return the bound resource for a permitted resource id after re-authorizing
+        the context, failing if the binding was revoked.
+        """
         with self.scheduler.db.transaction():
             self.authorize(context)
             if resource_id not in context.permitted_resource_ids:

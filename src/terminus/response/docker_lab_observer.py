@@ -1,6 +1,6 @@
 # File name: docker_lab_observer.py
 # Author: Team LARP
-# Revision date: 2026-11-13
+# Revision date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Invoke the fixed independent Docker observer for the disposable SSH lab.
 
@@ -20,9 +20,16 @@ class DockerLabObserver:
     """Ask the fixed observer container for bounded evidence, never dispatch effects."""
 
     def __init__(self, *, local_script: bool = False) -> None:
+        """Choose whether to run the observer script locally or inside the fixed
+        observer container.
+        """
         self.local_script: bool = local_script
 
     async def __call__(self, stage: str, details: Mapping[str, object]) -> bool:  # noqa: PLR0911 -- fail-closed observer gates
+        """Ask the observer for one stage's verdict and return True only if it exits
+        cleanly with verified true; unknown stages, malformed identifiers, oversized
+        output, timeouts and errors all return False.
+        """
         if stage not in {"baseline", "blocked", "recovered", "table-absent"}:
             return False
         command = (
@@ -37,6 +44,8 @@ class DockerLabObserver:
             ]
         )
         command.extend(["--stage", stage])
+        # Intent and digest are passed to a subprocess, so they are checked against a
+        # strict format first; anything else is treated as untrusted and rejected.
         if stage != "baseline":
             intent = details.get("intent_id")
             digest = details.get("proposal_digest")

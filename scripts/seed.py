@@ -1,14 +1,17 @@
 # File name: seed.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Seed demo users and organization data for local evaluation.
 
 import httpx
 
+# Demo-only data for a local evaluation database. This talks to the loopback API only,
+# and the credentials below are throwaway values that must not be reused elsewhere.
 client = httpx.Client(base_url="http://127.0.0.1:8000")
 
 # 1. Register default admin
+# The status is printed but not checked, so a re-run continues to login.
 reg_res = client.post("/auth/register", json={
     "email": "admin@terminus.local",
     "password": "Password123!",
@@ -37,6 +40,7 @@ else:
 headers["X-Org-ID"] = org_id
 
 # 4. Ingest an alert
+# The two alerts are synthetic examples; they do not come from a real endpoint.
 alert = {
     "id": "wazuh-alert-demo-01",
     "rule": {

@@ -1,6 +1,6 @@
 // File: investigation-graph.tsx
 // Author: Team LARP
-// Date: 2026-11-09
+// Date: 2026-11-19 (comments revised)
 // Version: 0.1.0
 // Purpose: Render relationships between incident evidence and investigation entities.
 
@@ -14,16 +14,27 @@ import { api } from '../api';
 import { date, ErrorPanel } from '../components';
 import { useSession } from '../context';
 
+// Milliseconds per hour and per week; the graph always covers the seven days before its anchor time.
 const HOUR = 3600000;
+// One week in milliseconds.
 const WEEK = 7 * 24 * HOUR;
 
+// Response shapes for the investigation graph: aggregated nodes and edges, per-alert evidence pages, and the alert dots
+// drawn on the canvas.
 interface GraphNode { id: string; kind: 'source' | 'host'; label: string; event_count: number; critical_count: number; local_test?: boolean }
+// Aggregated source-to-host relationship with its event counts, first and last seen times and techniques.
 interface GraphEdge { id: string; source: string; target: string; source_ip: string; host: string; event_count: number; critical_count: number; first_seen: string; last_seen: string; techniques: string[]; relationship: string }
+// Graph summary for the window: nodes, edges and daily event counts.
 interface GraphSnapshot { from: string; until: string; total_events: number; investigated_events: number; nodes: GraphNode[]; edges: GraphEdge[]; daily_counts: Array<{ day: string; event_count: number }>; hidden_relationships: number; note: string }
+// One alert in the evidence pane, including its raw event.
 interface GraphEvent { alert_id: string; incident_id: string | null; occurred_at: string; ingested_at: string; source_ip: string | null; host: string; rule_description: string; mitre: string | null; level: number; severity: string; policy_tier: string; campaign_id: string | null; raw_event: string }
+// One page of evidence events.
 interface EvidencePage { total: number; events: GraphEvent[]; limit: number; offset: number }
+// Alert dots for the canvas; truncated is set when the server returned fewer than the total (the page says so).
 interface NetworkPage { total_events: number; shown_events: number; truncated: boolean; events: NetworkEvent[] }
 
+// Attack network page for the signed-in organization. Lines connect alerts that share a source, host or technique;
+// they show shared evidence fields and are not attacker attribution (the page note says so).
 export default function InvestigationGraph() {
   const { orgId } = useSession();
   const [anchor, setAnchor] = useState(() => Date.now());
@@ -34,17 +45,23 @@ export default function InvestigationGraph() {
   const [selected, setSelected] = useState<NetworkSelection | null>(null);
   const [offset, setOffset] = useState(0);
 
+  // In live mode the anchor advances every 5 seconds so the window and queries slide forward. A scrubbed (paused)
+  // window keeps a fixed anchor, so its time range and cached results stay stable.
   useEffect(() => {
     if (!live) return;
     const timer = window.setInterval(() => setAnchor(Date.now()), 5000);
     return () => window.clearInterval(timer);
   }, [live]);
 
+  // The window starts seven days before the anchor; live mode ends at the anchor, scrubbing ends the chosen number of
+  // hours after the window start.
   const from = new Date(anchor - WEEK).toISOString();
   const until = new Date(live ? anchor : anchor - WEEK + hour * HOUR).toISOString();
   const windowQuery = new URLSearchParams({ from, until, policy });
+  // Query keys include the window and policy filter so each distinct window is cached separately; both wait for an organization.
   const graph = useQuery({ queryKey: ['investigation-graph', orgId, from, until, policy], queryFn: () => api<GraphSnapshot>(`/investigation/graph?${windowQuery}`, orgId), enabled: Boolean(orgId) });
   const network = useQuery({ queryKey: ['investigation-network', orgId, from, until, policy], queryFn: () => api<NetworkPage>(`/investigation/graph/network?${windowQuery}`, orgId), enabled: Boolean(orgId) });
+  // Evidence is paged ten at a time and narrowed by whatever the current selection carries (source, host, technique or alert).
   const evidenceQuery = new URLSearchParams({ from, until, policy, limit: '10', offset: String(offset) });
   if (selected?.source_ip) evidenceQuery.set('source_ip', selected.source_ip);
   if (selected?.host) evidenceQuery.set('host', selected.host);
@@ -52,6 +69,7 @@ export default function InvestigationGraph() {
   if (selected?.alert_id) evidenceQuery.set('alert_id', selected.alert_id);
   const evidence = useQuery({ queryKey: ['graph-evidence', orgId, selected, from, until, policy, offset], queryFn: () => api<EvidencePage>(`/investigation/graph/evidence?${evidenceQuery}`, orgId), enabled: Boolean(orgId && selected) });
 
+  // Search filters the data already loaded in the browser; it does not query the server again.
   const relationships = useMemo(() => {
     const term = search.trim().toLowerCase();
     return (graph.data?.edges || []).filter(edge => !term || [edge.source_ip, edge.host, ...edge.techniques].some(value => value.toLowerCase().includes(term)));
@@ -62,6 +80,7 @@ export default function InvestigationGraph() {
     return (network.data?.events || []).filter(event => !term || [event.source_ip, event.host, event.mitre, event.rule_description, event.alert_id].some(value => value?.toLowerCase().includes(term)));
   }, [network.data, search]);
 
+  // Always eight UTC days from the day of the window start, with zero for days that have no recorded events.
   const dayCounts = useMemo(() => {
     const recorded = new Map((graph.data?.daily_counts || []).map(item => [item.day, item.event_count]));
     const first = new Date(from);
@@ -71,10 +90,14 @@ export default function InvestigationGraph() {
       return { day, event_count: recorded.get(day) || 0 };
     });
   }, [graph.data?.daily_counts, from]);
+  // Never below 1 so the bar heights cannot divide by zero.
   const maxDay = Math.max(1, ...dayCounts.map(item => item.event_count));
 
+  // Selecting a different item restarts evidence paging.
   function choose(value: NetworkSelection) { setSelected(value); setOffset(0); }
+  // Moving the timeline pauses live updates and clears the selection so evidence cannot belong to another window.
   function scrub(value: number) { setLive(false); setHour(value); setSelected(null); setOffset(0); }
+  // Returns to the live seven-day window and clears the selection and paging.
   function goLive() { setAnchor(Date.now()); setHour(168); setLive(true); setSelected(null); setOffset(0); }
 
   return <div className="graph-page">

@@ -1,6 +1,6 @@
 # File name: validation.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Contract validation helpers, without a dispatcher or provider invocation.
 
@@ -33,7 +33,13 @@ class ToolContractDeniedError(ValueError):
 
 
 class ToolContractValidator:
+    """Fixture checks for the read-tool contract: request admission and result
+    validation against a descriptor and trusted context.
+    """
     def __init__(self, scheduler: SchedulerStore) -> None:
+        """Bind the validator to a scheduler store and the orchestration records that
+        share its database.
+        """
         self.scheduler = scheduler
         self.records = OrchestrationStore(scheduler.db)
 
@@ -43,9 +49,15 @@ class ToolContractValidator:
         context: ToolExecutionContext,
         query: ReadQuery,
     ) -> None:
+        """Deny a read request unless the tool is available and read-only, the role,
+        resource and connector are granted, the budget, egress policy and limits allow
+        it, and the persisted job lease is still owned.
+        """
         descriptor = ToolDescriptor.model_validate(descriptor.model_dump())
         context = ToolExecutionContext.model_validate(context.model_dump())
         query = ReadQuery.model_validate(query.model_dump())
+        # Cheapest static checks first: descriptor state, then grants, then scope and
+        # budget, and only last the database lease, so denials rarely touch storage.
         if descriptor.availability != "available" or descriptor.release != "1.0":
             raise ToolContractDeniedError("Tool is unavailable in 1.0")
         if (
@@ -72,6 +84,8 @@ class ToolContractValidator:
             or query.max_pages > descriptor.limits.max_pages
         ):
             raise ToolContractDeniedError("Query exceeds descriptor limits")
+        # Ownership is re-read from the persisted job; the caller's context alone is
+        # never trusted to prove it still holds the lease.
         with self.scheduler.db.transaction():
             job = self.scheduler._owned(context.lease, self.scheduler._now())  # noqa: SLF001
             if job.role != context.role:
@@ -87,6 +101,10 @@ class ToolContractValidator:
         context: ToolExecutionContext,
         result: ToolResult,
     ) -> None:
+        """Deny a result whose tool identity, size, provenance connectors or evidence
+        references fall outside the descriptor and the context's organization and
+        incident.
+        """
         descriptor = ToolDescriptor.model_validate(descriptor.model_dump())
         context = ToolExecutionContext.model_validate(context.model_dump())
         result = ToolResult.model_validate(result.model_dump())
@@ -113,6 +131,8 @@ class ToolContractValidator:
             raise ToolContractDeniedError(
                 "Result provenance uses an unauthorized connector"
             )
+        # Organization isolation: evidence must belong to this context's tenant and
+        # incident before it is looked up, and its stored hash must still match.
         for ref in result.evidence:
             if (ref.org_id, ref.incident_id) != (context.org_id, context.incident_id):
                 raise ToolContractDeniedError("Cross-tenant or cross-incident evidence")
@@ -131,10 +151,16 @@ def validate_approval(
     requester_id: str,
     current_policy_version: str,
 ) -> None:
+    """Deny an approval unless it comes from someone other than the requester, matches
+    the immutable proposal digest and current policy version, and is inside its
+    validity window.
+    """
     proposal = ResponseProposal.model_validate(proposal.model_dump())
     approval = ApprovalBinding.model_validate(approval.model_dump())
     if now.tzinfo is None or now.utcoffset() is None:
         raise ValueError("approval checks require an aware current time")
+    # Separation of duties comes first: the requester can never approve their own
+    # proposal, whatever else matches.
     if approval.approver_id == requester_id:
         raise ToolContractDeniedError("Self-approval is forbidden")
     if (approval.org_id, approval.incident_id, approval.proposal_id) != (
@@ -145,6 +171,8 @@ def validate_approval(
         raise ToolContractDeniedError("Approval does not match the immutable proposal")
     if proposal.policy_version != current_policy_version:
         raise ToolContractDeniedError("Policy changed; fresh approval required")
+    # Expiry uses the earlier of approval and proposal expiry; the upper bound is
+    # exclusive so an approval is dead at the instant it expires.
     if now < approval.issued_at or now >= min(
         approval.approval_expires_at, proposal.approval_expires_at
     ):

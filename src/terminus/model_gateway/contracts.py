@@ -1,6 +1,6 @@
 # File name: contracts.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Bounded provider-neutral protocol contracts; no execution authorization.
 
@@ -29,12 +29,15 @@ class ModelProtocolError(ValueError):
 
 
 class _Contract(BaseModel):
+    # Base for all wire contracts: immutable, strictly typed and closed to extra fields.
+
     model_config: ClassVar[ConfigDict] = ConfigDict(
         extra="forbid", strict=True, frozen=True
     )
 
 
 def bounded_json(value: object, limit: int = 65536) -> None:
+    """Raise ModelProtocolError unless the value is finite JSON no larger than limit bytes."""
     try:
         encoded = json.dumps(value, allow_nan=False, ensure_ascii=True).encode()
         if len(encoded) > limit:
@@ -44,6 +47,7 @@ def bounded_json(value: object, limit: int = 65536) -> None:
 
 
 def _pairs(pairs: list[tuple[str, JsonValue]]) -> dict[str, JsonValue]:
+    """Reject objects with duplicate property names, which would be ambiguous across parsers."""
     output: dict[str, JsonValue] = {}
     for key, value in pairs:
         if key in output:
@@ -53,6 +57,7 @@ def _pairs(pairs: list[tuple[str, JsonValue]]) -> dict[str, JsonValue]:
 
 
 def parse_json_object(content: str, *, limit: int = 65536) -> dict[str, JsonValue]:
+    """Parse size-bounded text into a strictly validated JSON object, rejecting duplicate keys."""
     if type(limit) is not int or not 1 <= limit <= 1048576:
         raise ModelProtocolError("Invalid JSON bound")
     if len(content.encode("utf-8")) > limit:
@@ -69,6 +74,7 @@ def parse_json_object(content: str, *, limit: int = 65536) -> dict[str, JsonValu
 
 
 def validate_schema(schema: dict[str, JsonValue], depth: int = 0) -> None:  # noqa: C901, PLR0912
+    """Accept only the closed, fully required, depth-limited schema subset this gateway supports."""
     bounded_json(schema, 16384)
     if depth > 8 or set(schema) - {
         "type",
@@ -136,6 +142,11 @@ def validate_schema(schema: dict[str, JsonValue], depth: int = 0) -> None:  # no
 
 
 def validate_value(value: JsonValue, schema: dict[str, JsonValue]) -> None:
+    """Check a value exactly against a validated schema; object keys must match exactly.
+
+    Types are compared strictly, so a boolean is never an integer and NaN is never a
+    number.
+    """
     kind = schema["type"]
     valid = {
         "object": isinstance(value, dict),
@@ -169,12 +180,15 @@ Identifier = Annotated[str, Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
 
 
 class ToolSpec(_Contract):
+    # A model-callable tool whose parameters must be a validated object schema.
+
     name: Name
     description: str = Field(default="", max_length=1024)
     parameters: dict[str, JsonValue]
 
     @model_validator(mode="after")
     def schema_contract(self) -> ToolSpec:
+        """Validate the parameter schema and require its top-level type to be an object."""
         validate_schema(self.parameters)
         if self.parameters.get("type") != "object":
             raise ModelProtocolError("Tool schema must be an object")
@@ -182,6 +196,9 @@ class ToolSpec(_Contract):
 
 
 class ToolCall(_Contract):
+    # One bounded tool call from the model; provider_state may only hold a thought
+    # signature.
+
     call_id: Identifier
     name: Name
     arguments: dict[str, JsonValue]
@@ -189,6 +206,7 @@ class ToolCall(_Contract):
 
     @model_validator(mode="after")
     def bounded_arguments(self) -> ToolCall:
+        """Bound the argument size and restrict provider_state to non-empty thought signatures."""
         bounded_json(self.arguments, 16384)
         if set(self.provider_state) - {"thought_signature"} or any(
             not value or len(value.encode()) > 16384
@@ -199,6 +217,8 @@ class ToolCall(_Contract):
 
 
 class ChatMessage(_Contract):
+    # One conversation turn; tool fields are valid only for the matching roles.
+
     role: Literal["user", "assistant", "tool"]
     content: str = Field(default="", max_length=32768)
     tool_calls: tuple[ToolCall, ...] = Field(default=(), max_length=8)
@@ -207,6 +227,7 @@ class ChatMessage(_Contract):
 
     @model_validator(mode="after")
     def role_fields(self) -> ChatMessage:
+        """Enforce which fields each role may carry and reject empty messages."""
         if self.role != "assistant" and self.tool_calls:
             raise ModelProtocolError("Only assistant messages may request tools")
         if self.role == "tool":
@@ -221,6 +242,8 @@ class ChatMessage(_Contract):
 
 
 class ModelRequest(_Contract):
+    # Provider-neutral request with bounded size, tools and transcript ordering.
+
     model: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._:/+-]{0,127}$")
     system: str = Field(default="", max_length=32768)
     messages: tuple[ChatMessage, ...] = Field(min_length=1, max_length=64)
@@ -230,6 +253,11 @@ class ModelRequest(_Contract):
 
     @model_validator(mode="after")
     def request_contract(self) -> ModelRequest:  # noqa: C901
+        """Validate size, schemas, tool names and that every tool call is answered in order.
+
+        The request must start with a user turn and end on a user turn or a completed
+        tool turn.
+        """
         bounded_json(self.model_dump(mode="json"))
         if self.output_schema is not None:
             validate_schema(self.output_schema)
@@ -238,6 +266,8 @@ class ModelRequest(_Contract):
         tools = {tool.name: tool for tool in self.tools}
         if len(tools) != len(self.tools) or self.messages[0].role != "user":
             raise ModelProtocolError("Invalid request tools or initial message")
+        # Walk the transcript once: every assistant tool call must be answered by
+        # exactly one matching tool result before any other turn may follow.
         seen: set[str] = set()
         pending: dict[str, str] = {}
         for message in self.messages:
@@ -259,6 +289,8 @@ class ModelRequest(_Contract):
 
 
 class ModelUsage(_Contract):
+    # Token counts for one call, where None means unknown and is never treated as zero.
+
     input_tokens: int | None = Field(default=None, ge=0, le=1000000000)
     output_tokens: int | None = Field(default=None, ge=0, le=1000000000)
     total_tokens: int | None = Field(default=None, ge=0, le=1000000000)
@@ -271,6 +303,7 @@ class ModelUsage(_Contract):
     # including reasoning; reasoning_tokens = the subset spent on reasoning.
     @model_validator(mode="after")
     def subsets_within_totals(self) -> ModelUsage:
+        """Reject cached or reasoning counts that exceed the totals they are subsets of."""
         if (
             self.cached_input_tokens is not None
             and self.input_tokens is not None
@@ -287,6 +320,8 @@ class ModelUsage(_Contract):
 
 
 class ModelResponse(_Contract):
+    # Provider-neutral result; only status ok or tool_calls may carry output.
+
     status: Literal["ok", "tool_calls", "refused", "incomplete", "error"]
     model: str = Field(min_length=1, max_length=128)
     output: dict[str, JsonValue] | None = None
@@ -297,6 +332,7 @@ class ModelResponse(_Contract):
 
     @model_validator(mode="after")
     def result_contract(self) -> ModelResponse:
+        """Require that output and tool calls match the status, so failures publish no output."""
         bounded_json(self.model_dump(mode="json"))
         if self.status == "ok":
             if self.output is None or self.tool_calls:
@@ -310,6 +346,13 @@ class ModelResponse(_Contract):
 
 
 def validate_response(response: ModelResponse, request: ModelRequest) -> ModelResponse:
+    """Revalidate a response against its request's schema and tool list.
+
+    Returned tool calls must be known to the request and must not reuse an earlier call
+    id.
+    """
+    # Re-validate from a dump so provider output is never trusted as already
+    # checked, then verify it against this request's own schema and tool list.
     response = ModelResponse.model_validate(response.model_dump())
     if response.output is not None and request.output_schema is not None:
         validate_value(response.output, request.output_schema)

@@ -1,6 +1,6 @@
 # File name: schemas.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Node schemas, types, and registry for TERMINUS Workflows.
 
@@ -18,6 +18,8 @@ from pydantic import BaseModel, ConfigDict
 
 
 class NodeType(StrEnum):
+    """The eight node types a workflow may contain."""
+
     TRIGGER_WAZUH = "trigger_wazuh"
     CONDITION_SEVERITY = "condition_severity"
     CONDITION_APPROVAL = "condition_approval"
@@ -32,6 +34,8 @@ class NodeType(StrEnum):
 
 
 class TriggerWazuhConfig(BaseModel):
+    """Configuration of a Wazuh alert trigger node; unknown fields are rejected."""
+
     model_config = ConfigDict(extra="forbid")
 
     rule_id: int | None = None
@@ -43,6 +47,8 @@ class TriggerWazuhConfig(BaseModel):
 
 
 class ConditionSeverityConfig(BaseModel):
+    """Configuration of a severity gate node; unknown fields are rejected."""
+
     model_config = ConfigDict(extra="forbid")
 
     min_level: int = 0
@@ -50,6 +56,8 @@ class ConditionSeverityConfig(BaseModel):
 
 
 class ConditionApprovalConfig(BaseModel):
+    """Configuration of a human approval gate; the required role defaults to admin."""
+
     model_config = ConfigDict(extra="forbid")
 
     required_role: str = "admin"
@@ -58,6 +66,8 @@ class ConditionApprovalConfig(BaseModel):
 
 
 class AgentLlmConfig(BaseModel):
+    """Configuration of an agent node; unknown fields are rejected."""
+
     model_config = ConfigDict(extra="forbid")
 
     agent_id: str | None = None
@@ -67,6 +77,8 @@ class AgentLlmConfig(BaseModel):
 
 
 class ToolSlackConfig(BaseModel):
+    """Configuration of a Slack notification node; unknown fields are rejected."""
+
     model_config = ConfigDict(extra="forbid")
 
     channel: str = "#soc-alerts"
@@ -74,6 +86,8 @@ class ToolSlackConfig(BaseModel):
 
 
 class ToolJiraConfig(BaseModel):
+    """Configuration of a Jira ticket node; unknown fields are rejected."""
+
     model_config = ConfigDict(extra="forbid")
 
     project_key: str = "SEC"
@@ -82,6 +96,10 @@ class ToolJiraConfig(BaseModel):
 
 
 class ToolIsolateConfig(BaseModel):
+    """Configuration of a host isolation node; force_override is passed to the containment guardrail
+    check.
+    """
+
     model_config = ConfigDict(extra="forbid")
 
     target_agent_id: str | None = None
@@ -90,6 +108,10 @@ class ToolIsolateConfig(BaseModel):
 
 
 class ToolFirewallConfig(BaseModel):
+    """Configuration of a firewall block node; force_override is passed to the containment guardrail
+    check.
+    """
+
     model_config = ConfigDict(extra="forbid")
 
     ip: str | None = None

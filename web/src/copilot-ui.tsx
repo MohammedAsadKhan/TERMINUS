@@ -1,6 +1,6 @@
 // File: copilot-ui.tsx
 // Author: Team LARP
-// Revision date: 2026-11-12
+// Revision date: 2026-11-19 (comments revised)
 // Version: 0.1.0
 // Purpose: Render the Copilot conversation panel and shared conversation state.
 
@@ -19,8 +19,10 @@ import {
 import { Link, useSearchParams } from 'react-router-dom';
 import { api, body } from './api';
 
+// One chat message. tools lists the evidence sources the server reported consulting for an assistant answer.
 export type Message = { id: string; role: 'analyst' | 'assistant'; text: string; ticketId?: string; tools?: string[]; timestamp?: string };
 
+// A saved conversation. Sessions are stored in this browser (localStorage) per organization, not on the server.
 export type CopilotSession = {
   id: string;
   title: string;
@@ -30,6 +32,7 @@ export type CopilotSession = {
   messages: Message[];
 };
 
+// Conversation state and actions shared by the full Copilot page and the compact panel.
 type CopilotState = {
   sessions: CopilotSession[];
   currentSessionId: string | null;
@@ -44,8 +47,10 @@ type CopilotState = {
   clearCurrentMessages: () => void;
 };
 
+// Provided by CopilotProvider.
 const CopilotContext = createContext<CopilotState | null>(null);
 
+// Renders only `code` and **bold** markup; everything else stays plain text, so answer text is never interpreted as HTML.
 function inlineParts(value: string): ReactNode[] {
   return value.split(/(`[^`]+`|\*\*[^*]+\*\*)/g).map((part, index) => {
     if (part.startsWith('`') && part.endsWith('`')) return <code key={index}>{part.slice(1, -1)}</code>;
@@ -54,6 +59,8 @@ function inlineParts(value: string): ReactNode[] {
   });
 }
 
+// Minimal renderer for assistant answers: paragraphs, bullet lists and up to three leading # marks (shown as plain
+// paragraphs). It builds React elements only, so model output cannot inject HTML.
 export function ChatText({ text }: { text: string }) {
   const blocks: ReactNode[] = [];
   let bullets: string[] = [];
@@ -72,6 +79,7 @@ export function ChatText({ text }: { text: string }) {
   return <div className="copilot-answer">{blocks}</div>;
 }
 
+// Short relative time; missing, invalid or under-a-minute values read as Just now.
 function formatRelativeTime(isoStr?: string): string {
   if (!isoStr) return 'Just now';
   const diff = Date.now() - Date.parse(isoStr);
@@ -83,8 +91,11 @@ function formatRelativeTime(isoStr?: string): string {
   return new Date(isoStr).toLocaleDateString([], { month: 'short', day: 'numeric' });
 }
 
+// Holds the Copilot conversations for the selected organization. Sessions are kept in this browser under an
+// organization-specific key; each question goes to /copilot/chat with the organization id and, optionally, an incident id.
 export function CopilotProvider({ orgId, children }: { orgId: string; children: ReactNode }) {
   const storageKey = `terminus_copilot_sessions_${orgId}`;
+  // Initial sessions come from this organization's saved entry; unreadable data is ignored.
   const [sessions, setSessions] = useState<CopilotSession[]>(() => {
     try {
       const raw = localStorage.getItem(storageKey);
@@ -95,6 +106,7 @@ export function CopilotProvider({ orgId, children }: { orgId: string; children: 
     return [];
   });
 
+  // Sessions are newest first, so the conversation opens on the most recent one.
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(() => {
     return sessions.length > 0 ? sessions[0].id : null;
   });
@@ -107,6 +119,8 @@ export function CopilotProvider({ orgId, children }: { orgId: string; children: 
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Runs whenever the sessions or the storage key change. Storage errors (for example a full quota) are ignored, so
+  // saved history is best effort.
   // Sync sessions to localStorage
   useEffect(() => {
     try {
@@ -116,6 +130,7 @@ export function CopilotProvider({ orgId, children }: { orgId: string; children: 
     }
   }, [sessions, storageKey]);
 
+  // Loads the saved sessions after the organization changes; a missing or unreadable entry gives an empty list.
   // Handle org change
   useEffect(() => {
     try {
@@ -142,6 +157,7 @@ export function CopilotProvider({ orgId, children }: { orgId: string; children: 
     setError(null);
   }, [orgId]);
 
+  // Adds an empty session at the top of the list and makes it current.
   function startNewSession(ticketId?: string) {
     const newSession: CopilotSession = {
       id: crypto.randomUUID(),
@@ -157,6 +173,7 @@ export function CopilotProvider({ orgId, children }: { orgId: string; children: 
     setError(null);
   }
 
+  // Opens a saved session; an unknown id is ignored.
   function switchSession(sessionId: string) {
     const found = sessions.find(s => s.id === sessionId);
     if (found) {
@@ -166,6 +183,7 @@ export function CopilotProvider({ orgId, children }: { orgId: string; children: 
     }
   }
 
+  // If the current session is deleted, falls back to the newest remaining one, or to an empty conversation.
   function deleteSession(sessionId: string) {
     setSessions(prev => {
       const updated = prev.filter(s => s.id !== sessionId);
@@ -182,6 +200,7 @@ export function CopilotProvider({ orgId, children }: { orgId: string; children: 
     });
   }
 
+  // Removes every saved session for this organization.
   function clearAllSessions() {
     setSessions([]);
     setCurrentSessionId(null);
@@ -189,6 +208,7 @@ export function CopilotProvider({ orgId, children }: { orgId: string; children: 
     setError(null);
   }
 
+  // Empties the current conversation but keeps its session entry.
   function clearCurrentMessages() {
     if (!currentSessionId) {
       setMessages([]);
@@ -200,6 +220,9 @@ export function CopilotProvider({ orgId, children }: { orgId: string; children: 
     );
   }
 
+  // Ignores empty prompts and overlapping requests. The analyst message is saved before the request, so it stays in the
+  // history if the request fails; the answer is appended on success and the error is shown otherwise. Sending with no
+  // session open creates one titled from the prompt.
   async function send(prompt: string, ticketId?: string) {
     const value = prompt.trim();
     if (!value || pending) return;
@@ -307,12 +330,15 @@ export function CopilotProvider({ orgId, children }: { orgId: string; children: 
   );
 }
 
+// Returns the Copilot state; throws if used outside CopilotProvider.
 function useCopilot() {
   const state = useContext(CopilotContext);
   if (!state) throw new Error('CopilotProvider is missing');
   return state;
 }
 
+// Chat UI with a slide-out history of saved sessions. When ticketId is given, questions are sent with that incident id
+// and messages are labeled with it. Answers come from available stored records, as the panel text states.
 export function CopilotPanel({ compact = false, ticketId }: { compact?: boolean; ticketId?: string }) {
   const {
     sessions,
@@ -333,10 +359,12 @@ export function CopilotPanel({ compact = false, ticketId }: { compact?: boolean;
   const end = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
+  // Keeps the newest message or the pending indicator in view.
   useEffect(() => {
     end.current?.scrollIntoView({ block: 'end', behavior: 'smooth' });
   }, [messages.length, pending]);
 
+  // Clears the draft and sends it; ignored while a request is already pending.
   function submit() {
     const value = draft.trim();
     if (!value || pending) return;
@@ -578,6 +606,7 @@ export function CopilotPanel({ compact = false, ticketId }: { compact?: boolean;
   );
 }
 
+// Full-page Copilot at /copilot. An optional ?ticket= parameter scopes the conversation to one incident.
 export function CopilotPage() {
   const [params] = useSearchParams();
   const ticketId = params.get('ticket') || undefined;

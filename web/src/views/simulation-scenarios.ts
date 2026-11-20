@@ -1,14 +1,16 @@
 // File: simulation-scenarios.ts
 // Author: Team LARP
-// Date: 2026-11-09
+// Date: 2026-11-19 (comments revised)
 // Version: 0.1.0
 // Purpose: Define staged incident examples for orchestration rehearsals.
 
+// One scripted rehearsal. Every field is fixed sample text for the orchestration simulation, not recorded evidence.
 export interface SimulationScenario {
   id: string; label: string; area: string; specialist: string; alert: string;
   review: string; finding: string; evidence: string; recommendation: string;
   impact: string; verification: string; undo: string;
 }
+// Built-in scenarios; the source addresses are from the documentation range and no real systems are involved.
 export const SIMULATION_SCENARIOS: SimulationScenario[] = [
   { id: 'ssh', label: 'SSH password guessing', area: 'Identity', specialist: 'Identity investigator', alert: 'Repeated failed SSH logins on training-linux-01 from 198.51.100.241.', review: 'Checking failed logins, source correlation, and successful authentication.', finding: 'Repeated failures against a nonexistent account; no success in the fixture. Compromise is not established.', evidence: 'SIM-EV-SSH-01', recommendation: 'Temporarily block 198.51.100.241', impact: 'Deny this source on training-linux-01 only; other sources remain allowed.', verification: 'Source denied; legitimate SSH connectivity preserved.', undo: 'Remove the operation-owned block rule.' },
   { id: 'ransomware', label: 'Ransomware-like file changes', area: 'Endpoint', specialist: 'Endpoint investigator', alert: 'Rapid file rewrites and ransom-note-like content on training-workstation-02.', review: 'Correlating sample process activity with file changes and backup coverage.', finding: 'One sample process rewrote multiple documents. Encryption and recovery completeness remain unverified.', evidence: 'SIM-EV-FILES-01', recommendation: 'Temporarily isolate training-workstation-02', impact: 'Interrupt workstation network access while preserving the sample management channel. Active user sessions may be disrupted.', verification: 'Lateral connections denied; management channel available. File restoration remains unverified.', undo: 'Remove only the operation-owned isolation policy; do not restore or delete files.' },

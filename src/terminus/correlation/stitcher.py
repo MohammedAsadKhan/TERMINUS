@@ -1,6 +1,6 @@
 # File name: stitcher.py
 # Author: Team LARP
-# Revision date: 2026-11-14
+# Revision date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Tenant-scoped temporal campaign stitching with optional durable state.
 
@@ -26,6 +26,9 @@ from terminus.storage.db import Database
 
 @dataclass
 class StitchedCampaign:
+    """A group of related alerts for one organization, host and source IP inside the
+    correlation window.
+    """
     campaign_id: str
     org_id: str
     primary_host: str
@@ -38,6 +41,9 @@ class StitchedCampaign:
     total_alert_count: int | None = None
 
     def add_alert(self, alert: SiemAlert) -> None:
+        """Append an alert, refresh the last-seen time, and track the highest level and
+        MITRE tags seen.
+        """
         self.alerts.append(alert)
         self.last_seen = time.time()
         self.highest_level = max(self.highest_level, alert.level)
@@ -46,6 +52,9 @@ class StitchedCampaign:
 
     @property
     def alert_count(self) -> int:
+        """Return the stored total when one is known, else the number of alerts held in
+        memory.
+        """
         return (
             self.total_alert_count
             if self.total_alert_count is not None
@@ -53,6 +62,9 @@ class StitchedCampaign:
         )
 
     def to_summary(self) -> str:
+        """Build a one-paragraph description with the tactics and the five most recent
+        alerts.
+        """
         descriptions = [f"[{a.timestamp}] {a.description}" for a in self.alerts[-5:]]
         return (
             f"Stitched Campaign across {self.alert_count} events on host '{self.primary_host}'. "
@@ -67,6 +79,9 @@ class CampaignStitcher:
     def __init__(
         self, window_seconds: float = 900.0, db: Database | None = None
     ) -> None:  # 15 minute window
+        """Set the correlation window and optional database; without a database
+        campaigns live only in process memory.
+        """
         self.window_seconds: float = window_seconds
         self.db: Database | None = db
         self._campaigns: dict[str, StitchedCampaign] = {}

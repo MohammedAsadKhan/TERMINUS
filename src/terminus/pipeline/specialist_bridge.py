@@ -1,6 +1,6 @@
 # File name: specialist_bridge.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Bridge from workflow AI nodes to recorded orchestration specialist runs.
 
@@ -56,6 +56,10 @@ BridgeState = Literal[
 
 @dataclass(frozen=True)
 class BridgeOutcome:
+    """Result of asking for a specialist run for a workflow node, including an explicit non-executed
+    or waiting state so no verdict is ever invented.
+    """
+
     state: BridgeState
     role: str | None = None
     task_id: str | None = None
@@ -67,6 +71,9 @@ class BridgeOutcome:
     evidence_citations: tuple[dict[str, JsonValue], ...] = ()
 
     def to_output(self) -> dict[str, JsonValue]:
+        """Render the outcome as the node's output dictionary, including whether a recorded run
+        exists.
+        """
         out: dict[str, JsonValue] = {
             "specialist_state": self.state,
             "role": self.role,
@@ -104,6 +111,7 @@ def resolve_role(config: Mapping[str, object] | None) -> str | None:
 
 
 def _unresolved() -> BridgeOutcome:
+    """Outcome for a node that does not name exactly one core role."""
     return BridgeOutcome(
         "unresolved_agent",
         gap=f"Node must name one core role via role/agent_id (allowed: {', '.join(sorted(CORE_ROLES))}).",
@@ -124,9 +132,16 @@ def simulate(config: Mapping[str, object] | None) -> BridgeOutcome:
 
 @final
 class SpecialistBridge:
+    """Admits one specialist task per workflow node and reports its recorded result; organization
+    and incident come only from the trusted workflow run.
+    """
+
     def __init__(
         self, db: Database, *, handler_roles: Collection[str] | None = None
     ) -> None:
+        """Open the orchestration and scheduler stores on the database and remember which roles have
+        deployed handlers.
+        """
         self.db: Database = db
         self.records: OrchestrationStore = OrchestrationStore(db)
         self.scheduler: SchedulerStore = SchedulerStore(db)
@@ -136,6 +151,7 @@ class SpecialistBridge:
         )
 
     def workflow_task_key(self, run_id: str, node_id: str) -> str:
+        """Idempotency key that ties a specialist task to one workflow run and node."""
         return f"workflow:{run_id}:{node_id}"
 
     def task_status(self, org_id: str, run_id: str, node_id: str) -> str | None:
@@ -147,6 +163,9 @@ class SpecialistBridge:
         return None if row is None else str(cast("object", row["status"]))
 
     def _terminal_run(self, org_id: str, task: Task) -> AgentRun | None:
+        """Return the scheduler's current run for the task if it has finished, after checking the
+        job matches the task.
+        """
         # The scheduler's current attempt is authoritative. An older completed
         # run must never override a newer failed or still-running attempt.
         job = self.scheduler.get_job(org_id, task.task_id)
@@ -173,6 +192,9 @@ class SpecialistBridge:
         workflow_id: str,
         config: Mapping[str, object] | None,
     ) -> BridgeOutcome:
+        """Admit the node's specialist task and return its state: not executed, waiting, failed, or
+        the validated recorded result.
+        """
         role = resolve_role(config)
         if role is None:
             return _unresolved()
@@ -231,6 +253,9 @@ class SpecialistBridge:
     def _recorded_outcome(
         self, org_id: str, incident_id: str, role: str, task: Task, run: AgentRun
     ) -> BridgeOutcome:
+        """Check that a finished run belongs to this organization, incident, task and role, and that
+        it completed, before validating its result.
+        """
         if (
             run.org_id != org_id
             or run.incident_id != incident_id
@@ -257,12 +282,17 @@ class SpecialistBridge:
     def _validated_result(
         self, org_id: str, incident_id: str, role: str, task: Task, run: AgentRun
     ) -> BridgeOutcome:
+        """Validate a recorded result's schema, role, evidence citations and gaps, and convert it to
+        an outcome; any failure is reported as failed.
+        """
         try:
             result = SpecialistResult.model_validate_json(json.dumps(run.result))
             if result.role != role:
                 raise ValueError("result role does not match the admitted core role")
             citations: list[dict[str, JsonValue]] = []
             for evidence_id in dict.fromkeys(result.evidence_ids):
+                # Cited evidence must exist in this organization (the lookup is tenant-scoped) and
+                # belong to the same incident.
                 record = self.records.get_evidence(org_id, evidence_id)
                 if record.incident_id != incident_id:
                     raise ValueError("cited evidence belongs to a different incident")
@@ -281,6 +311,7 @@ class SpecialistBridge:
                         "content_ref": record.content_ref,
                     }
                 )
+            # A finding may only cite evidence listed on the result itself.
             allowed = set(result.evidence_ids)
             if any(not set(f.evidence_ids) <= allowed for f in result.findings):
                 raise ValueError(
@@ -333,6 +364,11 @@ class SpecialistBridge:
         workflow_id: str,
         node_id: str,
     ) -> Task:
+        # An already-admitted key is reused, so the per-incident task limit applies only to new
+        # admissions.
+        """Create and enqueue the node's specialist task, enforcing the per-incident task limit only
+        for new tasks.
+        """
         existing = self.db.fetchone(
             "SELECT 1 FROM orchestration_tasks WHERE org_id=? AND idempotency_key=?",
             (org_id, key),

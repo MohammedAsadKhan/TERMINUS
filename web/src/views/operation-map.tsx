@@ -1,6 +1,6 @@
 // File: operation-map.tsx
 // Author: Team LARP
-// Date: 2026-11-09
+// Date: 2026-11-19 (comments revised)
 // Version: 0.1.0
 // Purpose: Display recorded orchestration tasks and their relationships.
 
@@ -8,12 +8,17 @@ import { Tag } from 'antd';
 import { BranchesOutlined } from '@ant-design/icons';
 import './operation-map.css';
 
+// A task in the delegation tree; parent is the id of the task that delegated it.
 export interface OperationNode {
   id: string; parent?: string | null; label: string; status: string; activity: string;
 }
 
+// Shows tasks grouped by delegation depth, coordinator first. Display only: the caller supplies either recorded
+// tasks or the scripted simulation, and handles selection.
 export default function OperationMap({ nodes, onSelect }: { nodes: OperationNode[]; onSelect: (id: string) => void }) {
   const ids = new Set(nodes.map(node => node.id));
+  // Counts how many ancestors exist in this list. The seen set stops a cyclic parent chain from looping, and a parent
+  // that is not in the list is treated as no parent.
   function depth(node: OperationNode): number {
     let level = 0; let cursor = node; const seen = new Set([node.id]);
     while (cursor.parent && ids.has(cursor.parent) && !seen.has(cursor.parent)) {

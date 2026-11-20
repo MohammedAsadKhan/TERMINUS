@@ -1,6 +1,6 @@
 # File name: active_response.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Guardrailed dispatch boundary for active containment actions.
 
@@ -25,6 +25,9 @@ logger = logging.getLogger("terminus.containment.active_response")
 
 @dataclass
 class ContainmentResult:
+    """Outcome of a containment request, including the audit message and a raw response
+    dict.
+    """
     success: bool
     action_type: str
     target: str
@@ -37,6 +40,7 @@ class ActiveResponseRunner:
     """Checks containment guardrails and reports whether an action can run."""
 
     def __init__(self, siem_client: SiemClient | None = None) -> None:
+        """Keep an optional SIEM client for the runner."""
         self.siem = siem_client
 
     async def execute_containment(
@@ -70,6 +74,8 @@ class ActiveResponseRunner:
                 raw_response={"blocked": True, "assessment": assessment.__dict__},
             )
 
+        # Guardrails above must pass before any dispatch decision; a blocked target
+        # is never reported as attempted.
         # 2. Dispatch Action
         if action_type == "isolate_host":
             return ContainmentResult(

@@ -1,6 +1,6 @@
 # File name: wazuh_readers.py
 # Author: Team LARP
-# Revision date: 2026-11-13
+# Revision date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Bounded, read-only Wazuh manager and indexer adapters.
 
@@ -32,6 +32,8 @@ _JSON = TypeAdapter[JsonValue](JsonValue)
 
 
 class _Connection(Contract):
+    # Shared connector settings bound to one organization; credentials are secret
+    # strings excluded from repr and serialized output.
     org_id: Id
     connector_version: Id = "1.0"
     username: SecretStr = Field(repr=False, exclude=True)
@@ -41,6 +43,9 @@ class _Connection(Contract):
     @field_validator("username", "password")
     @classmethod
     def nonempty_secret(cls, value: SecretStr) -> SecretStr:
+        """Reject an empty username or password so a half-configured connector cannot be
+        built.
+        """
         if not value.get_secret_value():
             raise ValueError("Connector credentials are required")
         return value
@@ -48,6 +53,9 @@ class _Connection(Contract):
     @field_validator("manager_url", "indexer_url", check_fields=False)
     @classmethod
     def trusted_origin(cls, value: str) -> str:
+        """Accept only a bare HTTPS origin (no credentials, path, query or fragment) so
+        a provider URL cannot smuggle in another target or secrets.
+        """
         parsed = urlsplit(value)
         if (
             parsed.scheme != "https"
@@ -63,11 +71,13 @@ class _Connection(Contract):
 
 
 class WazuhManagerSettings(_Connection):
+    # Settings for the Wazuh manager API connector of one organization.
     manager_url: str
     connector_id: Literal["wazuh_manager"] = "wazuh_manager"
 
 
 class WazuhIndexerSettings(_Connection):
+    # Settings for the Wazuh indexer connector of one organization.
     indexer_url: str
     connector_id: Literal["wazuh_indexer"] = "wazuh_indexer"
 
@@ -81,12 +91,19 @@ class _ByteLimitError(ValueError):
 
 
 class _WireBudget:
+    """Per-call budget for decoded provider bytes and retained observation bytes, shared
+    by all requests of one read.
+    """
     def __init__(self) -> None:
+        """Start with the full 64 KiB wire budget and no retained observations."""
         self.remaining: int = _MAX_BYTES
         self.observations: list[ReadObservation] = []
         self.output_bytes: int = 0
 
     def observe(self, observation: ReadObservation) -> bool:
+        """Keep an observation only while the retained output stays within 32 KiB;
+        return False once it would exceed it.
+        """
         size = len(observation.model_dump_json().encode())
         if self.output_bytes + size > _MAX_OBSERVATION_BYTES:
             return False
@@ -95,6 +112,10 @@ class _WireBudget:
         return True
 
     async def consume(self, response: httpx2.Response) -> bytes:
+        """Read a response body chunk by chunk against the remaining wire budget,
+        rejecting HTTP errors and redirects, so an oversized body is cut off before
+        JSON parsing.
+        """
         _ = response.raise_for_status()
         if response.is_redirect:
             raise _InvalidResponseError("Redirect rejected")
@@ -108,18 +129,27 @@ class _WireBudget:
 
 
 def _object(value: object) -> dict[str, JsonValue]:
+    """Require a JSON object from untrusted provider data, raising an invalid-response
+    error otherwise.
+    """
     if not isinstance(value, dict):
         raise _InvalidResponseError("Expected an object")
     return cast("dict[str, JsonValue]", value)
 
 
 def _items(value: object, maximum: int) -> list[dict[str, JsonValue]]:
+    """Require a list of objects no longer than the requested page size, so a provider
+    cannot return more than was asked for.
+    """
     if not isinstance(value, list) or len(cast("list[object]", value)) > maximum:
         raise _InvalidResponseError("Invalid page")
     return [_object(item) for item in cast("list[object]", value)]
 
 
 def _timestamp(value: object) -> datetime:
+    """Parse a provider timestamp into UTC, rejecting missing or timezone-less values
+    rather than guessing.
+    """
     if not isinstance(value, str):
         raise _InvalidResponseError("Missing source timestamp")
     parsed = datetime.fromisoformat(value)
@@ -131,6 +161,9 @@ def _timestamp(value: object) -> datetime:
 def _collection(
     observations: list[ReadObservation], gaps: list[str], *, truncated: bool = False
 ) -> ReadCollection:
+    """Build the read collection, marking it partial and incomplete whenever any gap was
+    recorded, so gaps are never reported as a complete result.
+    """
     return ReadCollection(
         status="partial" if gaps else ("ok" if observations else "empty"),
         observations=tuple(observations),
@@ -141,6 +174,9 @@ def _collection(
 
 
 def _request_failure(budget: _WireBudget, gap: str) -> ReadCollection:
+    """Report a request failure: keep observations already validated as partial with the
+    gap, or report the source unavailable if there were none.
+    """
     if budget.observations:
         return _collection(budget.observations, [gap])
     return ReadCollection(status="unavailable", gaps=(gap,))
@@ -153,6 +189,10 @@ def _manager_observation(
     gaps: list[str],
     seen: set[str],
 ) -> ReadObservation | None:
+    """Validate one manager agent record: it must be the requested agent, appear once,
+    and carry a heartbeat timestamp inside the query window; otherwise record a gap
+    or reject the page.
+    """
     if item.get("id") != resource.agent_id:
         raise _InvalidResponseError("Manager returned a foreign agent")
     if resource.agent_id in seen:
@@ -181,6 +221,10 @@ def _manager_observation(
 
 
 def _indexer_total(payload: dict[str, JsonValue], gaps: list[str]) -> int | None:
+    """Read the indexer's hit total and record gaps when it timed out, had failed
+    shards, or gave an inexact or invalid total, so incomplete searches are not
+    mistaken for complete ones.
+    """
     if payload.get("timed_out") is not False:
         gaps.append("Indexer timed out or omitted timeout status")
     shards = _object(payload.get("_shards", {}))
@@ -207,6 +251,10 @@ def _indexer_observation(
     resource: EndpointResource,
     seen: set[tuple[str, str]],
 ) -> ReadObservation:
+    """Validate one indexer hit: it must belong to the requested agent, fall in the
+    query window, have a wazuh-alerts identity not seen before and match the
+    requested authentication kind; the event id is hashed from index and id.
+    """
     source = _object(item.get("_source"))
     if _object(source.get("agent")).get("id") != resource.agent_id:
         raise _InvalidResponseError("Indexer returned a foreign agent")
@@ -245,6 +293,9 @@ def _indexer_observation(
 def _next_cursor(
     items: list[dict[str, JsonValue]], previous: list[JsonValue] | None
 ) -> list[JsonValue]:
+    """Take the last hit's sort values as the next search_after cursor, rejecting a
+    missing, malformed or repeated cursor that would loop or skip records.
+    """
     cursor = items[-1].get("sort")
     if (
         not isinstance(cursor, list)
@@ -264,6 +315,9 @@ def _page_complete(
     provider: str,
     gaps: list[str],
 ) -> bool:
+    """Decide whether paging is finished from the total and page size, rejecting more
+    records than the reported total and noting a page that ended before it.
+    """
     if total is not None and seen_count > total:
         raise _InvalidResponseError("Provider returned more records than its total")
     if total is not None and seen_count >= total:
@@ -276,6 +330,9 @@ def _page_complete(
 
 
 def _manager_total(data: dict[str, JsonValue], gaps: list[str]) -> int | None:
+    """Read the manager's affected-item total, recording gaps for an invalid total or
+    reported failed items.
+    """
     total = data.get("total_affected_items")
     if type(total) is not int or total < 0:
         gaps.append("Manager did not supply a valid total")
@@ -286,11 +343,17 @@ def _manager_total(data: dict[str, JsonValue], gaps: list[str]) -> int | None:
 
 
 class _Reader(ABC):
+    """Base class for provider readers: binds settings, an HTTP client without redirects
+    or environment proxies, and the shared time and byte limits.
+    """
     def __init__(
         self,
         settings: WazuhManagerSettings | WazuhIndexerSettings,
         client: httpx2.AsyncClient | None,
     ) -> None:
+        """Use the supplied client or create one that does not follow redirects or read
+        proxy settings from the environment, and remember whether to close it.
+        """
         self.settings: WazuhManagerSettings | WazuhIndexerSettings = settings
         self.client: httpx2.AsyncClient = client or httpx2.AsyncClient(
             verify=settings.verify_tls,
@@ -301,10 +364,14 @@ class _Reader(ABC):
         self._owns_client: bool = client is None
 
     async def aclose(self) -> None:
+        """Close the HTTP client only if this reader created it."""
         if self._owns_client:
             await self.client.aclose()
 
     def _scope(self, query: ReadQuery, resource: EndpointResource) -> None:
+        """Enforce organization isolation: the resource must belong to the settings'
+        organization and be the one the query names.
+        """
         if (
             resource.org_id != self.settings.org_id
             or query.resource_id != resource.resource_id
@@ -312,6 +379,9 @@ class _Reader(ABC):
             raise ValueError("Reader organization/resource binding mismatch")
 
     def _auth(self) -> tuple[str, str]:
+        """Return the basic-auth pair for a provider request; the secrets are exposed
+        only at this call.
+        """
         return (
             self.settings.username.get_secret_value(),
             self.settings.password.get_secret_value(),
@@ -320,8 +390,14 @@ class _Reader(ABC):
     async def read(
         self, query: ReadQuery, resource: EndpointResource
     ) -> ReadCollection:
+        """Validate the query and resource, then run the provider read under a total
+        timeout; every failure becomes a disclosed gap or error collection instead of
+        raising or returning invalid data.
+        """
         query = ReadQuery.model_validate(query.model_dump())
         resource = EndpointResource.model_validate(resource.model_dump())
+        # Scope is checked before any network call, so no request is made for a
+        # resource that belongs to another organization.
         self._scope(query, resource)
         budget = _WireBudget()
         try:
@@ -339,6 +415,8 @@ class _Reader(ABC):
             )
         except httpx2.HTTPError:
             return _request_failure(budget, "Provider request failed")
+        # A malformed response is untrusted as a whole: earlier pages are discarded
+        # too, because partial data from a misbehaving provider could be wrong.
         except (ValueError, KeyError, TypeError):
             return ReadCollection(
                 status="error",
@@ -349,6 +427,8 @@ class _Reader(ABC):
     async def _read(
         self, query: ReadQuery, resource: EndpointResource, budget: _WireBudget
     ) -> ReadCollection:
+        """Provider-specific paged read; implemented by the manager and indexer readers.
+        """
         raise NotImplementedError
 
 
@@ -358,6 +438,7 @@ class WazuhManagerReader(_Reader):
     def __init__(
         self, settings: WazuhManagerSettings, client: httpx2.AsyncClient | None = None
     ) -> None:
+        """Bind the manager settings and its trusted HTTPS origin."""
         super().__init__(settings, client)
         self._origin: str = settings.manager_url
 
@@ -365,6 +446,10 @@ class WazuhManagerReader(_Reader):
     async def _read(
         self, query: ReadQuery, resource: EndpointResource, budget: _WireBudget
     ) -> ReadCollection:
+        """Authenticate to the manager, then page through the requested agent's record
+        within the byte, page and window limits, validating each whole page before
+        retaining any of it.
+        """
         if query.event_kind not in {"inventory", "coverage"}:
             return ReadCollection(
                 status="unsupported",
@@ -431,6 +516,7 @@ class WazuhIndexerReader(_Reader):
     def __init__(
         self, settings: WazuhIndexerSettings, client: httpx2.AsyncClient | None = None
     ) -> None:
+        """Bind the indexer settings and its trusted HTTPS origin."""
         super().__init__(settings, client)
         self._origin: str = settings.indexer_url
 
@@ -438,6 +524,10 @@ class WazuhIndexerReader(_Reader):
     async def _read(
         self, query: ReadQuery, resource: EndpointResource, budget: _WireBudget
     ) -> ReadCollection:
+        """Run a fixed, agent- and window-filtered alert search paged with search_after,
+        validating each whole page and recording gaps for changed totals, truncation or
+        the page bound.
+        """
         if query.event_kind not in {"detection", "authentication", "authentication_failure", "file"}:
             return ReadCollection(
                 status="unsupported",

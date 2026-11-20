@@ -1,6 +1,6 @@
 # File name: graph.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Durable, tenant-scoped seven-day relationship graph over observed alerts.
 
@@ -19,6 +19,9 @@ from terminus.storage.db import Database
 
 
 def _event_time(value: str) -> str:
+    """Normalize a timestamp to UTC ISO format, treating a naive time as UTC and using the current
+    time if it cannot be parsed.
+    """
     try:
         parsed = datetime.fromisoformat(value)
         if parsed.tzinfo is None:
@@ -32,9 +35,13 @@ class GraphEventStore:
     """Store raw event evidence independently of the transient ticket queue."""
 
     def __init__(self, db: Database | None = None) -> None:
+        """Use the given database or the shared instance."""
         self.db = db or Database.get_instance()
 
     def record(self, alert: SiemAlert, org_id: OrgId, report: InvestigationReport, incident_id: str | None) -> None:
+        """Store the alert's event for the organization; a repeat updates severity and policy tier
+        and keeps the incident ID unless a new one is given.
+        """
         self.db.execute(
             """INSERT INTO graph_events
             (org_id, alert_id, incident_id, occurred_at, ingested_at, source_ip, host,
@@ -52,6 +59,11 @@ class GraphEventStore:
         )
 
     def snapshot(self, org_id: OrgId, since: str, until: str, policy: str = "all") -> dict[str, Any]:
+        # Every query starts from org_id so one tenant never reads another's events; optional
+        # filters are fixed clauses with bound values.
+        """Summarize the organization's events in the window as source and host nodes with edges,
+        daily counts and a count of relationships beyond the row cap.
+        """
         where = "org_id = ? AND occurred_at >= ? AND occurred_at <= ?"
         params: list[Any] = [str(org_id), since, until]
         if policy != "all":
@@ -106,6 +118,9 @@ class GraphEventStore:
         }
 
     def network(self, org_id: OrgId, since: str, until: str, policy: str = "all", limit: int = 1500) -> dict[str, Any]:
+        """Return up to limit of the organization's most recent events in the window, with total and
+        truncated flags.
+        """
         where = "org_id = ? AND occurred_at >= ? AND occurred_at <= ?"
         params: list[Any] = [str(org_id), since, until]
         if policy != "all":
@@ -121,6 +136,9 @@ class GraphEventStore:
         return {"total_events": total, "shown_events": len(rows), "truncated": total > len(rows), "events": rows}
 
     def evidence(self, org_id: OrgId, since: str, until: str, *, source_ip: str | None = None, host: str | None = None, mitre: str | None = None, alert_id: str | None = None, policy: str = "all", limit: int = 100, offset: int = 0) -> dict[str, Any]:
+        """Page through the organization's raw events in the window, optionally filtered by source
+        IP, host, technique, alert or policy tier.
+        """
         where = "org_id = ? AND occurred_at >= ? AND occurred_at <= ?"
         params: list[Any] = [str(org_id), since, until]
         if source_ip is not None:

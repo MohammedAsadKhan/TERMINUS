@@ -1,6 +1,6 @@
 # File name: base.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Define the client interface and response data for legacy model calls.
 
@@ -13,10 +13,13 @@ JsonValue: TypeAlias = (
 )
 
 
+# Failure of a model call; callers fall back to an explicit offline or fallback verdict.
 class LlmError(RuntimeError):
     pass
 
 
 @runtime_checkable
 class LlmClient(Protocol):
+    """Interface for a model client that answers a system and user prompt with a JSON object."""
+
     async def respond_json(self, system: str, user: str) -> dict[str, JsonValue]: ...

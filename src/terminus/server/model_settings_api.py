@@ -1,6 +1,6 @@
 # File name: model_settings_api.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Tenant-scoped model policy and financial settings; no execution endpoints.
 
@@ -56,6 +56,8 @@ Payload = Annotated[dict[str, JsonValue], Body()]
 
 
 class BudgetWrite(BaseModel):
+    # Strict request body for setting a spend and optional token budget, guarded by
+    # expected_version.
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid", strict=True)
     expected_version: int = Field(default=0, ge=0)
     limit_micro_usd: int = Field(ge=0, le=10**18)
@@ -63,6 +65,8 @@ class BudgetWrite(BaseModel):
 
 
 class PriceWrite(BaseModel):
+    # Strict request body for setting per-million-token prices for a model, guarded by
+    # expected_version.
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid", strict=True)
     expected_version: int = Field(default=0, ge=0)
     input_per_mtok_micro_usd: int = Field(ge=0)
@@ -72,12 +76,17 @@ class PriceWrite(BaseModel):
 
 
 class ClassificationWrite(BaseModel):
+    # Strict request body for classifying an evidence item's data sensitivity, guarded
+    # by expected_version.
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid", strict=True)
     expected_version: int = Field(default=0, ge=0)
     classification: DataClassification
 
 
 def _parse[T: BaseModel](model: type[T], payload: object) -> T:
+    """Validate a JSON payload strictly (rejecting NaN) and return a generic 422 on
+    failure so submitted values are not echoed.
+    """
     try:
         return model.model_validate_json(json.dumps(payload, allow_nan=False))
     except (ValidationError, ValueError, TypeError):
@@ -85,6 +94,9 @@ def _parse[T: BaseModel](model: type[T], payload: object) -> T:
 
 
 def _error(exc: Exception) -> HTTPException:
+    """Map ledger, policy and generic errors to fixed HTTP responses (403, 409, 404,
+    422, else 503) that expose no persistence diagnostics.
+    """
     if isinstance(exc, (BudgetDeniedError, ModelPolicyDeniedError, PermissionError)):
         return HTTPException(403, "Model settings operation is not permitted")
     if isinstance(exc, (BudgetConflictError, ModelPolicyConflictError)):
@@ -97,10 +109,12 @@ def _error(exc: Exception) -> HTTPException:
 
 
 def _policy() -> ModelPolicyStore:
+    """Build a model policy store on the active database."""
     return ModelPolicyStore(Database.get_instance())
 
 
 def _budgets() -> ModelBudgetStore:
+    """Build a model budget store on the active database."""
     return ModelBudgetStore(Database.get_instance())
 
 
@@ -108,6 +122,10 @@ def _budgets() -> ModelBudgetStore:
 def configuration_status(
     org: Org, actor: Actor, settings: Annotated[Settings, Depends(get_settings)]
 ) -> dict[str, JsonValue]:
+    """Report whether the credential key is configured and how many connections the
+    caller's organization has; it states prerequisites only and does not prove live
+    connectivity.
+    """
     # This reports configuration prerequisites, never connectivity or protection.
     ready = False
     if settings.model_credentials_key.get_secret_value():
@@ -138,6 +156,7 @@ def configuration_status(
 
 @router.get("/policy", response_model=ModelPolicy)
 def get_policy(org: Org, actor: Actor) -> ModelPolicy:
+    """Return the model data-handling policy for the caller's organization."""
     try:
         return _policy().get(str(org), str(actor.user_id))
     except Exception as exc:
@@ -146,6 +165,9 @@ def get_policy(org: Org, actor: Actor) -> ModelPolicy:
 
 @router.put("/policy", response_model=ModelPolicy)
 def put_policy(org: Org, actor: Actor, _admin: Admin, payload: Payload) -> ModelPolicy:
+    """Admin-only: replace the model policy for the caller's organization from a
+    validated payload.
+    """
     try:
         return _policy().put(
             str(org), str(actor.user_id), _parse(ModelPolicyWrite, payload)
@@ -158,6 +180,7 @@ def put_policy(org: Org, actor: Actor, _admin: Admin, payload: Payload) -> Model
 
 @router.get("/usage/{window}", response_model=UsageSummary)
 def get_usage(window: str, org: Org, actor: Actor) -> UsageSummary:
+    """Return model usage totals for the caller's organization over the named window."""
     try:
         return _budgets().usage_summary(str(org), str(actor.user_id), window)
     except Exception as exc:
@@ -166,6 +189,9 @@ def get_usage(window: str, org: Org, actor: Actor) -> UsageSummary:
 
 @router.get("/budget/{window}")
 def get_budget(window: str, org: Org, actor: Actor) -> dict[str, JsonValue]:
+    """Return the budget limits and version for a window in the caller's organization; a
+    missing budget maps to 404.
+    """
     try:
         budgets = _budgets()
         with budgets.db.transaction():
@@ -192,6 +218,9 @@ def get_budget(window: str, org: Org, actor: Actor) -> dict[str, JsonValue]:
 def put_budget(
     window: str, org: Org, actor: Actor, _admin: Admin, payload: Payload
 ) -> dict[str, JsonValue]:
+    """Admin-only: set a window's budget for the caller's organization; a stale
+    expected_version maps to 409.
+    """
     request = _parse(BudgetWrite, payload)
     try:
         record = _budgets().put_budget(
@@ -210,6 +239,9 @@ def put_budget(
 def _connection(
     store: ModelConnectionStore, org: Org, actor: Actor, connection_id: str, model: str
 ) -> ModelConnectionView:
+    """Fetch a model connection in the caller's organization and verify the model is
+    registered on it, raising LookupError otherwise.
+    """
     connection = store.get(str(org), str(actor.user_id), connection_id)
     if model not in connection.models:
         raise LookupError("Model is not registered")
@@ -224,6 +256,9 @@ def get_price(
     actor: Actor,
     store: Annotated[ModelConnectionStore, Depends(get_model_connection_store)],
 ) -> ModelPrice:
+    """Return the configured price for a model on a connection in the caller's
+    organization; the model must be registered on that connection.
+    """
     try:
         _ = _connection(store, org, actor, connection_id, model)
         return _budgets().get_price(str(org), str(actor.user_id), connection_id, model)
@@ -241,6 +276,9 @@ def put_price(
     payload: Payload,
     store: Annotated[ModelConnectionStore, Depends(get_model_connection_store)],
 ) -> ModelPrice:
+    """Admin-only: set a model's price on a connection in the caller's organization;
+    the registered-model check and the write run in one transaction.
+    """
     request = _parse(PriceWrite, payload)
     try:
         with store.db.transaction():
@@ -266,6 +304,9 @@ def put_price(
 def classify_evidence(
     evidence_id: str, org: Org, actor: Actor, _admin: Admin, payload: Payload
 ) -> EvidenceClassification:
+    """Admin-only: record a data classification for an evidence item in the caller's
+    organization; a stale expected_version maps to 409.
+    """
     request = _parse(ClassificationWrite, payload)
     try:
         return _policy().classify_evidence(

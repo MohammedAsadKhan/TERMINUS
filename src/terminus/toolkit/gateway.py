@@ -1,6 +1,6 @@
 # File name: gateway.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Internal, explicitly installed read-tool execution with durable admission.
 
@@ -43,6 +43,7 @@ _TOOL_ID = TypeAdapter[str](Id)
 
 
 def _failure(tool_id: str, status: FailureStatus, code: str) -> ToolResult:
+    """Build a data-free failure result with a stable error code."""
     return ToolResult(
         tool_id=tool_id,
         version="1.0",
@@ -52,6 +53,9 @@ def _failure(tool_id: str, status: FailureStatus, code: str) -> ToolResult:
 
 
 def _parse_query(arguments: object) -> ReadQuery:
+    """Turn a ReadQuery, JSON string or dict into a validated ReadQuery, raising if the
+    arguments are not a strict read query.
+    """
     if isinstance(arguments, ReadQuery):
         return ReadQuery.model_validate(arguments.model_dump())
     if isinstance(arguments, str):
@@ -101,12 +105,18 @@ def _bounded_arguments_digest(  # noqa: PLR0911 - bounded fail-closed encoding e
 
 
 def _observe_detached(task: asyncio.Future[ToolResult]) -> None:
+    """Retrieve the exception of an abandoned handler task so it is never reported as
+    unretrieved.
+    """
     # Cancellation can be suppressed by a handler. Its eventual result is discarded.
     if not task.cancelled():
         _ = task.exception()
 
 
 def _trusted_context(context: object) -> ToolExecutionContext:
+    """Accept only a server-created ToolExecutionContext and revalidate it, since a
+    copied frozen model may carry unvalidated updates.
+    """
     if not isinstance(context, ToolExecutionContext):
         raise TypeError("Execution context must be server-created")
     return ToolExecutionContext.model_validate(context.model_dump())
@@ -123,6 +133,10 @@ class ToolGateway:
         *,
         execution_authorizer: Callable[[ToolExecutionContext], None] | None = None,
     ) -> None:
+        """Wire the registry, validator and audit store, requiring that validation and
+        audit share one database so ownership checks and reservations see the same
+        state.
+        """
         if validator.scheduler.db is not audit.db:
             raise ValueError("Validation and audit must use the same database")
         self.registry: ExecutableToolRegistry = registry
@@ -140,6 +154,9 @@ class ToolGateway:
         status: FailureStatus,
         code: str,
     ) -> ToolResult:
+        """Record the denial in the audit trail and return a failure result; if the
+        audit cannot be written the caller only sees an unavailable result.
+        """
         try:
             _ = self.audit.record_denial(context, tool_id, digest, code)
         except ToolAuditError as exc:
@@ -158,6 +175,9 @@ class ToolGateway:
         *,
         uncertain: bool = False,
     ) -> ToolResult:
+        """Re-check execution authorization and complete the reservation in one
+        transaction; an audit failure or an unknown outcome never returns handler data.
+        """
         try:
             with self.audit.db.transaction():
                 if self.execution_authorizer is not None and not uncertain:
@@ -188,6 +208,10 @@ class ToolGateway:
         result: object,
         reservation: InvocationReservation,
     ) -> ToolResult:
+        """Validate the handler's result against the descriptor, context, admitted query
+        and reservation, including provenance bounds and the failure and success rules,
+        so unvalidated data never reaches the caller.
+        """
         if not isinstance(result, ToolResult):
             raise TypeError("Handler must return a strict ToolResult")
         result = ToolResult.model_validate(result.model_dump())
@@ -222,6 +246,10 @@ class ToolGateway:
         result: ToolResult,
         reservation: InvocationReservation,
     ) -> None:
+        """For read tools, require that each evidence record was written by this
+        invocation and run, carries its observed data and provenance, and that the
+        result data equals the persisted observations.
+        """
         observed_provenance: list[object] = []
         observations: list[object] = []
         if result.status == "ok" and (
@@ -286,6 +314,9 @@ class ToolGateway:
         context: ToolExecutionContext,
         query: ReadQuery,
     ) -> Literal["complete", "deadline_exceeded", "ownership_lost"]:
+        """Wait for the handler up to its timeout (capped at 10 seconds), re-validating
+        ownership about every 100 ms and reporting a missed deadline or lost ownership.
+        """
         loop = asyncio.get_running_loop()
         deadline = loop.time() + min(descriptor.limits.timeout_seconds, 10)
         while True:
@@ -312,6 +343,8 @@ class ToolGateway:
         """Execute with trusted context; scope can never arrive inside arguments."""
         # Revalidate frozen models because model_copy(update=...) skips validation.
         context = _trusted_context(context)
+        # The digest is computed first, from bounded input, so every denial below can
+        # be audited without hashing or parsing an oversized call.
         digest, argument_error = _bounded_arguments_digest(arguments)
         try:
             tool_id = _TOOL_ID.validate_python(tool_id, strict=True)
@@ -340,6 +373,8 @@ class ToolGateway:
         except ToolRegistryError as exc:
             return self._deny(context, tool_id, digest, exc.status, exc.error_code)
         descriptor = installed.descriptor
+        # Pre-flight authorization, grant and lease checks run before any reservation
+        # is written; only admitted requests consume quota.
         try:
             self.validator.validate_request(descriptor, context, query)
         except (ValueError, SchedulerLeaseError):
@@ -364,6 +399,8 @@ class ToolGateway:
         try:
             wait_outcome = await self._wait_handler(task, descriptor, context, query)
             if wait_outcome != "complete":
+                # The handler may already have done work, so cancelling is not proof
+                # that nothing happened: record the outcome as unknown, not failed.
                 _ = task.cancel()
                 task.add_done_callback(_observe_detached)
                 return self._finish(
@@ -390,6 +427,8 @@ class ToolGateway:
                 )
             except Exception:
                 result = _failure(tool_id, "error", "handler_failed")
+            # Ownership is checked again after the handler returns. A lease lost during
+            # the call makes the outcome ambiguous, so it is recorded as unknown.
             try:
                 self.validator.validate_request(descriptor, context, query)
             except Exception:

@@ -1,6 +1,6 @@
 # File name: models.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Data models for repository security scanning, findings, and components.
 
@@ -20,6 +20,8 @@ FindingStatus = Literal["open", "acknowledged", "false_positive", "resolved"]
 
 
 class RepoScan(BaseModel):
+    # One scan run against a repository asset, with its trigger, status and summary
+    # stats.
     model_config = ConfigDict(extra="forbid")
 
     scan_id: str
@@ -35,6 +37,8 @@ class RepoScan(BaseModel):
 
 
 class RepoFinding(BaseModel):
+    # A deduplicated security finding (secret, vulnerable dependency or suspicious
+    # commit); only a redacted preview of any secret is kept.
     model_config = ConfigDict(extra="forbid")
 
     finding_id: str
@@ -56,6 +60,7 @@ class RepoFinding(BaseModel):
 
 
 class RepoComponent(BaseModel):
+    # One dependency component (ecosystem, name, version) found in a repository commit.
     model_config = ConfigDict(extra="forbid")
 
     org_id: str
@@ -68,6 +73,7 @@ class RepoComponent(BaseModel):
 
 
 class RepoFindingEvent(BaseModel):
+    # Audit record of an actor changing a finding's status.
     model_config = ConfigDict(extra="forbid")
 
     event_id: str

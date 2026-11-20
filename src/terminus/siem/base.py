@@ -1,6 +1,6 @@
 # File name: base.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Define the shared interface for retrieving SIEM evidence.
 
@@ -13,6 +13,7 @@ from terminus.models import SiemAlert
 
 
 class SiemClient(Protocol):
+    """Contract for fetching alerts and agent details from a SIEM source."""
     async def get_alert(self, alert_id: str) -> SiemAlert: ...
 
     async def get_agent(self, agent_id: AgentId) -> dict[str, Any]: ...

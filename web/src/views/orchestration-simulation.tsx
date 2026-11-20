@@ -1,6 +1,6 @@
 // File: orchestration-simulation.tsx
 // Author: Team LARP
-// Date: 2026-11-09
+// Date: 2026-11-19 (comments revised)
 // Version: 0.1.0
 // Purpose: Render labeled orchestration rehearsals and their simulated activity.
 
@@ -10,9 +10,12 @@ import OperationMap, { type OperationNode } from './operation-map';
 
 import { SIMULATION_SCENARIOS } from './simulation-scenarios';
 
+// Scripted, local-only rehearsal of orchestration and response approval. It makes no model, network, notification or
+// firewall calls, and its state is discarded when the page is left.
 export default function OrchestrationSimulation() {
   const [scenarioId, setScenarioId] = useState('ssh');
   const scenario = SIMULATION_SCENARIOS.find(item => item.id === scenarioId)!;
+  // Scripted timeline entries as [node id, label, parent node id, activity text], revealed one at a time.
   const events = [
     ['main', 'Main orchestrator', '', `Synthetic alert received: ${scenario.alert}`],
     ['area', `${scenario.area} orchestrator`, 'main', 'Assigning triage, investigation, and response planning. Execution waits for a decision.'],
@@ -23,27 +26,34 @@ export default function OrchestrationSimulation() {
     ['response', 'Response planner', 'area', 'Checking exclusions, duration, expected impact, and undo requirements.'],
     ['response', 'Response planner', 'area', `Proposal ready: ${scenario.recommendation}. Waiting for your decision.`],
   ];
+  // Number of scripted events revealed so far.
   const [step, setStep] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [selected, setSelected] = useState('main');
   const [duration, setDuration] = useState(300);
   const [decision, setDecision] = useState('');
+  // Simulated execution stage after approval: 1 applying, 2 verifying, 3 verified.
   const [execution, setExecution] = useState(0);
+  // While playing, reveal the next event every 1.8 seconds; cleanup cancels the timer on pause, reset or unmount.
   useEffect(() => {
     if (!playing || step >= events.length) return;
     const timer = window.setTimeout(() => setStep(value => value + 1), 1800);
     return () => window.clearTimeout(timer);
   }, [playing, step]);
+  // After approval, advance the simulated execution stages at the same pace.
   useEffect(() => {
     if (decision !== 'approved' || execution >= 3) return;
     const timer = window.setTimeout(() => setExecution(value => value + 1), 1800);
     return () => window.clearTimeout(timer);
   }, [decision, execution]);
+  // One node per task, showing its latest revealed event. Once all events are shown everything is completed except the
+  // response planner, which waits for a decision; before that, triage and identity complete after a second event.
   const nodes: OperationNode[] = [...new Set(events.slice(0, step).map(event => event[0]))].map(id => {
     const records = events.slice(0, step).filter(event => event[0] === id);
     const last = records.at(-1)!;
     return { id, label: last[1], parent: last[2] || null, activity: last[3], status: step >= 8 ? (id === 'response' && !decision ? 'waiting' : 'completed') : records.length > 1 && ['triage', 'identity'].includes(id) ? 'completed' : 'running' };
   });
+  // Returns the rehearsal to its initial state.
   function reset() { setPlaying(false); setStep(0); setDecision(''); setExecution(0); setSelected('main'); setDuration(300); }
   return <section className="simulation-console" aria-label="Orchestration simulation">
     <Alert type="info" showIcon title="Simulation · scripted demonstration" description="Local sample evidence only. No model requests, network calls, notifications, or firewall changes. Separate from recorded investigations; resets when you leave this page." />

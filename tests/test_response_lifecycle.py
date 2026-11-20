@@ -1,6 +1,6 @@
 # File name: test_response_lifecycle.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Durable response acceptance fixtures; never make live provider calls.
 
@@ -46,12 +46,17 @@ from terminus.toolkit.models import (
 
 @dataclasses.dataclass
 class Clock:
+    """Mutable fixed-time clock so tests can move past approval, lease, and expiry deadlines."""
+
     value: datetime
 
     def __call__(self):
         return self.value
 
 
+# Shared fixture world: two organizations, four actors with different roles, a policy that
+# allows three registered targets (one protected, one management), and one completed
+# planner task whose lease the tests use to submit proposals. No provider is contacted.
 @pytest.fixture
 def setup(tmp_path: Path):
     db = Database(str(tmp_path / "response.db"))
@@ -270,6 +275,8 @@ def _rewrite_evidence(service, evidence_id, **updates):
     )
 
 
+# Server-derived scope. Protects the boundary where tenant, incident, task, run, provider,
+# and policy version come from stored records, so a caller cannot override them in a draft.
 def test_scope_provider_policy_and_parameter_hash_are_server_derived(setup):
     service, _, draft, _, lease, policy, _ = setup
     view = _propose(setup)
@@ -303,6 +310,8 @@ def test_scope_provider_policy_and_parameter_hash_are_server_derived(setup):
             )
 
 
+# Allowlist checks. Protects against proposals that touch protected, management,
+# unregistered, or arbitrary targets, or any effect or parameter outside the exact catalog.
 @pytest.mark.parametrize(
     "bad",
     [
@@ -360,6 +369,8 @@ def test_only_exact_catalog_effect_and_parameter_evidence_allowed(setup, bad):
         _propose(setup, draft=draft)
 
 
+# Approval authority and expiry. Protects the rule that only a current admin other than the
+# proposer can approve, that a denial is final, and that a lapsed approval creates no intent.
 @pytest.mark.parametrize("actor", ["planner", "viewer"])
 def test_only_current_admin_can_approve(setup, actor):
     service, driver, *_ = setup
@@ -405,6 +416,8 @@ def test_expired_approval_cannot_reserve_or_dispatch(setup):
     assert service.db.fetchone("SELECT COUNT(*) AS n FROM response_intents")["n"] == 0
 
 
+# Revocation before effects. Protects against reserving an intent after the approver, the
+# planner, or the policy is revoked, or after the planner's lease or coordinator is lost.
 @pytest.mark.parametrize(
     "revoked", ["admin", "planner", "policy", "running_lease", "coordinator"]
 )
@@ -464,6 +477,8 @@ def test_revocation_or_stale_planner_ownership_prevents_effects(setup, revoked):
     assert service.db.fetchone("SELECT COUNT(*) AS n FROM response_intents")["n"] == 0
 
 
+# Stored-record integrity. Protects the approved proposal, its approval binding, and its
+# parameter evidence: edits are blocked, and admission rechecks the digest even if tampered.
 def test_proposal_and_approval_are_immutable_and_digest_is_rechecked(setup):
     service, driver, *_ = setup
     view = _approved(setup)
@@ -502,6 +517,8 @@ def test_changed_canonical_parameter_hash_cannot_authorize_intent(setup):
         driver.reserve("org", view["proposal"]["proposal_id"])
 
 
+# Evidence citations. Protects against proposals citing evidence from another incident or
+# tenant, missing evidence, or evidence whose content no longer matches its recorded hash.
 @pytest.mark.parametrize(
     "bad", ["foreign_incident", "foreign_tenant", "missing", "hash"]
 )
@@ -551,6 +568,9 @@ def test_proposals_require_canonical_same_incident_citations(setup, bad):
         service.propose("org", lease.task_id, "planner", draft)
 
 
+# Reservation and dispatch ordering. Protects durable-intent-before-effect, the rule that an
+# acknowledgement is not verification, and atomic reservation: concurrent drivers yield one
+# intent and one resource.
 def test_intent_committed_before_fixture_io_and_ack_is_not_verification(
     setup, monkeypatch
 ):
@@ -613,6 +633,8 @@ def test_concurrent_reservation_and_dispatch_produce_one_intent_and_resource(set
         driver.db.close()
 
 
+# Ambiguous outcomes. Protects the rule that an unknown or interrupted dispatch is never
+# treated as success or zero effect: it needs reconciliation and is never replayed.
 @pytest.mark.parametrize(
     "outcome",
     [
@@ -651,6 +673,9 @@ def test_unknown_restart_requires_reconciliation_and_never_replays(setup, outcom
     restarted.db.close()
 
 
+# Independent verification. Protects the rule that only persisted, independently collected
+# observations verify an effect, that every binding is rechecked, and that acknowledgements
+# or reused evidence cannot stand in for them. Results stay fixture-only, never live.
 def test_independent_persisted_checks_only_verify_the_fixture(setup):
     service, driver, *_ = setup
     view = _dispatched(setup)
@@ -789,6 +814,9 @@ def test_ack_or_reused_evidence_cannot_establish_independent_verification(setup)
         )
 
 
+# Undo and expiry of owned resources. Protects against touching resources this intent did
+# not create, undoing across tenants or by non-admins, and acting early on altered records;
+# an unknown receipt blocks manual undo.
 def test_owned_undo_and_expiry_do_not_touch_other_resources(setup):
     service, driver, _, clock, *_ = setup
     first = _dispatched(setup)
@@ -883,6 +911,8 @@ def test_altered_owned_expiry_does_not_remove_resources_early(setup):
     )
 
 
+# Task provenance. Protects against proposals from the wrong specialist role or from a task
+# belonging to another tenant.
 def test_wrong_role_and_foreign_task_never_create_proposals(setup):
     service, _, draft, *_ = setup
     wrong = service.records.create_incident_task(

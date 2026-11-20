@@ -1,6 +1,6 @@
 // File: workflows.tsx
 // Author: Team LARP
-// Date: 2026-11-12
+// Date: 2026-11-19 (comments revised)
 // Version: 0.1.0
 // Purpose: Render the workflow definition editor and inspect workflow runs and approval gates.
 
@@ -75,6 +75,7 @@ const palette = [
   { type: 'tool_firewall', label: 'Block IP Address', group: 'CONTAINMENT', color: 'red', description: 'Requests a firewall block from the configured provider' },
 ];
 
+// Canvas node: label, node type (kind) and per-type config, plus the status from the latest dry-run trace, if any.
 type FlowNode = Node<
   {
     label: string;
@@ -85,6 +86,8 @@ type FlowNode = Node<
   'operation'
 >;
 
+// Custom canvas node. Condition nodes expose true, false and on_error outputs; other nodes expose default and on_error. The
+// output used is stored on each saved edge as source_handle. A status badge appears after a dry run.
 function OperationNode({ data, selected }: NodeProps<FlowNode>) {
   const meta = palette.find(item => item.type === data.kind);
   const isCondition = data.kind === 'condition_severity' || data.kind === 'condition_approval';
@@ -171,8 +174,11 @@ function OperationNode({ data, selected }: NodeProps<FlowNode>) {
   );
 }
 
+// Defined outside the component so React Flow receives a stable object.
 const nodeTypes = { operation: OperationNode };
 
+// Playbook canvas, human-approval queue and dry-run simulator for the signed-in organization. Editing controls are enabled
+// only for admins. Dry runs are in-memory simulations; nothing is dispatched from them.
 function WorkflowEditor() {
   const { activeTheme } = useTheme();
   const lightCanvas = activeTheme.id === 'workspace';
@@ -185,6 +191,7 @@ function WorkflowEditor() {
   const [activeTab, setActiveTab] = useState<'editor' | 'approvals' | 'dryrun'>('editor');
   const [dryRunTrace, setDryRunTrace] = useState<Record<string, unknown> | null>(null);
 
+  // No refetch on window focus, so returning to the tab does not reload the saved definition over the canvas.
   const workflows = useQuery({
     queryKey: ['workflows', orgId],
     queryFn: () => api<Workflow[]>('/workflows', orgId),
@@ -196,6 +203,7 @@ function WorkflowEditor() {
     queryFn: () => api<Agent[]>('/agents', orgId),
   });
 
+  // Polled every 10 seconds so new approval gates appear; the tab badge counts the pending ones.
   const approvals = useQuery({
     queryKey: ['approvals', orgId],
     queryFn: () => api<Approval[]>('/workflows/approvals/pending', orgId),
@@ -210,6 +218,7 @@ function WorkflowEditor() {
   const [priority, setPriority] = useState<number>(100);
   const [version, setVersion] = useState<number>(1);
   const [agent, setAgent] = useState<string | null>(null);
+  // True while the canvas or form has edits that are not saved. It blocks reloads from the server and triggers the discard prompt.
   const [dirty, setDirty] = useState(false);
   const [busy, setBusy] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
@@ -221,6 +230,8 @@ function WorkflowEditor() {
   const canWrite = detail?.role === 'admin';
   const requested = params.get('workflow');
 
+  // Loads the selected workflow (the ?workflow= parameter, otherwise the first) onto the canvas when the data or selection
+  // changes. It is skipped while the same workflow has unsaved edits, so a refetch cannot overwrite them.
   useEffect(() => {
     const selected = workflows.data?.find(w => w.id === requested) || workflows.data?.[0];
     if (!selected || (active === selected.id && dirty)) return;
@@ -255,6 +266,7 @@ function WorkflowEditor() {
     requestAnimationFrame(() => void flow.fitView({ padding: 0.2, duration: 200 }));
   }, [workflows.data, requested]);
 
+  // New connections default to the default output handle.
   const connect = useCallback(
     (connection: Connection) => {
       setEdges(old =>
@@ -272,6 +284,7 @@ function WorkflowEditor() {
     [setEdges]
   );
 
+  // Switching workflows asks for confirmation first when there are unsaved edits.
   function select(id: string) {
     const change = () => {
       setDirty(false);
@@ -289,6 +302,8 @@ function WorkflowEditor() {
     }
   }
 
+  // Saves the whole definition with expected_version, so a stale editor is rejected instead of overwriting newer changes.
+  // With validate set, it then asks the server to dry-run the saved definition and shows the errors it returns.
   async function save(validate = false) {
     if (!active) return;
     setBusy(true);
@@ -341,6 +356,8 @@ function WorkflowEditor() {
     }
   }
 
+  // The server simulates the saved definition, so unsaved canvas edits are not included. The per-node statuses it returns
+  // are painted onto the canvas.
   async function executeDryRun() {
     if (!active) return;
     setBusy(true);
@@ -385,6 +402,7 @@ function WorkflowEditor() {
     }
   }
 
+  // New playbooks start disabled, with a single Wazuh trigger node.
   async function create() {
     if (!newName.trim()) return;
     setBusy(true);
@@ -423,6 +441,7 @@ function WorkflowEditor() {
     }
   }
 
+  // Adds a node of the chosen type with its default configuration and marks the editor as changed.
   function add(type: string) {
     const meta = palette.find(n => n.type === type)!;
     const defaultConfigs: Record<string, Record<string, unknown>> = {
@@ -450,6 +469,7 @@ function WorkflowEditor() {
     setDirty(true);
   }
 
+  // Opens the node drawer with its label and config as editable JSON.
   function inspect(node: FlowNode) {
     setInspector(node.id);
     nodeForm.setFieldsValue({
@@ -458,6 +478,7 @@ function WorkflowEditor() {
     });
   }
 
+  // The config must be a JSON object; invalid JSON leaves the node unchanged and shows an error.
   function saveNode(values: { label: string; config: string }) {
     try {
       const config: unknown = JSON.parse(values.config);
@@ -478,6 +499,7 @@ function WorkflowEditor() {
     }
   }
 
+  // Deletes the saved definition after confirmation.
   function removeWorkflow() {
     modal.confirm({
       title: `Delete “${name}”?`,
@@ -494,6 +516,8 @@ function WorkflowEditor() {
     });
   }
 
+  // Records the decision only. Approving authorizes the gate; any effect is dispatched and reported separately, as the
+  // success message says.
   async function resolveApproval(approvalId: string, action: 'APPROVED' | 'REJECTED') {
     try {
       await api(
@@ -514,6 +538,7 @@ function WorkflowEditor() {
     }
   }
 
+  // Number shown on the Human Approvals tab badge.
   const pendingApprovalsCount = approvals.data?.filter(a => a.status === 'PENDING').length ?? 0;
 
   return (
@@ -848,6 +873,7 @@ function WorkflowEditor() {
   );
 }
 
+// Provides the React Flow context that the editor's hooks need.
 export default function Workflows() {
   return (
     <ReactFlowProvider>

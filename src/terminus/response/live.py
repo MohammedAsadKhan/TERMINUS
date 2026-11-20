@@ -1,6 +1,6 @@
 # File name: live.py
 # Author: Team LARP
-# Revision date: 2026-11-13
+# Revision date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Live response decisions, isolated from fixture approvals and provider receipts.
 
@@ -34,13 +34,24 @@ CLOSED = {"RESOLVED", "CLOSED"}
 
 
 class ResponseConflictError(ValueError):
-    pass
+    """Raised when a request conflicts with current state, such as an already-decided
+    proposal, an altered digest or an unresolved earlier action.
+    """
 
 
 class LiveResponseService:
+    """Console-driven live response workflow: recommends a bounded IP block from trusted
+    Wazuh evidence, records admin decisions and time-limited authorizations, reserves a
+    durable intent before dispatching, and verifies blocked and recovered states through
+    an independent observer.
+    """
     def __init__(
         self, db: Database, *, clock: Callable[[], datetime] | None = None
     ) -> None:
+        """Bind the service to a database, read the operator-pinned response agent id
+        and management IP (agent 0, the manager, is refused), and create the live
+        response tables and immutability and close-revocation triggers.
+        """
         self.db = db
         self.clock = clock or (lambda: datetime.now(UTC))
         # The fixed response target remains deployment-bound. Docker assigns a
@@ -126,6 +137,9 @@ class LiveResponseService:
         )
 
     def _incident(self, org: str, incident: str) -> dict[str, Any]:
+        """Return the incident row for this organization, raising LookupError when it is
+        missing or belongs to another tenant.
+        """
         row = self.db.fetchone(
             "SELECT * FROM incidents WHERE org_id=? AND ticket_id=?", (org, incident)
         )
@@ -134,6 +148,9 @@ class LiveResponseService:
         return row
 
     def require_admin(self, org: str, actor: str) -> None:
+        """Raise PermissionError unless the actor is currently an administrator of the
+        organization.
+        """
         if (
             SqliteMembershipStore(self.db).role_of(OrgId(org), UserId(actor))
             != OrganizationRole.ADMIN
@@ -149,6 +166,9 @@ class LiveResponseService:
         detail: str,
         intent: str | None = None,
     ) -> None:
+        """Append a timestamped audit event for an incident, with optional proposal and
+        intent.
+        """
         self.db.execute(
             "INSERT INTO live_response_events(org_id,incident_id,proposal_id,intent_id,state,detail,created_at) VALUES(?,?,?,?,?,?,?)",
             (org, incident, proposal, intent, state, detail, self.clock().isoformat()),
@@ -189,6 +209,9 @@ class LiveResponseService:
             )
 
     def ready(self, org: str) -> bool:
+        """Report whether the console response worker for the organization has sent a
+        heartbeat within the last 15 seconds.
+        """
         row = self.db.fetchone(
             "SELECT heartbeat FROM live_response_runtime WHERE org_id=?", (org,)
         )
@@ -200,8 +223,17 @@ class LiveResponseService:
         )
 
     def refresh(self, org: str, incident: str) -> str:
+        """Rebuild the system recommendation from the incident's trusted evidence:
+        failed-SSH records from the pinned agent and source count only if they match a
+        stored source receipt hash. An executable IP block needs three or more events
+        and no file-change alerts; otherwise a review-only recommendation is produced.
+        Returns the id of the existing or new proposal.
+        """
         incident_record = self._incident(org, incident)
         records = OrchestrationStore(self.db).list_evidence(org, incident_id=incident)
+        # Only evidence whose hash matches a recorded source receipt is trusted below;
+        # file-integrity (syscheck) alerts are noted first so they block an executable
+        # recommendation even when the record is otherwise skipped.
         observations = {}
         citations = {}
         fim = False
@@ -253,6 +285,8 @@ class LiveResponseService:
             <= (self.clock() - datetime.fromisoformat(stamp)).total_seconds()
             <= 120
         }
+        # Prefer events from the last 120 seconds; capability() re-checks freshness before
+        # anything can run, so older events only yield a stale, non-ready proposal.
         selected = fresh if len(fresh) >= 3 else observations
         executable = len(selected) >= 3 and not fim
         payload = {
@@ -510,6 +544,11 @@ class LiveResponseService:
         expected: str,
         duration: int,
     ) -> dict[str, Any]:
+        """Admin-only: create a human-authored revision of an executable proposal with a
+        30 to 120 second duration, after checking the reviewed digest. It revokes
+        earlier authorizations for the incident and requires a different admin to
+        approve.
+        """
         self.require_admin(org, actor)
         if not 30 <= duration <= 120:
             raise ValueError("Duration must be between 30 and 120 seconds")
@@ -561,6 +600,9 @@ class LiveResponseService:
     def _proposal(
         self, org: str, incident: str, proposal: str | None, expected: str | None = None
     ) -> tuple[dict[str, Any], dict[str, Any]]:
+        """Load a proposal for the incident and verify its stored digest (and the
+        reviewed digest, if given) so a changed proposal is never acted on silently.
+        """
         row = self.db.fetchone(
             "SELECT * FROM live_response_proposals WHERE org_id=? AND incident_id=? AND proposal_id=?",
             (org, incident, proposal),
@@ -575,6 +617,11 @@ class LiveResponseService:
     def capability(  # noqa: PLR0911 -- explicit capability reasons
         self, org: str, incident: str, row: dict[str, Any], payload: dict[str, Any]
     ) -> str:
+        """Return why a proposal can or cannot run now, checking in order: superseded,
+        unsupported action, incident closed, older than 30 minutes, evidence older than
+        120 seconds or fewer than three events, evidence content or source receipts
+        changed, and connector not ready; 'Ready' means every check passed.
+        """
         if self.db.fetchone(
             "SELECT 1 FROM live_response_events WHERE proposal_id=? AND state='superseded'",
             (row["proposal_id"],),
@@ -587,6 +634,8 @@ class LiveResponseService:
             return "Unsupported action"
         if self._incident(org, incident)["status"].upper() in CLOSED:
             return "Incident closed"
+        # Cheap checks come first; the evidence and source-receipt hash comparisons below
+        # prove the cited records were not altered after the proposal was made.
         if self.clock() > datetime.fromisoformat(row["created_at"]) + timedelta(
             minutes=30
         ):
@@ -620,6 +669,10 @@ class LiveResponseService:
         return "Ready"
 
     def scope(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Extract the exact fields an authorization binds (action, agent, addresses,
+        duration, cooldown, action cap and threshold) so any change to them is
+        detectable.
+        """
         return {
             key: payload[key]
             for key in (
@@ -644,6 +697,12 @@ class LiveResponseService:
         decision: str,
         note: str = "",
     ) -> dict[str, Any]:
+        """Admin-only: record an approve, autonomy, reject or defer decision on a
+        reviewed proposal digest. Approval creates a 5 minute authorization and autonomy
+        a 30 minute one, only while the proposal is Ready, never for its own human
+        author and never alongside another active authorization; rejection needs a
+        reason, and a repeat of the same decision is idempotent.
+        """
         self.require_admin(org, actor)
         if decision not in {"approve", "autonomy", "reject", "defer"}:
             raise ValueError("Invalid decision")
@@ -708,6 +767,9 @@ class LiveResponseService:
         return self.inspect(org, incident)
 
     def stop(self, org: str, incident: str, actor: str) -> dict[str, Any]:
+        """Admin-only: revoke every active authorization for the incident; effects
+        already applied still expire and are reconciled.
+        """
         self.require_admin(org, actor)
         self._incident(org, incident)
         with self.db.transaction():
@@ -725,6 +787,10 @@ class LiveResponseService:
         return self.inspect(org, incident)
 
     def inspect(self, org: str, incident: str) -> dict[str, Any]:
+        """Return the incident's proposals with current capability and decision,
+        authorizations, intents, events and observations; as a side effect,
+        authorizations of a closed incident are revoked.
+        """
         item = self._incident(org, incident)
         if item["status"].upper() in CLOSED:
             self.db.execute(
@@ -782,6 +848,9 @@ class LiveResponseService:
         phase: str,
         details: dict[str, Any],
     ) -> bool:
+        """Run an independent observer check for a phase and record its verified or
+        unverified result against the intent before returning it.
+        """
         verified = await observer(phase, details)
         self.db.execute(
             "INSERT INTO live_response_observations(intent_id,phase,verified,observed_at) VALUES(?,?,?,?)",
@@ -790,6 +859,9 @@ class LiveResponseService:
         return verified
 
     def _state(self, intent: str | None, state: str, detail: str) -> None:
+        """Move an intent to a new state with an audit event, ignoring intents already
+        in a terminal state so a late update cannot reopen a reconciled action.
+        """
         with self.db.transaction():
             row = self.db.fetchone(
                 "SELECT * FROM live_response_intents WHERE intent_id=?", (intent,)
@@ -817,6 +889,15 @@ class LiveResponseService:
         row: dict[str, Any],
         payload: dict[str, Any],
     ) -> dict[str, Any] | None:
+        """Atomically admit and record an in-flight intent before any provider I/O, or
+        return None if any gate fails: authorization still live, proposal Ready and
+        scope unchanged, no earlier intent for the proposal, no rejection or deferral,
+        no unresolved action in the organization, action cap, 300 second cooldown, and
+        no reused source events.
+        """
+        # Every gate returns None rather than raising, so a worker that loses a race or
+        # finds anything stale quietly skips dispatch. Authorization is re-read inside
+        # the transaction because it may have been revoked or expired since selection.
         with self.db.transaction():
             self.require_admin(org, auth["actor"])
             current = self.db.fetchone(
@@ -846,6 +927,8 @@ class LiveResponseService:
             )
             if decision and decision["decision"] in {"reject", "defer"}:
                 return None
+            # Only one action may be unresolved per organization: an in-flight or unknown
+            # intent blocks new dispatch until it is reconciled.
             history = self.db.fetchall(
                 "SELECT * FROM live_response_intents WHERE org_id=?", (org,)
             )
@@ -865,6 +948,8 @@ class LiveResponseService:
             seen = {e for r in history for e in json.loads(r["payload"])["event_ids"]}
             if seen.intersection(payload["event_ids"]):
                 return None
+            # Write-ahead record: the intent exists durably before any network call, so a
+            # crash after dispatch leaves an unresolved intent instead of no trace.
             intent = str(uuid4())
             details = {**payload, "intent_id": intent, "proposal_digest": row["digest"]}
             self.db.execute(
@@ -893,6 +978,11 @@ class LiveResponseService:
             return details
 
     def autonomous_proposal(self, org: str, incident: str, auth: dict[str, Any]) -> str:
+        """Choose the proposal for an autonomy authorization: reuse the authorized one
+        while still Ready and unused, otherwise take a fresh recommendation, carrying
+        forward only the already-reviewed duration and only if every other scope field
+        is unchanged.
+        """
         original_row, original_payload = self._proposal(
             org, incident, auth["proposal_id"]
         )
@@ -958,6 +1048,12 @@ class LiveResponseService:
         *,
         available: bool = True,
     ) -> None:
+        """One worker cycle for an organization: refresh or clear the heartbeat, observe
+        recovery of expired actions (without retrying dispatch), then for each live
+        authorization reserve an intent, dispatch once and verify the block
+        independently. Any interrupted or unconfirmed dispatch is recorded as unknown
+        for reconciliation.
+        """
         if available:
             self.takeover(org)
         else:
@@ -999,6 +1095,7 @@ class LiveResponseService:
         )
         for auth in auths:
             incident = auth["incident_id"]
+            # Closing an incident ends its authority to act.
             if self._incident(org, incident)["status"].upper() in CLOSED:
                 self.db.execute(
                     "UPDATE live_response_authorizations SET revoked_at=? WHERE authorization_id=?",
@@ -1013,6 +1110,8 @@ class LiveResponseService:
             row, payload = self._proposal(org, incident, proposal)
             if self.capability(org, incident, row, payload) != "Ready":
                 continue
+            # Do not dispatch unless the independent observer first confirms a healthy
+            # baseline.
             if not await self.observe(observer, "baseline", {}):
                 continue
             # Reserve the intent in SQLite before contacting Wazuh. A second
@@ -1052,6 +1151,8 @@ class LiveResponseService:
                             break
                         await asyncio.sleep(1)
                     else:
+                        # Acknowledged but never observed: the effect may or may not
+                        # exist, so mark it unknown and let the recovery pass resolve it.
                         self._state(
                             details["intent_id"],
                             "unknown",

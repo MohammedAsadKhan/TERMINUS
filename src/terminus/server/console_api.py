@@ -1,6 +1,6 @@
 # File name: console_api.py
 # Author: Team LARP
-# Revision date: 2026-11-12
+# Revision date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Additional authenticated APIs used by the React console.
 
@@ -43,11 +43,15 @@ CurrentOrg = Annotated[OrgId, Depends(get_current_org)]
 
 @router.get("/auth/me")
 async def me(user: CurrentUser) -> PublicUser:
+    """Return the authenticated caller's public profile (no credential fields)."""
     return PublicUser.model_validate(user)
 
 
 @router.get("/incidents/{ticket_id}")
 async def incident(ticket_id: TicketId, org_id: CurrentOrg, runner: Annotated[PipelineRunner, Depends(get_pipeline_runner)]) -> dict[str, Any]:
+    """Return one incident ticket; the lookup is scoped to the caller's organization, so
+    tickets of other tenants are not reachable.
+    """
     return await runner.deployment.ticket_store.get_ticket(ticket_id, org_id)
 
 
@@ -59,6 +63,10 @@ async def organization(
     users: Annotated[UserStore, Depends(get_user_store)],
     licenses: Annotated[LicenseService, Depends(get_license_service)],
 ) -> dict[str, Any]:
+    """Return the caller's current organization with its members, the caller's role, and
+    the license status; an invalid license is reported in license_error rather than
+    failing the request.
+    """
     org = orgs.get(org_id, org_id)
     license_data = None
     error = None
@@ -75,11 +83,17 @@ async def organization(
 
 
 class RoleRequest(BaseModel):
+    # Request body naming the new organization role for a member.
     role: OrganizationRole
 
 
 @router.patch("/orgs/{target_org}/members/{user_id}", dependencies=[Depends(require_admin)])
 async def change_role(target_org: OrgId, user_id: UserId, req: RoleRequest, org_id: CurrentOrg, user: CurrentUser, service: Annotated[OrganizationService, Depends(get_org_service)]) -> Membership:
+    """Admin-only: change a member's role in the caller's own organization; raises 403
+    for any other organization and 409 if it would remove the last admin.
+    """
+    # The path org must equal the caller's resolved org so an admin of one tenant
+    # cannot manage members of another by editing the URL.
     if target_org != org_id:
         raise HTTPException(403, "Cannot manage another organization")
     try:
@@ -90,6 +104,9 @@ async def change_role(target_org: OrgId, user_id: UserId, req: RoleRequest, org_
 
 @router.delete("/orgs/{target_org}/members/{user_id}", status_code=204, dependencies=[Depends(require_admin)])
 async def remove_member(target_org: OrgId, user_id: UserId, org_id: CurrentOrg, user: CurrentUser, service: Annotated[OrganizationService, Depends(get_org_service)]) -> None:
+    """Admin-only: remove a member from the caller's own organization; raises 403 for
+    any other organization and 409 if it would remove the last admin.
+    """
     if target_org != org_id:
         raise HTTPException(403, "Cannot manage another organization")
     try:
@@ -102,12 +119,17 @@ async def remove_member(target_org: OrgId, user_id: UserId, org_id: CurrentOrg, 
 
 
 def workflow_errors(workflow: Workflow) -> list[str]:
+    """Validate a workflow graph and return human-readable errors: name present, unique
+    node and edge ids, size limits, edges referencing existing nodes, and no cycles.
+    """
     errors: list[str] = []
     ids = [n.id for n in workflow.nodes]
     if not workflow.name.strip():
         errors.append("A workflow name is required")
     if len(ids) != len(set(ids)):
         errors.append("Node IDs must be unique")
+    # Enforce size limits before the quadratic cycle check below so oversized graphs
+    # are rejected cheaply.
     if len(workflow.nodes) > 200 or len(workflow.edges) > 400:
         errors.append("Workflow exceeds the 200 node / 400 edge limit")
         return errors
@@ -115,6 +137,8 @@ def workflow_errors(workflow: Workflow) -> list[str]:
         errors.append("Edge IDs must be unique")
     if any(e.source not in ids or e.target not in ids for e in workflow.edges):
         errors.append("Every edge must connect existing nodes")
+    # Cycle detection: repeatedly peel off nodes with no incoming edge from nodes still
+    # remaining; if none can be peeled while nodes remain, those nodes form a cycle.
     remaining = set(ids)
     while remaining:
         roots = {n for n in remaining if not any(e.target == n and e.source in remaining for e in workflow.edges)}
@@ -147,6 +171,9 @@ _RUNTIME_CONFIG: dict[str, Any] = {
 
 @router.get("/system")
 async def system_status(user: CurrentUser, settings: Annotated[Settings, Depends(get_settings)]) -> dict[str, Any]:
+    """Report platform version, storage, LLM mode and which integrations are configured;
+    secrets are never returned, only whether they are set.
+    """
     return {
         "version": "0.2.0", "storage": "sqlite", "transport": "polling",
         "llm_mode": "remote" if settings.llm_api_key else "offline",
@@ -162,6 +189,9 @@ async def system_status(user: CurrentUser, settings: Annotated[Settings, Depends
 
 
 def _mask(secret: str | None) -> str:
+    """Mask a secret for display, keeping only its first and last four characters (fully
+    masked when eight characters or fewer).
+    """
     if not secret:
         return ""
     if len(secret) <= 8:
@@ -221,6 +251,8 @@ async def get_platform_config(user: CurrentUser, settings: Annotated[Settings, D
 
 
 class ConfigUpdateRequest(BaseModel):
+    # Optional runtime configuration fields; None means leave unchanged, and blank
+    # secret fields do not overwrite stored secrets.
     llm_base_url: str | None = None
     llm_api_key: str | None = None
     llm_model: str | None = None
@@ -333,6 +365,8 @@ async def update_platform_config(
 
 
 class TestConnectionRequest(BaseModel):
+    # Request body naming the integration to check and optional overriding URL, key or
+    # model.
     service: str
     target_url: str | None = None
     api_key: str | None = None

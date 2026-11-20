@@ -1,6 +1,6 @@
 // File: ingest-modal.tsx
 // Author: Team LARP
-// Date: 2026-11-09
+// Date: 2026-11-19 (comments revised)
 // Version: 0.1.0
 // Purpose: Render the form for submitting labeled synthetic alerts.
 
@@ -12,6 +12,8 @@ import { useSession } from '../context';
 import { createTestAlert, randomTestTopic, TEST_TOPICS, type TestTopic } from '../test-alerts';
 import './ingest-modal.css';
 
+// Dialog for submitting a labeled synthetic alert to /wazuh for the selected organization. Submitting runs that
+// organization's configured pipeline, so notification channels may receive it (the dialog says so).
 export function IngestModal({ open, close }: { open: boolean; close: () => void }) {
   const { orgId } = useSession();
   const query = useQueryClient();
@@ -19,10 +21,13 @@ export function IngestModal({ open, close }: { open: boolean; close: () => void 
   const [topic, setTopic] = useState<TestTopic | 'random'>('ssh');
   const [generated, setGenerated] = useState(() => createTestAlert('ssh'));
   const [custom, setCustom] = useState<string | null>(null);
+  // Builds a fresh alert and discards any manual JSON edits.
   function regenerate(nextTopic: TestTopic | 'random' = topic) {
     setGenerated(createTestAlert(nextTopic === 'random' ? randomTestTopic() : nextTopic));
     setCustom(null);
   }
+  // Sends the edited JSON if the user changed it, otherwise the generated alert. JSON is parsed here so a malformed
+  // edit gives a clear message. Success refreshes the incident list and cached attack-network data for this organization.
   const mutation = useMutation({
     mutationFn: async () => {
       let value: unknown;

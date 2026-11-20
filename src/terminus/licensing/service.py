@@ -1,6 +1,6 @@
 # File name: service.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Issue and validate organization licenses.
 
@@ -60,6 +60,7 @@ class LicenseService(Service):
 
     def validate(self, token: str) -> License:
         """Validate a license token and return the parsed license."""
+        # decode() verifies the signature; expiry is checked afterwards against UTC now.
         license_obj = decode(token, self._secret)
 
         now = datetime.now(UTC)

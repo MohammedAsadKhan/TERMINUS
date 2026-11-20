@@ -1,6 +1,6 @@
 # File name: fixture_client.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Fixture-only transport harness; no production credential or network wiring.
 
@@ -26,6 +26,8 @@ from terminus.model_gateway.models import Provider, normalize_base_url
 
 
 class ModelCodec(Protocol):
+    """Structural interface a provider codec implements to encode and decode."""
+
     @property
     def headers(self) -> dict[str, str]: ...
 
@@ -51,6 +53,7 @@ class FixtureModelClient:
         base_url: str | None = None,
         deadline_seconds: float = 10.0,
     ) -> None:
+        """Accept only a recorded MockTransport and a deadline of at most ten seconds."""
         if type(transport) is not httpx2.MockTransport:
             raise ModelProtocolError("Only recorded fixture transport is supported")
         if type(deadline_seconds) not in {float, int} or not 0 < deadline_seconds <= 10:
@@ -61,6 +64,7 @@ class FixtureModelClient:
         self.deadline_seconds: float = deadline_seconds
 
     def _codec(self) -> ModelCodec:
+        """Pick the codec for the provider, importing lazily to avoid an import cycle."""
         from terminus.model_gateway.compatible import OpenAICompatibleCodec
         from terminus.model_gateway.native import AnthropicCodec, GeminiCodec
 
@@ -72,6 +76,7 @@ class FixtureModelClient:
 
     @staticmethod
     def _error(model: str, code: str) -> ModelResponse:
+        """Build an error response carrying only a safe error code."""
         return ModelResponse(status="error", model=model, error_code=code)
 
     async def respond(self, request: ModelRequest) -> ModelResponse:
@@ -105,6 +110,8 @@ class FixtureModelClient:
                                 429: "rate_limited",
                             }.get(response.status_code, "provider_unavailable")
                             return self._error(request.model, code)
+                        # Cap the body while streaming so an oversized reply is
+                        # rejected before it is buffered or parsed.
                         content = bytearray()
                         async for chunk in response.aiter_bytes():
                             if len(content) + len(chunk) > 1048576:
@@ -114,6 +121,8 @@ class FixtureModelClient:
                             bytes(content).decode("utf-8"), limit=1048576
                         )
                         return validate_response(codec.decode(raw, request), request)
+        # A timeout or transport failure may happen after the provider processed
+        # the request, so the code says usage is unknown instead of implying none.
         except TimeoutError:
             return self._error(request.model, "timeout_unknown_usage")
         except httpx2.HTTPError:

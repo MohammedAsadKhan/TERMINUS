@@ -1,6 +1,6 @@
 # File name: live_interactive_flood.py
 # Author: Team LARP
-# Revision date: 2026-11-14
+# Revision date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Synthetic presentation traffic for an isolated loopback rehearsal.
 
@@ -67,6 +67,7 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
 
 
 def banner(text: str, color: str = CYAN) -> None:
+    """Print a coloured heading so each demo stage is easy to see on screen."""
     line = "=" * 78
     print(f"\n{color}{BOLD}{line}")
     print(f"  {text}")
@@ -80,6 +81,13 @@ def http_req(
     data: dict[str, Any] | None = None,
     headers: dict[str, str] | None = None,
 ) -> tuple[int, Any]:
+    """Send one request to the validated loopback origin and return the status with the body.
+
+    Every failure, including a refused connection, returns status 0 with the error text
+    instead of raising. Callers treat only a 200 as accepted, so an unreachable service is
+    never counted as success.
+    """
+    # A leading double slash would be read as another host, so only local paths pass.
     if not path.startswith("/") or path.startswith("//"):
         raise ValueError("Demo request path must be local")
     url = f"{loopback_origin(base_url)}{path}"
@@ -99,6 +107,7 @@ def http_req(
         url, data=encoded, headers=req_headers, method=method
     )
     try:
+        # Redirects are disabled so the session token cannot follow a redirect elsewhere.
         opener = urllib.request.build_opener(_NoRedirect)
         with opener.open(req, timeout=15) as resp:
             code = resp.status
@@ -126,10 +135,15 @@ async def req_async(
     data: dict[str, Any] | None = None,
     headers: dict[str, str] | None = None,
 ) -> tuple[int, Any]:
+    """Run the blocking request in a worker thread so the stream loop is not stalled."""
     return await asyncio.to_thread(http_req, base_url, method, path, data, headers)
 
 
 async def register_heartbeat(base_url: str, status: str = "connected", metrics: dict[str, Any] | None = None) -> None:
+    """Report the simulated stream's status to the service, ignoring any failure.
+
+    The heartbeat is only a display aid, so an error here must not interrupt the demo.
+    """
     try:
         await req_async(
             base_url,
@@ -235,6 +249,13 @@ async def seed_initial_demo_telemetry(base_url: str, headers: dict[str, str]) ->
 
 
 async def run_simulation(base_url: str = "http://127.0.0.1:8766", duration_seconds: int = 600) -> None:
+    """Run the timed synthetic stream: baseline alerts, seven scripted waves, then background load.
+
+    The stream refuses to run outside the isolated bank demo launcher, only targets
+    loopback, and never approves or requests a response action. Its counters report what
+    the API accepted, not what an analyst or a containment control verified.
+    """
+    # The launcher sets this flag; without it the stream could be pointed at a real workspace.
     if os.environ.get("TERMINUS_BANK_DEMO_MODE") != "1":
         raise ValueError("Synthetic stream requires the isolated bank demo launcher")
     base_url = loopback_origin(base_url)
@@ -261,6 +282,7 @@ async def run_simulation(base_url: str = "http://127.0.0.1:8766", duration_secon
         return
 
     # 2. Authenticate: try standard admin first, then demo presenter, with auto-register fallback
+    # The accounts are the documented local demo logins; none is a real credential.
     headers: dict[str, str] = {
         "X-Terminus-Request": "1",
     }
@@ -350,6 +372,8 @@ async def run_simulation(base_url: str = "http://127.0.0.1:8766", duration_secon
     start_time = time.time()
     end_time = start_time + duration_seconds
 
+    # Each wave fires once. It triggers at an absolute elapsed time or at a fraction of the
+    # total duration, whichever comes first, so a short demo still reaches every wave.
     wave1_done = False
     wave2_done = False
     wave3_done = False
@@ -363,7 +387,7 @@ async def run_simulation(base_url: str = "http://127.0.0.1:8766", duration_secon
     triaged_count = seeded_count
     critical_count = 3  # Initial seeded critical count
 
-    # Background periodic rolling threat pool
+    # Background periodic rolling threat pool of synthetic alerts reused between waves.
     rolling_threat_pool = [
         {
             "rule_id": 5740,
@@ -412,6 +436,8 @@ async def run_simulation(base_url: str = "http://127.0.0.1:8766", duration_secon
         },
     ]
 
+    # The if/elif chain runs at most one wave per pass; passes with no wave due send
+    # background traffic in the final else branch.
     try:
         while time.time() < end_time:
             elapsed = time.time() - start_time
@@ -688,6 +714,7 @@ async def run_simulation(base_url: str = "http://127.0.0.1:8766", duration_secon
 
 
 def main() -> None:
+    """Parse options, require the bank demo launcher and a loopback URL, then run the stream."""
     parser = argparse.ArgumentParser(description="TERMINUS synthetic loopback presentation stream")
     parser.add_argument(
         "--base-url",
@@ -706,6 +733,7 @@ def main() -> None:
         help="Duration of simulation in seconds (default: 600s / 10 minutes)",
     )
     args = parser.parse_args()
+    # Validate the target and launcher flag before any request is made.
     try:
         args.base_url = loopback_origin(args.base_url)
         if os.environ.get("TERMINUS_BANK_DEMO_MODE") != "1":
@@ -716,6 +744,7 @@ def main() -> None:
     try:
         asyncio.run(run_simulation(base_url=args.base_url, duration_seconds=args.duration_seconds))
     except KeyboardInterrupt:
+        # Best-effort disconnect heartbeat so the console does not keep showing a live stream.
         print("\n[!] Simulation interrupted by operator. Registering disconnect heartbeat...")
         try:
             asyncio.run(register_heartbeat(args.base_url, "disconnected"))

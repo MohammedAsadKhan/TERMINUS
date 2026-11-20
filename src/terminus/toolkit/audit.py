@@ -1,6 +1,6 @@
 # File name: audit.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Durable, fenced invocation admission. No handlers or providers run here.
 
@@ -33,19 +33,26 @@ from terminus.toolkit.models import (
 
 
 class ToolAuditError(ValueError):
+    """Admission or audit failure carrying a stable machine-readable `code`."""
     def __init__(self, message: str, *, code: str = "stale_ownership") -> None:
+        """Store the message and the error code (defaults to `stale_ownership`)."""
         super().__init__(message)
         self.code: str = code
 
 
 class ToolQuotaError(ToolAuditError):
+    """Raised when a task has already reserved all 20 of its tool attempts."""
     def __init__(self) -> None:
+        """Use the fixed quota message and the `quota_exhausted` code."""
         super().__init__(
             "Task has exhausted its 20 tool attempts", code="quota_exhausted"
         )
 
 
 def canonical_query_digest(query: ReadQuery) -> str:
+    """SHA-256 of the query as key-sorted compact JSON, so equal queries always hash
+    equally.
+    """
     payload = json.dumps(
         query.model_dump(mode="json"), sort_keys=True, separators=(",", ":")
     )
@@ -53,6 +60,9 @@ def canonical_query_digest(query: ReadQuery) -> str:
 
 
 def _lease_digest(context: ToolExecutionContext) -> str:
+    """Hash the worker and coordinator lease identity so a reservation is bound to one
+    lease without storing the fencing tokens.
+    """
     lease = context.lease
     # Do not persist bearer-like worker or coordinator fencing tokens verbatim.
     return hashlib.sha256(
@@ -72,6 +82,9 @@ def _lease_digest(context: ToolExecutionContext) -> str:
 
 
 class InvocationReservation(Contract):
+    # Immutable record of an admitted invocation (scope, tool, query digest, policy
+    # version, lease digest and limits) that later evidence writes and completion are
+    # checked against.
     invocation_id: Id
     org_id: Id
     incident_id: Id
@@ -100,6 +113,9 @@ class ToolInvocationStore:
     def __init__(
         self, db: Database, *, clock: Callable[[], datetime] = utc_now
     ) -> None:
+        """Create the audit tables and triggers that abort any UPDATE or DELETE, so the
+        audit trail stays append-only.
+        """
         self.db: Database = db
         self.clock: Callable[[], datetime] = clock
         with db.transaction() as conn:
@@ -144,12 +160,18 @@ class ToolInvocationStore:
                     )
 
     def _now(self) -> datetime:
+        """Return the injected clock as UTC, rejecting naive timestamps so expiry
+        comparisons are never ambiguous.
+        """
         now = self.clock()
         if now.tzinfo is None or now.utcoffset() is None:
             raise ValueError("audit clock requires an aware timestamp")
         return now.astimezone(UTC)
 
     def _scope(self, context: ToolExecutionContext) -> tuple[Task, AgentRun]:
+        """Load the task and run for exactly this org, incident, task and run, failing
+        if either is missing or its payload disagrees with its indexed columns.
+        """
         task_row = self.db.fetchone(
             "SELECT * FROM orchestration_tasks WHERE org_id=? AND task_id=? AND incident_id=?",
             (context.org_id, context.task_id, context.incident_id),
@@ -175,6 +197,10 @@ class ToolInvocationStore:
         return task, run
 
     def _owned(self, context: ToolExecutionContext, now: datetime) -> None:
+        """Confirm at `now` that the scheduler job and coordinator lease still belong to
+        this execution (running, not cancelled, matching worker, token and attempt,
+        unexpired), otherwise raise.
+        """
         task, run = self._scope(context)
         lease = context.lease
         job = self.db.fetchone(
@@ -221,9 +247,15 @@ class ToolInvocationStore:
         context: ToolExecutionContext,
         query: ReadQuery,
     ) -> InvocationReservation:
+        """Check the request against the descriptor's read grant, then in one
+        transaction verify ownership, enforce the 20-attempt quota and persist a
+        reservation before any handler runs.
+        """
         descriptor = ToolDescriptor.model_validate(descriptor.model_dump())
         context = ToolExecutionContext.model_validate(context.model_dump())
         query = ReadQuery.model_validate(query.model_dump())
+        # Static grant checks run before any database work: only read-style tools within
+        # the role, resource, connector, egress and window limits are admitted.
         if (
             descriptor.effect not in {"read", "local_analysis"}
             or descriptor.input_contract != "read_query"
@@ -246,6 +278,8 @@ class ToolInvocationStore:
             )
         with self.db.transaction():
             now = self._now()
+            # Ownership is checked inside the transaction that inserts the reservation,
+            # so a lease lost concurrently cannot be admitted.
             self._owned(context, now)
             if self.count(context.org_id, context.task_id) >= 20:
                 raise ToolQuotaError
@@ -281,6 +315,9 @@ class ToolInvocationStore:
             return reservation
 
     def count(self, org_id: str, task_id: str) -> int:
+        """Count every reservation for the task in this organization, finished or not;
+        this is the quota counter.
+        """
         row = self.db.fetchone(
             "SELECT count(*) AS n FROM toolkit_invocation_reservations WHERE org_id=? AND task_id=?",
             (org_id, task_id),
@@ -347,6 +384,7 @@ class ToolInvocationStore:
                     "Invocation is completed or does not match this handler"
                 )
             now = self._now()
+            # Expiry is checked before ownership: an expired invocation must not write.
             if now >= reservation.timestamp + timedelta(
                 seconds=reservation.timeout_seconds
             ):
@@ -362,6 +400,10 @@ class ToolInvocationStore:
         *,
         uncertain: bool = False,
     ) -> ToolInvocation:
+        """Record the single completion for a reservation, returning the stored one on
+        repeat. An expired deadline, lost ownership or missing result is recorded as
+        outcome unknown rather than a success.
+        """
         reservation = InvocationReservation.model_validate(reservation.model_dump())
         context = ToolExecutionContext.model_validate(context.model_dump())
         with self.db.transaction():
@@ -369,6 +411,8 @@ class ToolInvocationStore:
                 "SELECT payload_json FROM toolkit_invocation_reservations WHERE org_id=? AND invocation_id=?",
                 (context.org_id, reservation.invocation_id),
             )
+            # The caller-supplied reservation must equal the stored one and match this
+            # execution's scope and lease, so another run cannot complete it.
             if (
                 not row
                 or InvocationReservation.model_validate_json(
@@ -395,11 +439,14 @@ class ToolInvocationStore:
                 "SELECT payload_json FROM toolkit_invocation_completions WHERE org_id=? AND invocation_id=?",
                 (context.org_id, reservation.invocation_id),
             )
+            # Completion is idempotent: a repeated finish returns the first record.
             if completed:
                 return ToolInvocation.model_validate_json(
                     cast("str", completed["payload_json"])
                 )
             now = self._now()
+            # Ambiguous outcomes: a handler may have run, so a late finish, lost
+            # ownership or missing result is recorded as unknown and never as success.
             if now >= reservation.timestamp + timedelta(
                 seconds=reservation.timeout_seconds
             ):
@@ -459,6 +506,10 @@ class ToolInvocationStore:
     def _validate_result(
         self, reservation: InvocationReservation, result: ToolResult
     ) -> None:
+        """Check a successful result against its reservation: permitted connectors, tool
+        identity, output size, and that each evidence reference exists in the same org
+        and incident with a matching content hash.
+        """
         if any(
             item.connector_id not in reservation.connector_ids
             for item in result.provenance
@@ -485,6 +536,8 @@ class ToolInvocationStore:
                 "SELECT payload_json FROM orchestration_evidence WHERE org_id=? AND incident_id=? AND evidence_id=?",
                 (reservation.org_id, reservation.incident_id, ref.evidence_id),
             )
+            # Evidence lookup is keyed by the reservation's org and incident, never the
+            # reference's, so references to other tenants' evidence fail.
             if (ref.org_id, ref.incident_id) != (
                 reservation.org_id,
                 reservation.incident_id,
@@ -505,6 +558,9 @@ class ToolInvocationStore:
         arguments_digest: str,
         error_code: str,
     ) -> ToolInvocation:
+        """Persist a denied request in its own table (it never reaches a handler),
+        capped at 20 per task.
+        """
         context = ToolExecutionContext.model_validate(context.model_dump())
         TypeAdapter(Id).validate_python(tool_id, strict=True)
         TypeAdapter(Id).validate_python(error_code, strict=True)
@@ -550,6 +606,9 @@ class ToolInvocationStore:
             return invocation
 
     def list_invocations(self, org_id: str, task_id: str) -> list[ToolInvocation]:
+        """Return the task's completed and denied invocations for this org ordered by
+        time; unfinished reservations are excluded.
+        """
         rows = self.db.fetchall(
             """SELECT c.payload_json FROM toolkit_invocation_completions c
             JOIN toolkit_invocation_reservations r USING(org_id,invocation_id)
@@ -566,6 +625,9 @@ class ToolInvocationStore:
         )
 
     def list_pending(self, org_id: str, task_id: str) -> list[InvocationReservation]:
+        """Return reservations that have no completion yet, oldest first; these are
+        unfinished or ambiguous attempts that still consume quota.
+        """
         rows = self.db.fetchall(
             """SELECT r.payload_json FROM toolkit_invocation_reservations r
             LEFT JOIN toolkit_invocation_completions c USING(org_id,invocation_id)

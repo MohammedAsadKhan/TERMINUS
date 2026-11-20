@@ -1,6 +1,6 @@
 // File: workbench.tsx
 // Author: Team LARP
-// Date: 2026-11-12
+// Date: 2026-11-19 (comments revised)
 // Version: 0.1.0
 // Purpose: Render the security overview, incident queue, incident detail routes, and approval gates.
 
@@ -39,11 +39,16 @@ import { IncidentTimelineChart, AttackSurfaceMatrix, SeverityEndpointPieCharts }
 import IncidentResponse from './incident-response';
 import type { AgentAction, Approval, Incident } from '../types';
 
+// Body for the incident action endpoint; the resolution fields are used only when closing an incident.
 type Action = { action_type: 'start_investigation' | 'close_ticket' | 'reopen_ticket'; resolution_category?: string; resolution_notes?: string };
+// Tabs of the incident dossier.
 type DetailTab = 'Evidence' | 'Response' | 'Activity' | 'Assistant';
+// Column emphasis modes of the incidents command center; the value is applied as a CSS class.
 type ViewLayout = 'unified' | 'queue' | 'graph';
 
+// Sort rank by severity (critical first); an unrecognized severity sorts after low.
 const severityOrder: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
+// Resolution classifications offered when closing an incident; an unrecorded category displays as Inconclusive.
 const categoryNames: Record<string, string> = {
   true_positive: 'True positive',
   false_positive: 'False positive',
@@ -51,14 +56,19 @@ const categoryNames: Record<string, string> = {
   inconclusive: 'Inconclusive',
 };
 
+// Formats a stored timestamp; a missing one reads as Unknown.
 function formatTime(value?: string) { return value ? date(value) : 'Unknown'; }
+// A dash marks a field the record does not have, never a default value.
 function textOrDash(value?: string | number | null) { return value === null || value === undefined || value === '' ? '—' : String(value); }
+// MITRE may be a single technique or a list.
 function displayMitre(value?: string | string[] | null) { return Array.isArray(value) ? value.join(', ') : textOrDash(value); }
 
+// Text badge; the lower-cased value is also a CSS class so the stylesheet can color known values.
 function Badge({ value, kind = 'status' }: { value: string; kind?: 'status' | 'severity' }) {
   return <span className={`work-badge work-badge-${kind} ${value.toLowerCase()}`}>{value.replaceAll('_', ' ')}</span>;
 }
 
+// One incident row, also operable from the keyboard. It shows only recorded fields, with placeholder text when one is missing.
 function QueueRow({ item, selected, onClick }: { item: Incident; selected?: boolean; onClick: () => void }) {
   const mitreCode = Array.isArray(item.mitre) ? item.mitre[0] : item.mitre;
   return (
@@ -95,6 +105,8 @@ function QueueRow({ item, selected, onClick }: { item: Incident; selected?: bool
   );
 }
 
+// One entry of the actions log (agent, workflow, guardrail, policy or user). Statuses are shown as recorded, and unrecognized
+// ones keep a neutral tag instead of being mapped to success.
 function ActionRow({ item, onClick }: { item: AgentAction; onClick?: () => void }) {
   const getActorBadge = () => {
     if (item.actor_type === 'agent') return <Tag color="purple" icon={<RobotOutlined />}>{item.actor_name}</Tag>;
@@ -113,6 +125,7 @@ function ActionRow({ item, onClick }: { item: AgentAction; onClick?: () => void 
     return <Tag color="magenta">{s}</Tag>;
   };
 
+  // Containment-type actions, covering both workflow node names and response action names, get an emphasized row.
   const isContainment = ['TOOL_ISOLATE', 'TOOL_FIREWALL', 'ISOLATE_HOST', 'BLOCK_IP'].includes((item.action_type || '').toUpperCase());
 
   return (
@@ -134,6 +147,8 @@ function ActionRow({ item, onClick }: { item: AgentAction; onClick?: () => void 
   );
 }
 
+// Actions log for the signed-in organization, polled every 10 seconds. The filter tabs and search run in the browser over the
+// loaded list, and the action-type lists decide which entries count as containment, investigation or approval activity.
 function ActionsLogList() {
   const { orgId } = useSession();
   const navigate = useNavigate();
@@ -213,6 +228,7 @@ function ActionsLogList() {
   );
 }
 
+// Only fields present on the approval record, with Not recorded placeholders; nothing is inferred from the prompt text.
 function getApprovalDetails(approval: Approval) {
   return {
     workflowId: approval.workflow_id || 'Not recorded',
@@ -223,6 +239,8 @@ function getApprovalDetails(approval: Approval) {
   };
 }
 
+// Details of one human authorization gate. Authorize and Reject appear only while it is pending and are disabled for
+// non-admins. Approving records the authorization only; the workflow resumes separately and this dialog confirms no effect.
 function ApprovalDetailsModal({
   approval,
   canWrite,
@@ -330,6 +348,8 @@ function ApprovalDetailsModal({
   );
 }
 
+// Approvals table for the overview, polled every 3 seconds. The cache entry is shared with the Workflows page. Only admins
+// can resolve a gate.
 function ApprovalsList() {
   const { orgId, detail } = useSession();
   const query = useQueryClient();
@@ -344,6 +364,7 @@ function ApprovalsList() {
 
   const canWrite = detail?.role === 'admin';
 
+  // Resolves one gate, then refreshes approvals, the actions log and incidents so the lists reflect the decision.
   async function resolveApproval(approvalId: string, decision: 'APPROVED' | 'REJECTED') {
     setResolvingId(approvalId);
     try {
@@ -479,6 +500,8 @@ function ApprovalsList() {
 }
 
 
+// Incident dossier (Evidence, Response, Activity and Assistant tabs). Admins and members can start, resolve or reopen.
+// Resolving records the analyst's outcome and does not verify any response action.
 function IncidentPanel({ id, onClose }: { id: string; onClose: () => void }) {
   const { orgId, detail } = useSession();
   const query = useQueryClient();
@@ -489,7 +512,9 @@ function IncidentPanel({ id, onClose }: { id: string; onClose: () => void }) {
   const [notes, setNotes] = useState('');
   const [question, setQuestion] = useState('');
   const [conversation, setConversation] = useState<Array<{ role: 'Analyst' | 'Assistant'; text: string; tools?: string[] }>>([]);
+  // Re-read every 15 seconds so status changes made elsewhere appear.
   const incident = useQuery({ queryKey: ['incident', orgId, id], queryFn: () => api<Incident>(`/incidents/${encodeURIComponent(id)}`, orgId), refetchInterval: 15000 });
+  // After a status action both the incident list and this incident are reloaded.
   const action = useMutation({
     mutationFn: (payload: Action) => api(`/incidents/${encodeURIComponent(id)}/action`, orgId, body('POST', payload)),
     onSuccess: async (_, payload) => {
@@ -499,19 +524,23 @@ function IncidentPanel({ id, onClose }: { id: string; onClose: () => void }) {
     },
     onError: error => message.error(error.message),
   });
+  // Questions go to this incident's chat endpoint. The transcript lives only in this panel's state and is lost when the panel closes.
   const chat = useMutation({
     mutationFn: (prompt: string) => api<{ response: string; tools_consulted: string[] }>(`/incidents/${encodeURIComponent(id)}/chat`, orgId, body('POST', { prompt })),
     onSuccess: result => setConversation(current => [...current, { role: 'Assistant', text: result.response, tools: result.tools_consulted }]),
   });
   const item = incident.data;
+  // Admins and members may change incident status.
   const canWrite = detail?.role === 'admin' || detail?.role === 'member';
   const citations = item?.evidence_citations || [];
+  // Lifecycle rows come only from recorded timestamps: received, last status change and resolution.
   const eventRows = item ? [
     { label: 'Alert received', value: item.created_at || item.timestamp },
     ...(item.updated_at ? [{ label: `Status changed to ${item.status.toLowerCase()}`, value: item.updated_at }] : []),
     ...(item.resolved_at ? [{ label: 'Resolved', value: item.resolved_at }] : []),
   ] : [];
 
+  // Ignored while a question is pending or the input is blank.
   function ask() {
     const prompt = question.trim();
     if (!prompt || chat.isPending) return;
@@ -669,6 +698,8 @@ function IncidentPanel({ id, onClose }: { id: string; onClose: () => void }) {
   );
 }
 
+// Overview card for pending authorization gates. Only the first pending gate gets inline actions and the badge shows how many
+// are waiting. It shows only fields on the approval record.
 function HumanApprovalSection({
   pendingApprovals,
   resolvingId,
@@ -700,6 +731,7 @@ function HumanApprovalSection({
     );
   }
 
+  // Only the first pending gate is acted on from this card; the rest are in the Approvals tab.
   const topApproval = pendingApprovals[0];
   const details = getApprovalDetails(topApproval);
 
@@ -773,6 +805,8 @@ function HumanApprovalSection({
 }
 
 
+// Security overview (default) or the Incidents command center (incidentView) for the signed-in organization. Everything
+// shown is stored records polled every 3 seconds, not a live sensor feed. Authorizing approval gates is limited to admins.
 export default function Workbench({ incidentView = false }: { incidentView?: boolean }) {
   const { orgId, detail } = useSession();
   const queryClient = useQueryClient();
@@ -791,11 +825,13 @@ export default function Workbench({ incidentView = false }: { incidentView?: boo
   // Poll every 3 seconds so lab seed changes appear. This is polling of stored
   // records, not a live sensor or traffic feed.
   const incidents = useQuery({ queryKey: ['incidents', orgId], queryFn: () => api<Incident[]>('/incidents', orgId), refetchInterval: 3000 });
+  // Alert dots for the topology. The key is the one the test-alert dialog invalidates after a submission.
   const network = useQuery({
     queryKey: ['investigation-network-stable', orgId],
     queryFn: () => api<{ total_events: number; shown_events: number; events: NetworkEvent[] }>('/investigation/graph/network', orgId),
     refetchInterval: 3000,
   });
+  // Same cache entry as the approvals table and the Workflows page.
   const approvals = useQuery({
     queryKey: ['approvals', orgId],
     queryFn: () => api<Approval[]>('/workflows/approvals/pending', orgId),
@@ -804,6 +840,8 @@ export default function Workbench({ incidentView = false }: { incidentView?: boo
 
   const pendingApprovals = (approvals.data || []).filter(a => a.status === 'PENDING');
 
+  // Same decision request as the Approvals table, used by the overview card. The toast says authorization was recorded and the
+  // effect is pending, since this call does not execute or confirm the downstream action.
   async function quickResolveApproval(approvalId: string, decision: 'APPROVED' | 'REJECTED') {
     setResolvingGateId(approvalId);
     try {
@@ -829,12 +867,15 @@ export default function Workbench({ incidentView = false }: { incidentView?: boo
     }
   }
 
+  // Unresolved incidents first, then by severity, then newest first.
   const all = useMemo(() => [...(incidents.data || [])].sort((a, b) => {
     const aActive = a.status === 'RESOLVED' ? 1 : 0;
     const bActive = b.status === 'RESOLVED' ? 1 : 0;
     return aActive - bActive || (severityOrder[a.severity] ?? 4) - (severityOrder[b.severity] ?? 4) || Date.parse(b.created_at || b.timestamp) - Date.parse(a.created_at || a.timestamp);
   }), [incidents.data]);
 
+  // Command center queue: status, severity and period filters, any topology selection (matched on source IP, host, MITRE
+  // technique or alert id) and the text search. The period filter drops records whose timestamp cannot be parsed.
   const visible = useMemo(() => all.filter(item => {
     if (status === 'active' && item.status === 'RESOLVED') return false;
     if (status !== 'active' && status !== 'all' && item.status !== status) return false;
@@ -854,14 +895,17 @@ export default function Workbench({ incidentView = false }: { incidentView?: boo
     return haystack.includes(search.trim().toLowerCase());
   }), [all, status, severity, period, selectedEntity, search]);
 
+  // Active counts exclude resolved incidents and ignore the filters.
   const active = all.filter(item => item.status !== 'RESOLVED');
   const critical = active.filter(item => item.severity === 'critical');
   const investigating = active.filter(item => item.status === 'INVESTIGATING');
 
+  // The topology always shows every returned alert dot; selecting a node filters the queue, not the graph.
   const visibleEvents = useMemo(() => {
     return network.data?.events || [];
   }, [network.data]);
 
+  // Both layouts need the incident list, so loading and error states are handled once before either renders.
   if (incidents.isPending) return <div className="work-loading"><Spin size="large" /></div>;
   if (incidents.error) return <ErrorPanel error={incidents.error} retry={() => void incidents.refetch()} />;
 

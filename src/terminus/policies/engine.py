@@ -1,6 +1,6 @@
 # File name: engine.py
 # Author: Team LARP
-# Revision date: 2026-11-12
+# Revision date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Deterministic Sub-Millisecond Multi-Tenant Policy Engine for TERMINUS.
 
@@ -47,9 +47,13 @@ class PolicyEngine:
     }
 
     def __init__(self, profiles: dict[str, TenantPolicyProfile] | None = None) -> None:
+        """Start with per-tenant policy profiles keyed by organization ID (empty means
+        built-in defaults).
+        """
         self._profiles = profiles or {}
 
     def set_tenant_profile(self, profile: TenantPolicyProfile) -> None:
+        """Install or replace the policy profile for the profile's own organization."""
         self._profiles[profile.org_id] = profile
 
     def evaluate(self, alert: SiemAlert, org_id: OrgId | str) -> PolicyResult:  # noqa: C901, PLR0912 - ordered policy precedence
@@ -61,6 +65,9 @@ class PolicyEngine:
         min_triage = profile.min_triage_level if profile else 5
         min_escalate = profile.min_escalate_level if profile else 10
 
+        # Order matters: this tenant's suppressions and custom rules run first and
+        # return early, so an explicit tenant decision overrides the generic MITRE
+        # and severity tiers below. Profiles are looked up by organization ID only.
         # 1. Check IP Suppressions
         if profile and alert.src_ip:
             for rule in profile.ip_suppressions:

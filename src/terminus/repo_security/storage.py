@@ -1,6 +1,6 @@
 # File name: storage.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: SQLite persistence for repository scans, findings, components, and finding events.
 
@@ -20,10 +20,12 @@ class SqliteRepoSecurityRepository:
     """Organization-scoped storage for repository security scanning results."""
 
     def __init__(self, db: Database | None = None) -> None:
+        """Bind an optional database; the shared singleton is used when none is given."""
         self._db = db
 
     @property
     def db(self) -> Database:
+        """Return the injected database, or the process-wide singleton."""
         return self._db if self._db is not None else Database.get_instance()
 
     def create_scan(
@@ -33,6 +35,9 @@ class SqliteRepoSecurityRepository:
         trigger: str,
         commit_sha: str | None = None,
     ) -> dict[str, Any]:
+        """Record a new queued scan for an asset of the organization and return the
+        stored row.
+        """
         scan_id = str(uuid.uuid4())
         started_at = datetime.now(UTC).isoformat()
         self.db.execute(
@@ -54,6 +59,9 @@ class SqliteRepoSecurityRepository:
         error: str | None = None,
         commit_sha: str | None = None,
     ) -> dict[str, Any] | None:
+        """Update a scan's status, stamping the finish time for terminal states, plus
+        any optional stats, error or commit; scoped to the organization.
+        """
         finished_at = datetime.now(UTC).isoformat() if status in ("completed", "partial", "failed") else None
         updates = ["status = ?"]
         params: list[Any] = [status]
@@ -79,6 +87,9 @@ class SqliteRepoSecurityRepository:
         return self.get_scan(org_id, scan_id)
 
     def get_scan(self, org_id: str, scan_id: str) -> dict[str, Any] | None:
+        """Fetch one scan within the organization with its stats decoded (empty if
+        malformed), or None.
+        """
         row = self.db.fetchone(
             "SELECT scan_id, org_id, asset_id, trigger, commit_sha, status, started_at, finished_at, error, stats_json "
             "FROM repo_scans WHERE scan_id = ? AND org_id = ?",
@@ -101,6 +112,9 @@ class SqliteRepoSecurityRepository:
         limit: int = 50,
         offset: int = 0,
     ) -> list[dict[str, Any]]:
+        """List an asset's scans newest first within the organization, with the page
+        size capped at 200.
+        """
         limit = min(max(1, limit), 200)
         offset = max(0, offset)
         rows = self.db.fetchall(
@@ -126,6 +140,9 @@ class SqliteRepoSecurityRepository:
         scan_id: str,
         findings: list[dict[str, Any]],
     ) -> list[dict[str, Any]]:
+        """Upsert findings in one transaction, deduplicating on (organization, asset,
+        fingerprint); a previously resolved finding is reopened when seen again.
+        """
         now = datetime.now(UTC).isoformat()
         stored: list[dict[str, Any]] = []
 
@@ -197,6 +214,7 @@ class SqliteRepoSecurityRepository:
         return stored
 
     def get_finding(self, org_id: str, finding_id: str) -> dict[str, Any] | None:
+        """Fetch one finding within the organization with its details decoded, or None."""
         row = self.db.fetchone(
             "SELECT finding_id, org_id, asset_id, scan_id, category, rule, severity, file, line, "
             "commit_sha, fingerprint, preview, details_json, status, first_seen, last_seen "
@@ -223,6 +241,9 @@ class SqliteRepoSecurityRepository:
         limit: int = 200,
         offset: int = 0,
     ) -> list[dict[str, Any]]:
+        """List the organization's findings with optional asset, severity, status and
+        category filters, capped at 200 per page.
+        """
         limit = min(max(1, limit), 200)
         offset = max(0, offset)
 
@@ -270,6 +291,9 @@ class SqliteRepoSecurityRepository:
         actor: str,
         details: dict[str, Any] | None = None,
     ) -> dict[str, Any] | None:
+        """Change a finding's status and append a status-change event in one
+        transaction; returns the finding unchanged if the status is the same.
+        """
         finding = self.get_finding(org_id, finding_id)
         if finding is None:
             return None
@@ -302,6 +326,9 @@ class SqliteRepoSecurityRepository:
         commit_sha: str,
         components: list[dict[str, Any]],
     ) -> None:
+        """Store a commit's dependency inventory, replacing existing rows with the same
+        key.
+        """
         with self.db.transaction() as conn:
             for comp in components:
                 conn.execute(
@@ -325,6 +352,9 @@ class SqliteRepoSecurityRepository:
         limit: int = 200,
         offset: int = 0,
     ) -> list[dict[str, Any]]:
+        """List the organization's dependency components, optionally for one asset,
+        capped at 200 per page.
+        """
         limit = min(max(1, limit), 200)
         offset = max(0, offset)
 
@@ -345,6 +375,9 @@ class SqliteRepoSecurityRepository:
         )
 
     def sweep_stale_scans(self) -> int:
+        """Fail every queued or running scan, since after a restart no worker can still
+        own them; returns how many were marked.
+        """
         now = datetime.now(UTC).isoformat()
         cursor = self.db.execute(
             "UPDATE repo_scans SET status = 'failed', error = 'Scan abandoned or timed out during server restart', "

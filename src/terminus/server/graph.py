@@ -1,6 +1,6 @@
 # File name: graph.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Tenant-scoped graph and source-evidence endpoints.
 
@@ -21,6 +21,11 @@ graph_router = APIRouter(prefix="/investigation/graph", tags=["Investigation Gra
 
 
 def _window(from_time: str | None, until: str | None) -> tuple[str, str]:
+    """Parse the optional from/until query values into a UTC ISO window, defaulting to
+    the last seven days; timestamps must carry a timezone, the window may not exceed
+    seven days, and it may not end in the future (five-minute clock-skew allowance),
+    otherwise 422.
+    """
     now = datetime.now(UTC)
     try:
         end = datetime.fromisoformat(until) if until else now
@@ -42,6 +47,9 @@ def graph_snapshot(
     until: str | None = None,
     policy: Literal["all", "ignore", "triage", "escalate"] = "all",
 ) -> dict:
+    """Return the investigation graph for the caller's organization over the validated
+    time window, optionally filtered by policy tier.
+    """
     start, end = _window(from_time, until)
     return GraphEventStore().snapshot(org_id, start, end, policy)
 
@@ -59,6 +67,10 @@ def graph_evidence(
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> dict:
+    """Return paginated evidence behind a graph node or connection for the caller's
+    organization; at least one selector (source IP, host, MITRE technique or alert id)
+    is required, otherwise 422.
+    """
     if source_ip is None and host is None and mitre is None and alert_id is None:
         raise HTTPException(422, "Select a graph node or connection to inspect evidence")
     start, end = _window(from_time, until)
@@ -72,5 +84,8 @@ def graph_network(
     until: str | None = None,
     policy: Literal["all", "ignore", "triage", "escalate"] = "all",
 ) -> dict:
+    """Return the network view of the investigation graph for the caller's organization
+    over the validated time window.
+    """
     start, end = _window(from_time, until)
     return GraphEventStore().network(org_id, start, end, policy)

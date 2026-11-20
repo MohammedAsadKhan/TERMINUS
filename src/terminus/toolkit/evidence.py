@@ -1,6 +1,6 @@
 # File name: evidence.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Fenced, bounded evidence collection for trusted installed read handlers.
 
@@ -46,6 +46,9 @@ class ToolEvidenceWriter:
     def __init__(
         self, validator: ToolContractValidator, audit: ToolInvocationStore
     ) -> None:
+        """Require that validation and audit share one database so the evidence write
+        and the pending-invocation check happen in the same transaction.
+        """
         if validator.scheduler.db is not audit.db:
             raise ValueError("Evidence and audit must use the same database")
         self.validator: ToolContractValidator = validator
@@ -64,6 +67,11 @@ class ToolEvidenceWriter:
         content: JsonValue,
         source_event_ids: tuple[str, ...] = (),
     ) -> tuple[EvidenceReference, Provenance]:
+        """Validate observed content and its provenance against the tool's connectors,
+        the query window and size bounds, then persist it as incident evidence inside
+        one transaction that re-checks ownership and that this invocation is still
+        pending.
+        """
         descriptor = ToolDescriptor.model_validate(descriptor.model_dump())
         context = ToolExecutionContext.model_validate(context.model_dump())
         query = ReadQuery.model_validate(query.model_dump())
@@ -99,6 +107,8 @@ class ToolEvidenceWriter:
             > descriptor.limits.max_output_bytes
         ):
             raise ToolContractDeniedError("Evidence envelope exceeds the tool bound")
+        # Ownership and pending-invocation checks run in the same transaction as the
+        # write, so a completed, cancelled or expired invocation cannot add evidence.
         with self.validator.scheduler.db.transaction():
             self.validator.validate_request(descriptor, context, query)
             _ = self.audit.assert_pending(context, descriptor, query)

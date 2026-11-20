@@ -1,6 +1,6 @@
 # File name: repo_api.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: API endpoints for repository security scans, findings, SBOM components, and GitHub webhooks.
 
@@ -29,6 +29,9 @@ repo_router = APIRouter(tags=["repo-security"])
 
 
 def _check_feature_enabled() -> None:
+    """Route dependency that hides the repository-security endpoints behind a 404 unless
+    TERMINUS_REPO_SCAN_ENABLED is set.
+    """
     if os.getenv("TERMINUS_REPO_SCAN_ENABLED", "").lower() not in ("1", "true"):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -37,14 +40,18 @@ def _check_feature_enabled() -> None:
 
 
 def get_repo_security_repository() -> SqliteRepoSecurityRepository:
+    """FastAPI dependency returning the repository-security (scan and finding) store."""
     return SqliteRepoSecurityRepository()
 
 
 def get_asset_repository() -> SqliteAssetRepository:
+    """FastAPI dependency returning the SQLite asset repository."""
     return SqliteAssetRepository()
 
 
 class UpdateFindingStatusRequest(BaseModel):
+    # Body for changing a finding's status with an optional note; unknown fields are
+    # rejected.
     model_config = ConfigDict(extra="forbid")
 
     status: FindingStatus
@@ -62,6 +69,10 @@ async def trigger_asset_scan(
     asset_repo: Annotated[SqliteAssetRepository, Depends(get_asset_repository)],
     scan_repo: Annotated[SqliteRepoSecurityRepository, Depends(get_repo_security_repository)],
 ) -> dict[str, Any]:
+    """Operator-only: queue a manual scan for a repository asset in the caller's
+    organization and return 202 with the scan id; 404 if the asset is missing there and
+    400 if it is not a repository.
+    """
     asset = asset_repo.get(str(org_id), asset_id)
     if asset is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Asset not found")
@@ -84,6 +95,9 @@ async def list_asset_scans(
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> list[dict[str, Any]]:
+    """Operator-only: list scans of an asset in the caller's organization, paged; 404 if
+    the asset is not in that organization.
+    """
     asset = asset_repo.get(str(org_id), asset_id)
     if asset is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Asset not found")
@@ -105,6 +119,9 @@ async def list_asset_findings(
     limit: Annotated[int, Query(ge=1, le=200)] = 200,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> list[dict[str, Any]]:
+    """Operator-only: list findings for an asset in the caller's organization, filtered
+    by severity, status or category; 404 if the asset is not in that organization.
+    """
     asset = asset_repo.get(str(org_id), asset_id)
     if asset is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Asset not found")
@@ -131,6 +148,9 @@ async def list_asset_components(
     limit: Annotated[int, Query(ge=1, le=200)] = 200,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> list[dict[str, Any]]:
+    """Operator-only: list software components recorded for an asset in the caller's
+    organization, paged; 404 if the asset is not in that organization.
+    """
     asset = asset_repo.get(str(org_id), asset_id)
     if asset is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Asset not found")
@@ -147,6 +167,10 @@ async def update_finding_status(
     org_id: Annotated[OrgId, Depends(get_current_org)],
     scan_repo: Annotated[SqliteRepoSecurityRepository, Depends(get_repo_security_repository)],
 ) -> dict[str, Any]:
+    """Admin-only: set a finding's status (with optional note) in the caller's
+    organization, recorded under the actor name admin; 404 if the finding is not found
+    there.
+    """
     details = {"note": request.note} if request.note else {}
     updated = scan_repo.update_finding_status(
         str(org_id),
@@ -167,6 +191,9 @@ async def update_finding_status(
 async def trigger_components_rematch(
     org_id: Annotated[OrgId, Depends(get_current_org)],
 ) -> dict[str, Any]:
+    """Admin-only: re-run component matching for the caller's organization and return
+    its result counts.
+    """
     result = await rematch_components_job(str(org_id))
     return {"status": "completed", **result}
 
@@ -223,6 +250,13 @@ async def github_repo_webhook(
     x_hub_signature_256: Annotated[str | None, Header(alias="X-Hub-Signature-256")] = None,
     x_github_event: Annotated[str | None, Header(alias="X-GitHub-Event")] = None,
 ) -> dict[str, Any]:
+    """Receive a GitHub push webhook and queue a scan of the matching repository asset.
+    The request is authenticated by HMAC signature rather than a session, and the target
+    organization is derived server-side, never from client headers.
+    """
+    # Order matters: with no secret configured the endpoint fails closed, and the
+    # signature over the raw bytes is verified before the body is parsed or any
+    # repository lookup runs, so unauthenticated callers reach no tenant data.
     webhook_secret = os.getenv("TERMINUS_GITHUB_WEBHOOK_SECRET", "")
     if not webhook_secret:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Webhook signature verification failed")
@@ -236,6 +270,7 @@ async def github_repo_webhook(
         webhook_secret.encode("utf-8"), body_bytes, hashlib.sha256
     ).hexdigest()
 
+    # Constant-time comparison avoids leaking signature bytes through timing.
     if not hmac.compare_digest(expected_sig, x_hub_signature_256):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid webhook signature")
 
@@ -281,6 +316,9 @@ async def github_repo_webhook(
 async def seed_demo_inventory(
     org_id: Annotated[OrgId, Depends(get_current_org)],
 ) -> dict[str, Any]:
+    """Operator-only: seed presentation demo assets and data into the caller's
+    organization.
+    """
     from terminus.demos.seed_data import seed_presentation_demo_data
 
     return seed_presentation_demo_data(org_id=str(org_id))
@@ -294,6 +332,9 @@ async def simulate_repo_webhook(
     org_id: Annotated[OrgId, Depends(get_current_org)],
     asset_id: str | None = None,
 ) -> dict[str, Any]:
+    """Operator-only: queue a push-triggered scan for a repository asset in the caller's
+    organization to imitate a webhook; no external request is made.
+    """
     db = Database.get_instance()
     asset_repo = SqliteAssetRepository(db)
     if asset_id:

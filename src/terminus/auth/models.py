@@ -1,6 +1,6 @@
 # File name: models.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Define users, organization roles, and authentication request data.
 
@@ -27,6 +27,9 @@ class User(BaseModel):
     @field_validator("email")
     @classmethod
     def validate_email(cls, v: str) -> str:
+        """Lowercase the address and reject values lacking an at-sign or a dot, so
+        lookups use one canonical key.
+        """
         v = v.lower()
         if "@" not in v or "." not in v:
             raise ValueError("Invalid email format")

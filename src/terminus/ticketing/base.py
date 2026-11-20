@@ -1,6 +1,6 @@
 # File name: base.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Define the interface for creating tickets from investigation reports.
 
@@ -13,6 +13,7 @@ from terminus.models import InvestigationReport
 
 
 class TicketStore(Protocol):
+    """Contract for tenant-scoped ticket storage used by investigations and reports."""
     async def create_ticket(
         self, report: InvestigationReport, org_id: OrgId
     ) -> TicketId: ...

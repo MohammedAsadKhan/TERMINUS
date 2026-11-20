@@ -1,6 +1,6 @@
 # File name: prepare_wazuh_lab_response.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Save an evidence-backed review plan; never approve or execute a response.
 
@@ -18,14 +18,22 @@ from terminus.storage.db import Database
 
 
 def main() -> None:
+    """Build and save a review-only response plan from one task's saved evidence.
+
+    The plan is stored as evidence and printed. This script never approves, queues, or
+    sends a response; a person must review and approve it elsewhere.
+    """
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ("database", "org", "actor", "incident", "source-task"):
         parser.add_argument("--" + name, required=True)
     args = parser.parse_args()
     db = Database(args.database)
     try:
+        # Authorization first: only a current organization administrator may save a plan.
         if SqliteMembershipStore(db).role_of(OrgId(args.org), UserId(args.actor)) != OrganizationRole.ADMIN:
             raise ValueError("Current organization administrator required")
+        # The source task must belong to the stated incident so a plan cannot cite
+        # evidence from another incident.
         store = OrchestrationStore(db)
         source = store.get_task(args.org, args.source_task)
         if source.incident_id != args.incident:

@@ -1,6 +1,6 @@
 # File name: runtime.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Common specialist handler: fixed ordered read plan plus optional cited model step.
 
@@ -97,12 +97,18 @@ class PlannedCall:
 
 @dataclass(frozen=True)
 class RoleSpec:
+    """A specialist role and its fixed, ordered read plan."""
+
     role: str
     plan: tuple[PlannedCall, ...]
 
 
 @dataclass(frozen=True)
 class SpecialistDeps:
+    """Services a specialist handler needs; the model step runs only when both routing and
+    client_for are provided.
+    """
+
     read_service_for: ReadServiceResolver
     actor_user_id: str
     routing: ModelRoutingService | None = None
@@ -113,10 +119,14 @@ class SpecialistDeps:
 
 
 def _gap(code: GapCode, tool_id: str | None = None, detail: str = "") -> SpecialistGap:
+    """Create a gap, truncating the detail to 200 characters."""
     return SpecialistGap(code=code, tool_id=tool_id, detail=detail[:200])
 
 
 def _classify(result: ToolResult) -> list[SpecialistGap]:
+    """Translate a tool result into gaps (denied, not installed, unavailable or partial coverage); a
+    clean result yields none.
+    """
     tool = result.tool_id[:200]
     detail = (result.error_code or "; ".join(result.gaps) or result.status)[:200]
     if result.status == "denied":
@@ -138,6 +148,9 @@ def _classify(result: ToolResult) -> list[SpecialistGap]:
 def _incident_time(
     deps: SpecialistDeps, org_id: str, incident_id: str
 ) -> datetime | None:
+    """Look up the incident's source time, returning None if unavailable, failing or lacking a
+    timezone so builders fall back to claim time.
+    """
     if deps.incident_time_for is None:
         return None
     try:
@@ -160,6 +173,9 @@ def _finalize(  # noqa: C901
     *,
     error: bool = False,
 ) -> SpecialistResult:
+    """Build a bounded SpecialistResult: deduplicate and cap evidence and gaps, derive the status,
+    and shed material until the result passes size validation.
+    """
     out_gaps = list(dict.fromkeys(gaps))
     ids = list(dict.fromkeys(evidence))
     if len(ids) > MAX_EVIDENCE_IDS:
@@ -207,6 +223,9 @@ async def _model_step(
     evidence: list[str],
     gaps: list[SpecialistGap],
 ) -> tuple[list[Finding], ModelRef | None]:
+    """Optionally ask the routed model for findings on the collected evidence, keeping only findings
+    that cite evidence sent to it and recording a gap whenever the model is unavailable or invalid.
+    """
     routing, client_for = deps.routing, deps.client_for
     if routing is None or client_for is None or not evidence:
         return [], None
@@ -291,6 +310,11 @@ def make_saved_evidence_handler(
         raise ValueError("Select between one and sixteen evidence records")
 
     async def handler(ctx: JobContext) -> JsonValue:
+        # Scope check: the lease must match the organization, incident and role this snapshot was
+        # admitted for.
+        """Check the lease matches the admitted organization, incident and triage role, then run the
+        model step over the selected evidence only.
+        """
         if (
             ctx.task.org_id != org_id
             or ctx.lease.incident_id != incident_id
@@ -319,9 +343,15 @@ def make_specialist_handler(  # noqa: C901, PLR0915
     async def handler(  # noqa: C901, PLR0912, PLR0915 - ordered guarded execution
         ctx: JobContext,
     ) -> JsonValue:
+        """Run the role's fixed plan under the lease: re-check the lease before each step, build a
+        trusted context and query, read through the gateway, collect evidence and gaps, then run the
+        optional model step.
+        """
         calls: list[ToolCallRecord] = []
         evidence: list[str] = []
         gaps: list[SpecialistGap] = []
+        # Checked before any read: a handler registered for one role must never run another role's
+        # plan.
         if ctx.task.role != spec.role:
             result = _finalize(
                 spec.role,
@@ -351,6 +381,8 @@ def make_specialist_handler(  # noqa: C901, PLR0915
         if len(plan) > MAX_TOOL_CALLS:
             plan = plan[:MAX_TOOL_CALLS]
             gaps.append(_gap("coverage_partial", None, "plan capped at 20 calls"))
+        # Organization isolation: the read service must belong to the leased task's organization,
+        # otherwise no reads happen and the gap is reported.
         if service is None or service.org_id != org_id:
             gaps.append(_gap("service_not_configured", None, "no read service"))
             service, plan = None, ()

@@ -1,6 +1,6 @@
 # File name: tools.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Define and dispatch the investigative tool calls available to the agent.
 
@@ -12,10 +12,16 @@ from terminus.siem.base import SiemClient
 
 
 class InvestigationTools:
+    """Collects the endpoint context and evidence summary for an alert from the SIEM client."""
+
     def __init__(self, siem: SiemClient) -> None:
+        """Bind the SIEM client used for endpoint lookups."""
         self.siem = siem
 
     async def gather_evidence(self, alert: SiemAlert, org_id: OrgId) -> Evidence:
+        """Build alert evidence, looking up the agent name if missing and recording a gap instead of
+        failing when the lookup errors; threat intelligence is reported as not assessed.
+        """
         del org_id
         agent_name = alert.agent_name
         context_gaps: list[str] = []

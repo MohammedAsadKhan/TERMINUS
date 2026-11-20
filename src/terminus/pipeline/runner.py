@@ -1,6 +1,6 @@
 # File name: runner.py
 # Author: Team LARP
-# Revision date: 2026-11-14
+# Revision date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Pipeline Runner orchestrator for TERMINUS.
 
@@ -48,6 +48,9 @@ class PipelineRunner:
         workflow_repo: SqliteWorkflowRepository | None = None,
         db: Database | None = None,
     ) -> None:
+        """Wire the deployment and default the workflow engine, stitcher, graph store and
+        repositories to the shared database.
+        """
         self.deployment = deployment
         self.db = db
         self.workflow_engine = workflow_engine or WorkflowEngine(db=db)
@@ -64,6 +67,10 @@ class PipelineRunner:
         source_origin: str = "operator_submission",
         source_receipt_sha256: str | None = None,
     ) -> InvestigationReport:
+        """Process one alert end to end: claim it, stitch it to a campaign, investigate, run the
+        first matching workflow, fill ticket and notification gaps, then record the claim outcome
+        and broadcast it.
+        """
         org_str = str(org_id)
         alert_id = str(alert.id)
 
@@ -73,6 +80,8 @@ class PipelineRunner:
             # Check if we can atomically re-claim after safe failure (D5)
             reclaimed, claim_record = self.claim_repo.reclaim_alert_if_failed_before_side_effects(org_str, alert_id)
             if not reclaimed:
+                # A duplicate alert ID is only a replay if the stored report carries the same source
+                # receipt hash; otherwise it is a conflict.
                 if source_receipt_sha256:
                     prior = (claim_record or existing_claim or {}).get("report")
                     if prior is None and (claim_record or existing_claim or {}).get("report_json"):
@@ -106,6 +115,8 @@ class PipelineRunner:
         try:
             campaign = self.stitcher.process(alert, org_str)
         except Exception:
+            # Nothing external has happened yet, so the claim is marked FAILED_BEFORE_SIDE_EFFECTS
+            # and the alert can be safely reclaimed and retried.
             self.claim_repo.update_claim_status(org_str, alert_id, "FAILED", "FAILED_BEFORE_SIDE_EFFECTS", 0, None)
             raise
 

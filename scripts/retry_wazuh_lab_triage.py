@@ -1,6 +1,6 @@
 # File name: retry_wazuh_lab_triage.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Explicit local admin request for a new read-only triage attempt.
 
@@ -19,17 +19,24 @@ from terminus.toolkit.context import ToolReadPolicyStore
 
 
 def main() -> None:
+    """Queue one new read-only triage task under the incident's alert-handling coordinator.
+
+    Each run creates a new task, so a person decides explicitly when to retry. The task
+    recollects evidence only; the worker that runs it has models and response disabled.
+    """
     parser = argparse.ArgumentParser(description=__doc__)
     for key in ("database", "org", "actor", "incident"):
         _ = parser.add_argument("--" + key, required=True)
     args = parser.parse_args()
     db = Database(args.database)
     try:
+        # Authorization first: only a current organization administrator may queue work.
         if (
             SqliteMembershipStore(db).role_of(OrgId(args.org), UserId(args.actor))
             != OrganizationRole.ADMIN
         ):
             raise ValueError("Current organization administrator required")
+        # Fail early if the incident has no stored read policy, before creating any task.
         _ = ToolReadPolicyStore(db).get_policy(args.org, args.incident)
         service = CoordinationService(db)
         parents = [
@@ -39,6 +46,7 @@ def main() -> None:
         ]
         if len(parents) != 1:
             raise ValueError("Expected existing alert-handling coordinator")
+        # A random idempotency key makes every run a new task rather than a replay.
         task = service.records.create_incident_task(
             args.org,
             args.incident,

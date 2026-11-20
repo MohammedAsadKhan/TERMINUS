@@ -1,6 +1,6 @@
 # File name: models.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Strict, bounded specialist result contracts.
 
@@ -39,23 +39,34 @@ GapCode = Literal[
 
 
 class _Contract(BaseModel):
+    # Strict, immutable base for specialist result contracts that rejects unknown
+    # fields.
+
     model_config: ClassVar[ConfigDict] = ConfigDict(
         extra="forbid", strict=True, frozen=True, allow_inf_nan=False
     )
 
 
 class Finding(_Contract):
+    # A claim that must cite one to eight evidence IDs collected in the run.
+
     claim: str = Field(min_length=1, max_length=500)
     evidence_ids: tuple[_EVIDENCE_ID, ...] = Field(min_length=1, max_length=8)
 
 
 class SpecialistGap(_Contract):
+    # A coded, bounded note of something that could not be checked; a gap is never
+    # reported as a
+    # finding.
+
     code: GapCode
     tool_id: str | None = Field(default=None, max_length=200)
     detail: str = Field(default="", max_length=200)
 
 
 class ToolCallRecord(_Contract):
+    # Summary of one tool call: its status and how many evidence records it produced.
+
     tool_id: str = Field(min_length=1, max_length=200)
     status: str = Field(min_length=1, max_length=32)
     error_code: str | None = Field(default=None, max_length=200)
@@ -63,6 +74,10 @@ class ToolCallRecord(_Contract):
 
 
 class ModelRef(_Contract):
+    # Reference to the model call behind a result: connection, model, route,
+    # reservation, usage and
+    # cost.
+
     connection_id: str = Field(min_length=1, max_length=200)
     model: str = Field(min_length=1, max_length=128)
     route_id: str | None = Field(default=None, min_length=1, max_length=200)
@@ -73,6 +88,7 @@ class ModelRef(_Contract):
 
     @model_validator(mode="after")
     def consistent_cost(self) -> ModelRef:
+        """Require a cost value exactly when the cost is marked known."""
         if self.cost_known is True and self.cost_micro_usd is None:
             raise ValueError("Known model cost requires a value")
         if self.cost_micro_usd is not None and self.cost_known is not True:
@@ -81,6 +97,10 @@ class ModelRef(_Contract):
 
 
 class SpecialistResult(_Contract):
+    # Bounded specialist output: status, tool calls, cited evidence, findings, gaps and
+    # the model
+    # used, if any.
+
     status: Literal["completed", "partial", "insufficient_telemetry", "error"]
     role: str = Field(min_length=1, max_length=120)
     tool_calls: tuple[ToolCallRecord, ...] = Field(default=(), max_length=20)
@@ -92,6 +112,9 @@ class SpecialistResult(_Contract):
 
     @model_validator(mode="after")
     def bounded(self) -> SpecialistResult:
+        """Enforce the 32 KiB size cap and that a model reference is present exactly when the mode
+        uses a model.
+        """
         size = len(json.dumps(self.model_dump(mode="json"), allow_nan=False).encode())
         if size > MAX_RESULT_BYTES:
             raise ValueError("Specialist result exceeds 32 KiB")

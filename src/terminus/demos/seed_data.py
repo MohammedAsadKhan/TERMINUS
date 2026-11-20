@@ -1,6 +1,6 @@
 # File name: seed_data.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Deterministic enterprise demo seed data for assets, guardrails, repositories, and SBOM.
 
@@ -52,6 +52,9 @@ from terminus.storage.db import Database
 
 
 def _sha256(val: str) -> str:
+    """Return the hex SHA-256 digest of a string, used for deterministic request and
+    content hashes.
+    """
     return hashlib.sha256(val.encode("utf-8")).hexdigest()
 
 
@@ -559,6 +562,9 @@ def seed_demo_orchestration_tasks(db: Database, org_id: str = "org-default") -> 
         started_at: datetime | None = None,
         completed_at: datetime | None = None,
     ) -> Task:
+        """Write one orchestration task row for the demo organization, replacing any
+        with the same ID.
+        """
         t = Task(
             org_id=str(org_id),
             incident_id=incident_id,
@@ -604,6 +610,9 @@ def seed_demo_orchestration_tasks(db: Database, org_id: str = "org-default") -> 
         run_id: str | None = None,
         recovery_reason: str | None = None,
     ) -> SchedulerJob:
+        """Write one scheduler job for a task with fixed demo retry limits, replacing
+        any with the same ID.
+        """
         job = SchedulerJob(
             job_id=f"job-{task.task_id[:8]}",
             org_id=str(org_id),
@@ -640,6 +649,7 @@ def seed_demo_orchestration_tasks(db: Database, org_id: str = "org-default") -> 
         result: dict[str, Any] | None = None,
         error: str | None = None,
     ) -> AgentRun:
+        """Write one agent run record for a task, replacing any with the same ID."""
         run = AgentRun(
             org_id=str(org_id),
             incident_id=task.incident_id,
@@ -681,6 +691,9 @@ def seed_demo_orchestration_tasks(db: Database, org_id: str = "org-default") -> 
         content: dict[str, Any],
         content_ref: str | None = None,
     ) -> EvidenceRecord:
+        """Write one evidence record hashed over its canonical JSON content; an existing
+        ID is left untouched.
+        """
         content_hash = _sha256(json.dumps(content, sort_keys=True))
         ev = EvidenceRecord(
             org_id=str(org_id),
@@ -721,6 +734,9 @@ def seed_demo_orchestration_tasks(db: Database, org_id: str = "org-default") -> 
         actor: str = "response_planner_agent",
         outputs: dict[str, Any] | None = None,
     ) -> ActionAttempt:
+        """Write one containment action attempt for a task, replacing any with the same
+        ID.
+        """
         attempt = ActionAttempt(
             org_id=str(org_id),
             incident_id=task.incident_id,

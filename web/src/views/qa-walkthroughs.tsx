@@ -1,6 +1,6 @@
 // File: qa-walkthroughs.tsx
 // Author: Team LARP
-// Date: 2026-11-09
+// Date: 2026-11-19 (comments revised)
 // Version: 0.1.0
 // Purpose: Display guided console checks and their expected results.
 
@@ -10,6 +10,8 @@ import { TEST_TOPICS } from '../test-alerts';
 import './qa-walkthroughs.css';
 import OrchestrationSimulation from './orchestration-simulation';
 
+// Manual QA checks. Each names the console area to open and the evidence to record; they are instructions only and
+// nothing here runs a test or proves a connection.
 const walkthroughs = [
   {
     title: '1. Synthetic alert to incident',
@@ -48,6 +50,8 @@ const walkthroughs = [
   },
 ] as const;
 
+// Page for the /qa route (its sidebar entry is currently hidden). Status text on this page avoids claiming live
+// Wazuh, model, notification or response connectivity.
 export default function QaWalkthroughs() {
   return <div className="qa-page">
     <header className="qa-header">

@@ -1,6 +1,6 @@
 # File name: evidence_tools.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Read-only incident evidence tools over durable orchestration records.
 
@@ -92,6 +92,9 @@ def evidence_store_catalog(catalog: ToolkitCatalog) -> ToolkitCatalog:
 
 
 class EvidenceToolHost(Protocol):
+    """Protocol for the services an evidence reader needs from its read service:
+    scheduler, context factory, evidence writer, audit store and registry.
+    """
     scheduler: SchedulerStore
     contexts: TrustedReadContextFactory
     writer: ToolEvidenceWriter
@@ -104,12 +107,18 @@ def _gap(
     status: Literal["unavailable", "unsupported", "denied", "error"],
     code: str,
 ) -> ToolResult:
+    """Build a data-free result that discloses the missing data as a gap with a stable
+    error code.
+    """
     return ToolResult(
         tool_id=tool_id, version="1.0", status=status, error_code=code, gaps=(code,)
     )
 
 
 def _size(value: object) -> int:
+    """Return the JSON-encoded size in bytes, used to keep output within the model-
+    facing budget.
+    """
     return len(json.dumps(value, allow_nan=False, default=str).encode())
 
 
@@ -117,10 +126,17 @@ class EvidenceReader:
     """Handlers for the evidence tools, bound to one read service."""
 
     def __init__(self, host: EvidenceToolHost) -> None:
+        """Bind the reader to the read service that supplies its scheduler, writer and
+        context factory.
+        """
         self.host: EvidenceToolHost = host
 
     def handler(self, tool_id: str) -> ToolHandler:
+        """Return the async handler for one evidence tool id, to be installed in the
+        executable registry.
+        """
         async def read(context: ToolExecutionContext, query: ReadQuery) -> ToolResult:
+            """Dispatch the call to the reader's synchronous implementation."""
             return self._read(tool_id, context, query)
 
         return read
@@ -143,6 +159,9 @@ class EvidenceReader:
 
     @staticmethod
     def _metadata(record: EvidenceRecord) -> dict[str, JsonValue]:
+        """Describe an evidence record by metadata, hash and content size only; the
+        stored content itself is not returned.
+        """
         return {
             "evidence_id": record.evidence_id,
             "task_id": record.task_id,
@@ -157,6 +176,9 @@ class EvidenceReader:
     def _trace(
         self, query: ReadQuery, stamp: datetime, event_ids: tuple[str, ...]
     ) -> Provenance:
+        """Build provenance for the evidence store connector, tied to the digest of the
+        admitted query.
+        """
         return Provenance(
             source_id=_SOURCE,
             connector_id=_CONNECTOR,
@@ -180,6 +202,9 @@ class EvidenceReader:
         truncated: bool,
         gaps: tuple[str, ...],
     ) -> ToolResult:
+        """Persist the observed data as fenced evidence through the writer and wrap it
+        in a result with matching provenance, marking it partial when incomplete.
+        """
         ref, trace = self.host.writer.record(
             self.host.registry.descriptor(tool_id),
             context,
@@ -211,6 +236,9 @@ class EvidenceReader:
         *,
         truncated: bool,
     ) -> ToolResult:
+        """Return a partial result with no data and provenance only, disclosing the
+        gaps, because missing telemetry must never look like an empty success.
+        """
         # Missing telemetry is a disclosed gap, never an empty success.
         return ToolResult(
             tool_id=tool_id,
@@ -227,6 +255,12 @@ class EvidenceReader:
     def _read(  # noqa: PLR0911 - fixed fail-closed admission exits
         self, tool_id: str, context: ToolExecutionContext, query: ReadQuery
     ) -> ToolResult:
+        """Re-authorize the context, require an incident resource and the evidence event
+        kind, then run the requested tool in one transaction; any authorization change
+        becomes a denied gap result.
+        """
+        # The resource is resolved first: it re-authorizes the context and proves the
+        # target is an operator-bound resource of this incident before any read.
         try:
             resource = self.host.contexts.resolve_resource(context, query.resource_id)
         except ReadContextDeniedError:
@@ -236,6 +270,8 @@ class EvidenceReader:
         if query.event_kind != "evidence":
             return _gap(tool_id, "unsupported", "query_kind_not_supported")
         cited = _CITED.get(())
+        # Authorization is checked again inside the read transaction, so a revoked
+        # policy or lost lease cannot be used for a read already in progress.
         try:
             with self.host.scheduler.db.transaction():
                 self.host.contexts.authorize(context)
@@ -254,6 +290,9 @@ class EvidenceReader:
         query: ReadQuery,
         cited: tuple[str, ...],
     ) -> ToolResult:
+        """Return metadata for exactly one cited evidence id that exists in this
+        incident and lies inside the query window.
+        """
         if len(cited) != 1:
             return _gap(tool_id, "unsupported", "single_evidence_id_required")
         record = self._lookup(context, cited[0])
@@ -276,6 +315,10 @@ class EvidenceReader:
     def _timeline(
         self, tool_id: str, context: ToolExecutionContext, query: ReadQuery
     ) -> ToolResult:
+        """List this incident's evidence metadata in the query window, scanning at most
+        page size times max pages records and trimming to the output budget, and report
+        any truncation as a gap.
+        """
         cap = query.page_size * query.max_pages
         scanned: list[EvidenceRecord] = []
         offset = 0
@@ -327,6 +370,9 @@ class EvidenceReader:
 
     @staticmethod
     def _is_evidence_tool_output(record: EvidenceRecord) -> bool:
+        """Identify records written by the evidence tools themselves so the timeline
+        does not list its own output.
+        """
         content = record.content
         return isinstance(content, dict) and content.get("tool_id") in EVIDENCE_TOOL_IDS
 
@@ -337,6 +383,9 @@ class EvidenceReader:
         query: ReadQuery,
         cited: tuple[str, ...],
     ) -> ToolResult:
+        """Check that each cited id exists in this incident and report not found
+        otherwise; this proves existence only and never that a claim is supported.
+        """
         if not cited:
             return _gap(tool_id, "unsupported", "citation_ids_required")
         if len(cited) > MAX_CITATIONS:
@@ -388,6 +437,9 @@ class EvidenceReader:
 
 
 def _is_id(value: str) -> bool:
+    """Return whether the value is a well-formed identifier, so malformed citations can
+    be reported without echoing them.
+    """
     try:
         _ = _ID.validate_python(value, strict=True)
     except ValidationError:

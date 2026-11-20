@@ -1,6 +1,6 @@
 # File name: react_agent.py
 # Author: Team LARP
-# Revision date: 2026-11-12
+# Revision date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Stateful Multi-Turn ReAct Autonomous Investigation Agent for TERMINUS.
 
@@ -62,6 +62,7 @@ def build_system_prompt(
 def _append_queried_citation(
     citations: list[dict[str, Any]], citation: dict[str, Any]
 ) -> None:
+    """Keep a threat-intel citation only if an external provider was actually queried."""
     if citation.get("queried") is True:
         citations.append(citation)
 
@@ -76,6 +77,7 @@ class ReActAgent:
         max_iterations: int = 3,
         default_persona_prompt: str | None = None,
     ) -> None:
+        """Store the model client, threat-intel client, iteration limit and default persona."""
         self.llm = llm
         self.threat_intel = threat_intel or ThreatIntelClient()
         self.max_iterations = max_iterations
@@ -103,6 +105,8 @@ class ReActAgent:
                 }
             )
 
+        # Everything after this point (indicator extraction, de-obfuscation, lookups and the prompt)
+        # uses the scrubbed log, so secrets never reach external providers or the model.
         scrubbed_log = SecretRedactor.redact(raw_full_log)
 
         # 2. Extract IOCs

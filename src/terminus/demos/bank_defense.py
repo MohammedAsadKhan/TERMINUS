@@ -1,6 +1,6 @@
 # File name: bank_defense.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Durable, local-only application gateway state for the fictional bank demo.
 
@@ -31,6 +31,9 @@ class BankDemoDefense:
     """Record actual demo requests and enforce source blocks at the bank API."""
 
     def __init__(self, db: Database | None = None) -> None:
+        """Bind the database and create the demo event, block and session tables if they
+        are missing.
+        """
         self.db = db or Database.get_instance()
         self.db.execute(
             "CREATE TABLE IF NOT EXISTS bank_demo_events ("
@@ -68,6 +71,7 @@ class BankDemoDefense:
         return peer
 
     def is_blocked(self, source_ip: str) -> bool:
+        """Check whether the fictional source address is on the demo block list."""
         return self.db.fetchone(
             "SELECT 1 FROM bank_demo_blocks WHERE source_ip=?", (source_ip,)
         ) is not None
@@ -80,6 +84,9 @@ class BankDemoDefense:
         detail: str,
         alert_id: str | None = None,
     ) -> int:
+        """Log one demo request outcome, truncating the detail to 240 characters, and
+        return the new row ID.
+        """
         cursor = self.db.execute(
             "INSERT INTO bank_demo_events(observed_at,source_ip,campaign,outcome,detail,alert_id) "
             "VALUES (?,?,?,?,?,?)",
@@ -88,6 +95,9 @@ class BankDemoDefense:
         return int(cursor.lastrowid)
 
     def failed_login_count(self, source_ip: str, *, window_seconds: int = 60) -> int:
+        """Count a source's failed logins inside the trailing time window, used to
+        decide when to block.
+        """
         cutoff = datetime.fromtimestamp(time.time() - window_seconds, UTC).isoformat()
         row = self.db.fetchone(
             "SELECT COUNT(*) AS total FROM bank_demo_events "
@@ -112,6 +122,9 @@ class BankDemoDefense:
         return self.is_blocked(source_ip)
 
     def create_session(self, source_ip: str) -> str:
+        """Issue a random demo session token bound to the source IP and valid for 15
+        minutes.
+        """
         token = uuid4().hex + uuid4().hex
         self.db.execute(
             "INSERT INTO bank_demo_sessions(token,source_ip,expires_at) VALUES (?,?,?)",
@@ -120,6 +133,9 @@ class BankDemoDefense:
         return token
 
     def valid_session(self, token: str, source_ip: str) -> bool:
+        """Accept a demo token only for the IP that received it and only before it
+        expires.
+        """
         return self.db.fetchone(
             "SELECT 1 FROM bank_demo_sessions "
             "WHERE token=? AND source_ip=? AND expires_at>?",
@@ -127,6 +143,9 @@ class BankDemoDefense:
         ) is not None
 
     def status(self) -> dict[str, Any]:
+        """Summarize event totals by outcome, recent blocks and recent events for the
+        demo dashboard.
+        """
         totals = {
             row["outcome"]: row["total"]
             for row in self.db.fetchall(

@@ -1,6 +1,6 @@
 # File name: models.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Strict durable records for orchestration; these records do not execute work.
 
@@ -40,14 +40,20 @@ ActionStatus = Literal[
 
 
 def utc_now() -> datetime:
+    """Return the current time as a timezone-aware UTC datetime."""
     return datetime.now(UTC)
 
 
 def new_id() -> str:
+    """Return a new random UUID4 string for use as a record identifier."""
     return str(uuid4())
 
 
 class DurableRecord(BaseModel):
+    # Immutable, strictly validated base for persisted orchestration records, always
+    # scoped by
+    # org_id and incident_id so storage can enforce tenant isolation.
+
     model_config: ClassVar[ConfigDict] = ConfigDict(
         extra="forbid", strict=True, frozen=True, allow_inf_nan=False
     )
@@ -68,6 +74,9 @@ class DurableRecord(BaseModel):
     )
     @classmethod
     def utc_timestamp(cls, value: datetime | None) -> datetime | None:
+        """Reject naive datetimes and normalize aware ones to UTC so stored times compare
+        consistently.
+        """
         if value is None:
             return None
         if value.tzinfo is None or value.utcoffset() is None:
@@ -76,6 +85,10 @@ class DurableRecord(BaseModel):
 
 
 class Task(DurableRecord):
+    # A unit of delegated incident work (area, role, objective) with a lifecycle status;
+    # an
+    # optional idempotency_key lets a repeated create return the same task.
+
     task_id: Identifier = Field(default_factory=new_id)
     parent_task_id: Identifier | None = None
     area: Label
@@ -90,6 +103,10 @@ class Task(DurableRecord):
 
 
 class AgentRun(DurableRecord):
+    # One execution of a task by an agent, recording the model connection used and the
+    # eventual
+    # result or error.
+
     run_id: Identifier = Field(default_factory=new_id)
     task_id: Identifier
     agent_id: Identifier | None = None
@@ -104,6 +121,10 @@ class AgentRun(DurableRecord):
 
 
 class EvidenceRecord(DurableRecord):
+    # Evidence collected for a task, stored inline or by reference with a 64-character
+    # hexadecimal
+    # content hash.
+
     evidence_id: Identifier = Field(default_factory=new_id)
     task_id: Identifier
     source: Label
@@ -115,12 +136,17 @@ class EvidenceRecord(DurableRecord):
 
     @model_validator(mode="after")
     def require_content(self) -> EvidenceRecord:
+        """Reject evidence that carries neither inline content nor a content reference."""
         if self.content is None and self.content_ref is None:
             raise ValueError("evidence requires content or a content reference")
         return self
 
 
 class HelpRequest(DurableRecord):
+    # A request for another specialist role to assist with a task, from open to resolved
+    # or
+    # cancelled.
+
     help_request_id: Identifier = Field(default_factory=new_id)
     task_id: Identifier
     requested_role: Label
@@ -131,6 +157,10 @@ class HelpRequest(DurableRecord):
 
 
 class ActionAttempt(DurableRecord):
+    # A response action proposed against one to 100 targets for a task; its status
+    # follows the
+    # lifecycle enforced in storage.py.
+
     attempt_id: Identifier = Field(default_factory=new_id)
     task_id: Identifier
     action: Label
@@ -142,6 +172,9 @@ class ActionAttempt(DurableRecord):
 
 
 class ActionAttemptEvent(DurableRecord):
+    # Immutable history entry recording each status change of an ActionAttempt and who
+    # made it.
+
     event_id: Identifier = Field(default_factory=new_id)
     attempt_id: Identifier
     status: ActionStatus

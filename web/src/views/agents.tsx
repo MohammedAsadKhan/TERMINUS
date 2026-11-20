@@ -1,6 +1,6 @@
 // File: agents.tsx
 // Author: Team LARP
-// Date: 2026-11-12
+// Date: 2026-11-19 (comments revised)
 // Version: 0.1.0
 // Purpose: Present saved agent definitions and recorded orchestration activity without implying live execution.
 
@@ -15,14 +15,19 @@ import { date, EmptyPanel, ErrorPanel, Loading, PageTitle, Status } from '../com
 import type { Agent } from '../types';
 import AgentActivity from './agent-activity';
 
+// Editable agent fields. A create request omits status; updates send it.
 type AgentFields = Pick<Agent, 'name' | 'role_description' | 'master_prompt' | 'status'>;
+// Tabs of the Agents page; the last one used is remembered per organization in this browser.
 type AgentsTab = 'activity' | 'configurations';
 
+// Keyed by organization so switching organizations remounts the workspace and drops any open editor.
 export default function Agents() {
   const { orgId } = useSession();
   return <AgentsWorkspace key={orgId} />;
 }
 
+// Recorded activity and saved agent definitions for the signed-in organization. Definitions are configuration only:
+// they do not start agents or prove execution. Editing controls are enabled only for organization admins.
 function AgentsWorkspace() {
   const { orgId, detail } = useSession();
   const { message, modal } = App.useApp();
@@ -30,15 +35,18 @@ function AgentsWorkspace() {
   const [activeTab, setActiveTab] = useState<AgentsTab>('activity');
   const [editing, setEditing] = useState<Agent | 'new' | null>(null);
   const [form] = Form.useForm<AgentFields>();
+  // Definitions load only while the Saved configurations tab is open.
   const agents = useQuery({ queryKey: ['agents', orgId], queryFn: () => api<Agent[]>('/agents', orgId), enabled: activeTab === 'configurations' });
   const canWrite = detail?.role === 'admin';
 
+  // Restore the tab last used in this organization and close any open editor when the organization changes.
   useEffect(() => {
     const saved = localStorage.getItem(`terminus-agent-view-${orgId}`);
     setActiveTab(saved === 'configurations' ? 'configurations' : 'activity');
     setEditing(null);
   }, [orgId]);
 
+  // Creating sends only the name, role and prompt; editing sends every form field, including status.
   const save = useMutation({
     mutationFn: (values: AgentFields) => editing === 'new'
       ? api('/agents', orgId, body('POST', { name: values.name, role_description: values.role_description, master_prompt: values.master_prompt }))
@@ -49,6 +57,7 @@ function AgentsWorkspace() {
       message.success('Agent configuration saved');
     },
   });
+  // Status change from the card dropdown.
   const change = useMutation({
     mutationFn: ({ agent, status }: { agent: Agent; status: string }) => api(`/agents/${agent.id}`, orgId, body('PATCH', { status })),
     onSuccess: () => {
@@ -64,6 +73,7 @@ function AgentsWorkspace() {
     form.setFieldsValue(agent === 'new' ? { name: '', role_description: '', master_prompt: '', status: 'active' } : agent);
   }
 
+  // On failure the error is shown and rethrown so the confirmation dialog stays open.
   function remove(agent: Agent) {
     modal.confirm({
       title: `Delete ${agent.name}?`,
@@ -88,6 +98,7 @@ function AgentsWorkspace() {
     localStorage.setItem(`terminus-agent-view-${orgId}`, tab);
   }
 
+  // Content of the Saved configurations tab.
   const configurations = <>
     <Alert className="context-alert" type="info" showIcon title="Agent Definition Workspace" description="Manage saved agent names, role descriptions, system prompts, and status labels used by workflow definitions. These records do not start agents or prove execution." />
     <ErrorPanel error={agents.error} retry={() => void agents.refetch()} />

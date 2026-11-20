@@ -1,6 +1,6 @@
 # File name: streaming.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Server-Sent Events (SSE) Real-Time Streaming Bus for TERMINUS.
 
@@ -33,10 +33,16 @@ class EventBroadcaster:
     """Pub/Sub event broadcaster for SSE clients with strict tenant isolation."""
 
     def __init__(self) -> None:
+        """Start with no subscribers; queues are kept per organization so events can be
+        delivered only within a tenant.
+        """
         # org_id -> list of queues
         self._subscribers: dict[str, list[asyncio.Queue[dict[str, Any]]]] = {}
 
     def subscribe(self, org_id: str | OrgId) -> asyncio.Queue[dict[str, Any]]:
+        """Register a new event queue for the organization and return it; the caller
+        must unsubscribe when the stream ends.
+        """
         org_key = str(org_id)
         q: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
         if org_key not in self._subscribers:
@@ -45,6 +51,10 @@ class EventBroadcaster:
         return q
 
     def unsubscribe(self, q: asyncio.Queue[dict[str, Any]], org_id: str | OrgId | None = None) -> None:
+        """Remove a queue from its organization's subscribers (searching all
+        organizations if no org is given) and drop the organization entry once it is
+        empty.
+        """
         if org_id is not None:
             org_key = str(org_id)
             if org_key in self._subscribers and q in self._subscribers[org_key]:
@@ -61,6 +71,8 @@ class EventBroadcaster:
 
     async def broadcast_to_org(self, org_id: str | OrgId, event_type: str, data: dict[str, Any]) -> None:
         """Broadcasts an event specifically to subscribers of the given tenant organization."""
+        # Isolation boundary: only this organization's queues are visited, and secrets
+        # are redacted before the payload is queued for any subscriber.
         org_key = str(org_id)
         redacted_data = SecretRedactor.redact_dict(data)
         payload = {"event": event_type, "data": redacted_data}
@@ -94,6 +106,10 @@ async def sse_events(
     queue = broadcaster.subscribe(org_id)
 
     async def event_generator() -> AsyncGenerator[str, None]:
+        """Yield SSE frames for this subscriber: an initial connected event, queued
+        events, and a keep-alive ping every 15 seconds of silence, unsubscribing when
+        the client disconnects.
+        """
         try:
             # Send initial connection ack
             yield f"event: connected\ndata: {json.dumps({'status': 'connected', 'org_id': str(org_id), 'message': 'Terminus SSE Event Bus Online'})}\n\n"

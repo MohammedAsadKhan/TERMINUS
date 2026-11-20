@@ -1,6 +1,6 @@
 // File: test-alerts.ts
 // Author: Team LARP
-// Date: 2026-11-09
+// Date: 2026-11-19 (comments revised)
 // Version: 0.1.0
 // Purpose: Define labeled synthetic alerts for local console exploration.
 
@@ -14,14 +14,19 @@ export const TEST_TOPICS = [
   { id: 'exfiltration', label: 'Unusual outbound data transfer', area: 'Network / Evidence', ruleId: 100106, level: 12, mitre: 'T1041', host: 'training-app-01' },
 ] as const;
 
+// Topic ids accepted by the synthetic alert generator.
 export type TestTopic = (typeof TEST_TOPICS)[number]['id'];
 
+// Random integer in [0, limit).
 const sample = (limit: number) => Math.floor(Math.random() * limit);
 
+// Picks a random scenario for the console's test-alert control.
 export function randomTestTopic(): TestTopic {
   return TEST_TOPICS[sample(TEST_TOPICS.length)].id;
 }
 
+// Builds one Wazuh-shaped synthetic alert. Every description and log line is labeled SYNTHETIC, and addresses
+// come from a documentation range, so these events cannot be mistaken for real detections.
 export function createTestAlert(topic: TestTopic) {
   const definition = TEST_TOPICS.find(item => item.id === topic)!;
   const sourceIp = `198.51.100.${1 + sample(253)}`; // RFC 5737 documentation range.

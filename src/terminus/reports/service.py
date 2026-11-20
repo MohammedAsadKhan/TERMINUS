@@ -1,6 +1,6 @@
 # File name: service.py
 # Author: Team LARP
-# Revision date: 2026-11-13
+# Revision date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Generate source-limited incident reports without inferring sensor coverage.
 
@@ -47,6 +47,9 @@ async def generate_daily_report(  # noqa: C901, PLR0915 -- bounded aggregation a
     tickets = await ticket_store.list_tickets(OrgId(org_id))
 
     def in_window(ticket: Mapping[str, object]) -> bool:
+        """Keep only tickets with a timezone-aware timestamp inside the report window;
+        missing, naive or unparsable timestamps are excluded rather than guessed.
+        """
         timestamp = cast(object, ticket.get("created_at") or ticket.get("timestamp"))
         if not timestamp:
             return False

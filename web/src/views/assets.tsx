@@ -1,6 +1,6 @@
 // File: assets.tsx
 // Author: Team LARP
-// Date: 2026-11-09
+// Date: 2026-11-19 (comments revised)
 // Version: 0.1.0
 // Purpose: Browse and manage the organization's asset inventory.
 
@@ -14,6 +14,7 @@ import { useSession } from '../context';
 import { date, ErrorPanel, PageTitle } from '../components';
 import { ASSET_KINDS, type Asset, type AssetCriticality, type AssetExposure } from '../asset-types';
 
+// Registration form values. The asset kind comes from the route, not from the form.
 type Fields = {
   name: string;
   locator?: string;
@@ -26,6 +27,7 @@ type Fields = {
   exposure?: AssetExposure;
 };
 
+// One static scan of a repository; stats are optional counts.
 type RepoScan = {
   scan_id: string;
   trigger: string;
@@ -43,6 +45,7 @@ type RepoScan = {
   };
 };
 
+// A finding from static analysis of a repository; status is the analyst's triage state.
 type RepoFinding = {
   finding_id: string;
   category: string;
@@ -58,6 +61,7 @@ type RepoFinding = {
   details?: Record<string, unknown>;
 };
 
+// A dependency extracted from a manifest file (an SBOM entry).
 type RepoComponent = {
   ecosystem: string;
   name: string;
@@ -65,6 +69,8 @@ type RepoComponent = {
   source_file: string;
 };
 
+// Inventory page for one asset kind (taken from the URL) in the signed-in organization. Registering, removing and
+// triaging findings are enabled only for admins; removing deletes the inventory record, not the real resource.
 export default function Assets() {
   const { kind } = useParams();
   const category = ASSET_KINDS.find(item => item.kind === kind);
@@ -77,8 +83,10 @@ export default function Assets() {
   const [form] = Form.useForm<Fields>();
   const canWrite = detail?.role === 'admin';
 
+  // Same cache key as the sidebar counts, so they share one request; every kind is loaded and filtered by route kind below.
   const assets = useQuery({ queryKey: ['assets', orgId], queryFn: () => api<Asset[]>('/assets', orgId) });
 
+  // Adds the kind from the route to the submitted form values.
   const save = useMutation({
     mutationFn: (values: Fields) => api<Asset>('/assets', orgId, body('POST', { ...values, kind })),
     onSuccess: () => {
@@ -89,6 +97,7 @@ export default function Assets() {
     },
   });
 
+  // Only queues a scan. Results arrive later, so the open drawer's scan, finding and component lists are refreshed.
   const triggerScan = useMutation({
     mutationFn: (assetId: string) => api<{ status: string; scan_id: string }>(`/assets/${encodeURIComponent(assetId)}/scan`, orgId, body('POST', {})),
     onSuccess: () => {
@@ -105,6 +114,7 @@ export default function Assets() {
     },
   });
 
+  // Changes a finding's triage status and refreshes the open drawer's findings.
   const updateFinding = useMutation({
     mutationFn: ({ findingId, status }: { findingId: string; status: string }) =>
       api<RepoFinding>(`/repo-findings/${encodeURIComponent(findingId)}`, orgId, body('PATCH', { status })),
@@ -116,6 +126,7 @@ export default function Assets() {
     },
   });
 
+  // The three repository queries run only while a repository's security drawer is open.
   const scans = useQuery({
     queryKey: ['repo-scans', orgId, selectedAsset?.asset_id],
     queryFn: () => (selectedAsset ? api<RepoScan[]>(`/assets/${encodeURIComponent(selectedAsset.asset_id)}/scans`, orgId) : Promise.resolve([])),
@@ -134,6 +145,7 @@ export default function Assets() {
     enabled: Boolean(selectedAsset && selectedAsset.kind === 'repository'),
   });
 
+  // Removes the inventory record only. On failure the error is shown and rethrown so the confirmation dialog stays open.
   function remove(asset: Asset) {
     modal.confirm({
       title: `Remove ${asset.name} from inventory?`,
@@ -153,6 +165,7 @@ export default function Assets() {
     });
   }
 
+  // Unrecognized or missing coverage (including not_connected) is shown as Not connected, never as scanned.
   function renderCoverageTag(coverage: string) {
     switch (coverage) {
       case 'scanned':
@@ -168,6 +181,7 @@ export default function Assets() {
     }
   }
 
+  // A missing criticality reads as Unclassified rather than as a low tier.
   function renderCriticalityTag(crit?: AssetCriticality | null) {
     if (!crit) return <Tag color="default">Unclassified</Tag>;
     switch (crit) {
@@ -184,6 +198,7 @@ export default function Assets() {
     }
   }
 
+  // Severity badge; anything unrecognized is shown as INFO.
   function renderSeverityTag(sev: string) {
     switch (sev) {
       case 'critical':
@@ -199,7 +214,9 @@ export default function Assets() {
     }
   }
 
+  // Unknown kinds in the URL redirect to repositories. This sits after all hooks so hook order stays stable.
   if (!category) return <Navigate to="/assets/repository" replace />;
+  // Client-side search over the loaded assets of this kind.
   const rows = (assets.data || []).filter(
     asset =>
       asset.kind === kind &&

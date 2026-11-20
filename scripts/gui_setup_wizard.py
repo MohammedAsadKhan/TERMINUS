@@ -1,6 +1,6 @@
 # File name: gui_setup_wizard.py
 # Author: Team LARP
-# Revision date: 2026-11-14
+# Revision date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Open the supported local setup flow from a small Windows GUI.
 
@@ -25,6 +25,8 @@ from tkinter import messagebox
 def project_root() -> Path:
     """Find the extracted source folder from the launch location or executable."""
     launch_dir = Path(sys.argv[0]).resolve().parent
+    # A folder counts as the source root only if it has both marker files; the
+    # working directory is tried before the launcher location.
     for candidate in (Path.cwd(), Path.cwd().parent, launch_dir, launch_dir.parent):
         if (candidate / "pyproject.toml").is_file() and (
             candidate / "run_service.bat"
@@ -72,6 +74,7 @@ def main() -> None:
     ).pack(padx=20)
 
     def launch() -> None:
+        """Start the locked setup command in its own console and show any launch error."""
         try:
             root = project_root()
             command = setup_command(root)

@@ -1,6 +1,6 @@
 # File name: registry.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Trusted response capability registry; recommendations do not imply execution.
 
@@ -12,6 +12,9 @@ from types import MappingProxyType
 
 @dataclass(frozen=True)
 class ResponseCapability:
+    """Immutable descriptor of one response action: whether it can execute, what
+    configuration it needs, and how it is verified and recovered.
+    """
     action: str
     executable: bool
     required_configuration: tuple[str, ...]

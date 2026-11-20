@@ -1,6 +1,6 @@
 // File: settings.tsx
 // Author: Team LARP
-// Date: 2026-11-12
+// Date: 2026-11-19 (comments revised)
 // Version: 0.1.0
 // Purpose: Manage saved console configuration and distinguish it from verified connectivity or enforced containment.
 
@@ -53,6 +53,9 @@ import { IngestModal } from './ingest-modal';
 import ModelSettings from './model-settings';
 import type { Membership } from '../types';
 
+// Serves two routes: Organization (members, seats, roles) and Platform settings (the model gateway plus saved server
+// configuration). Platform values are saved configuration only; they do not verify a provider, prove ingestion or
+// enforce containment, as the page text says. The configuration query runs only for admins.
 export default function Settings({ section = 'settings' }: { section?: 'organization' | 'settings' }) {
   const { user, orgId, detail } = useSession();
   const query = useQueryClient();
@@ -72,6 +75,8 @@ export default function Settings({ section = 'settings' }: { section?: 'organiza
     enabled: canWrite,
   });
 
+  // Secret fields always load blank because the API returns only masked values and has_* flags. The fallbacks apply when
+  // the server omits a value.
   // Populate config form when loaded
   useEffect(() => {
     if (configQuery.data) {
@@ -112,6 +117,8 @@ export default function Settings({ section = 'settings' }: { section?: 'organiza
     }
   }, [configQuery.data, configForm]);
 
+  // Blank fields are left out of the request so an untouched secret keeps its stored value; the side effect is that a
+  // field cannot be cleared to empty from this form.
   // Mutation to save settings
   const saveConfig = useMutation({
     mutationFn: (values: any) => {
@@ -144,6 +151,7 @@ export default function Settings({ section = 'settings' }: { section?: 'organiza
     onError: (err: Error) => message.error(`Connection check failed: ${err.message}`),
   });
 
+  // Adds an existing registered user, identified by user id, to the organization.
   const add = useMutation({
     mutationFn: (values: { user_id: string; role: string }) => api(`/orgs/${orgId}/members`, orgId, body('POST', values)),
     onSuccess: () => {
@@ -154,6 +162,7 @@ export default function Settings({ section = 'settings' }: { section?: 'organiza
     },
   });
 
+  // Submits a signed license token; the server validates it and any error is shown as a message.
   const license = useMutation({
     mutationFn: (values: { token: string }) => api(`/orgs/${orgId}/license`, orgId, body('POST', values)),
     onSuccess: () => {
@@ -163,6 +172,7 @@ export default function Settings({ section = 'settings' }: { section?: 'organiza
     onError: error => message.error(error.message),
   });
 
+  // Changes a member's role; the member list reloads on success and the server's error is shown otherwise.
   async function role(member: Membership, value: string) {
     try {
       await api(`/orgs/${orgId}/members/${member.user_id}`, orgId, body('PATCH', { role: value }));
@@ -173,6 +183,7 @@ export default function Settings({ section = 'settings' }: { section?: 'organiza
     }
   }
 
+  // Removes the membership only. On failure the error is shown and rethrown so the confirmation dialog stays open.
   function remove(member: Membership) {
     modal.confirm({
       title: `Remove ${member.user?.display_name || member.user_id}?`,
@@ -194,6 +205,7 @@ export default function Settings({ section = 'settings' }: { section?: 'organiza
   // ─────────────────────────────────────────────────────────────────────────────
   // ORGANIZATION VIEW
   // ─────────────────────────────────────────────────────────────────────────────
+  // The organization route returns here; the hooks above run for both views so hook order stays the same.
   if (section === 'organization') {
     return (
       <>
@@ -332,8 +344,11 @@ export default function Settings({ section = 'settings' }: { section?: 'organiza
   // ─────────────────────────────────────────────────────────────────────────────
   // MAIN PLATFORM SETTINGS & APPLICATION CONFIGURATION
   // ─────────────────────────────────────────────────────────────────────────────
+  // Masked values and has_* flags only; stored secrets are never returned to the browser.
   const cfg = configQuery.data;
 
+  // The model gateway tab has its own save controls, so the shared form renders as a plain wrapper there (component={false}).
+  // The other tabs share one form, and Save configuration submits their values together.
   return (
     <>
       <PageTitle

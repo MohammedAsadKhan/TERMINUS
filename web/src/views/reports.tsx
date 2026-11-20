@@ -1,6 +1,6 @@
 // File: reports.tsx
 // Author: Team LARP
-// Date: 2026-11-12
+// Date: 2026-11-19 (comments revised)
 // Version: 0.1.0
 // Purpose: Browse and generate incident and operations reports, labeling verdict provenance.
 
@@ -14,6 +14,7 @@ import { useSession } from '../context';
 import { date, EmptyPanel, ErrorPanel, PageTitle, Stat } from '../components';
 import type { Report } from '../types';
 
+// Display names for the analysis modes a report can record.
 const ANALYSIS_MODE_LABELS: Record<string, string> = {
   provider: 'Provider model',
   scripted: 'Scripted / simulated',
@@ -41,11 +42,16 @@ function verdictProvenance(report: Report) {
   };
 }
 
+// Report library and detail drawer for the signed-in organization. The selected report is kept in the ?report= URL
+// parameter so it can be linked, and generating is disabled while the role is unknown and for viewers.
 export default function Reports() {
   const { orgId, detail } = useSession(); const query = useQueryClient(); const { message } = App.useApp();
   const [search, setSearch] = useState(''); const [kind, setKind] = useState('quick'); const [params, setParams] = useSearchParams();
+  // Polled every 15 seconds so newly generated reports appear.
   const reports = useQuery({ queryKey: ['reports', orgId], queryFn: () => api<Report[]>('/reports', orgId), refetchInterval: 15000 });
+  // The selected window (quick or daily) chooses the endpoint; the new report is opened after it is created.
   const generate = useMutation({ mutationFn: () => api<Report>(`/reports/${kind}`, orgId, body('POST')), onSuccess: report => { query.invalidateQueries({ queryKey: ['reports', orgId] }); setParams({ report: report.id }); message.success('Report generated'); }, onError: error => message.error(error.message) });
+  // Looked up in the loaded list, so an unknown id in the URL simply shows no drawer.
   const selected = reports.data?.find(report => report.id === params.get('report'));
   const selectedVerdict = selected ? verdictProvenance(selected) : null;
   return <><PageTitle eyebrow="INVESTIGATE / REPORTS" title="A record of your response." description="Review incident summaries with explicit reporting windows and measured totals." actions={<Space><Select aria-label="Report window" value={kind} onChange={setKind} options={[{ value: 'quick', label: 'Today · UTC' }, { value: 'daily', label: 'Last 24 hours' }]} /><Button type="primary" icon={<PlusOutlined />} disabled={!detail || detail.role === 'viewer'} loading={generate.isPending} onClick={() => generate.mutate()}>Generate report</Button></Space>} />

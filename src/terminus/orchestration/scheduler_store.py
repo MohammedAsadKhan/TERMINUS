@@ -1,6 +1,6 @@
 # File name: scheduler_store.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Atomic durable admission, coordinator ownership, job leases and recovery.
 
@@ -72,6 +72,7 @@ class SchedulerLeaseError(OrchestrationConflictError):
 
 
 def _seconds(value: float) -> float:
+    """Validate a lease duration as a finite number in (0, 3600] and return it as a float."""
     if (
         isinstance(value, bool)
         or not isinstance(value, (int, float))
@@ -83,6 +84,7 @@ def _seconds(value: float) -> float:
 
 
 def _bounded_payload(record: Task | AgentRun | SchedulerJob) -> str:
+    """Serialize a record to JSON, rejecting payloads over 256 KiB."""
     payload = record.model_dump_json()
     if len(payload.encode("utf-8")) > 262144:
         raise ValueError("record payload exceeds 256 KiB")
@@ -90,12 +92,14 @@ def _bounded_payload(record: Task | AgentRun | SchedulerJob) -> str:
 
 
 def _sql_time(value: datetime) -> str:
+    """Format a time as fixed-width UTC text so SQLite's text comparisons order correctly."""
     # SQLite compares these indexed columns as text. A fixed UTC representation
     # preserves ordering at exact-second boundaries and for subsecond leases.
     return value.astimezone(UTC).isoformat(timespec="microseconds")
 
 
 def _job_data(job: SchedulerJob) -> dict[str, Any]:
+    """Flatten a job to column values, converting timestamps to the SQL text form."""
     data = job.model_dump(mode="json")
     for column in _JOB_TIMESTAMPS:
         value = getattr(job, column)
@@ -104,15 +108,23 @@ def _job_data(job: SchedulerJob) -> dict[str, Any]:
 
 
 class SchedulerStore:
+    """Durable job admission, coordinator ownership and lease bookkeeping on top of
+    OrchestrationStore; each state change runs in a transaction.
+    """
+
     def __init__(
         self, db: Database, *, clock: Callable[[], datetime] = utc_now
     ) -> None:
+        """Bind the store to a database and an injectable clock, and start with no cached
+        coordinator tokens.
+        """
         self.db = db
         self.records = OrchestrationStore(db)
         self.clock = clock
         self._coordinators: dict[str, str] = {}
 
     def _now(self) -> datetime:
+        """Read the clock, requiring an aware datetime, and convert it to UTC."""
         value = self.clock()
         if value.tzinfo is None or value.utcoffset() is None:
             raise ValueError("scheduler clock must return an aware datetime")
@@ -121,6 +133,9 @@ class SchedulerStore:
     def enqueue_task(
         self, org_id: str, task_id: str, *, max_attempts: int = 3
     ) -> SchedulerJob:
+        """Admit a queued task of an existing incident as a job, returning the existing job when
+        re-admitted with the same settings.
+        """
         if type(max_attempts) is not int or not 1 <= max_attempts <= 5:
             raise ValueError("max_attempts must be an integer in 1..5")
         with self.db.transaction():
@@ -169,9 +184,11 @@ class SchedulerStore:
 
     @staticmethod
     def _decode(row: dict[str, Any]) -> SchedulerJob:
+        """Rebuild a job from its stored JSON payload."""
         return SchedulerJob.model_validate_json(row["payload_json"])
 
     def get_job(self, org_id: str, task_id: str) -> SchedulerJob:
+        """Fetch the job for a task within the organization."""
         _IDENTIFIER.validate_python(org_id, strict=True)
         _IDENTIFIER.validate_python(task_id, strict=True)
         row = self.db.fetchone(
@@ -192,6 +209,9 @@ class SchedulerStore:
         limit: int = 50,
         offset: int = 0,
     ) -> list[SchedulerJob]:
+        """List an organization's jobs in admission order, optionally filtered by incident and
+        status.
+        """
         _IDENTIFIER.validate_python(org_id, strict=True)
         if (
             type(limit) is not int
@@ -218,6 +238,9 @@ class SchedulerStore:
     def acquire_coordinator(
         self, owner_id: str, lease_seconds: float = 30
     ) -> CoordinatorLease | None:
+        """Take the single coordinator lease if none is live, returning None while another owner's
+        lease has not expired.
+        """
         _IDENTIFIER.validate_python(owner_id, strict=True)
         seconds = _seconds(lease_seconds)
         with self.db.transaction():
@@ -252,6 +275,9 @@ class SchedulerStore:
             return lease
 
     def _require_coordinator(self, owner_id: str, now: datetime) -> None:
+        """Raise unless this owner still holds an unexpired coordinator lease with the token issued
+        to it.
+        """
         row = self.db.fetchone(
             "SELECT * FROM orchestration_scheduler_coordinator WHERE singleton=1"
         )
@@ -266,6 +292,7 @@ class SchedulerStore:
     def renew_coordinator(
         self, lease: CoordinatorLease, lease_seconds: float = 30
     ) -> CoordinatorLease:
+        """Extend the coordinator lease after re-checking ownership and the fencing token."""
         seconds = _seconds(lease_seconds)
         with self.db.transaction():
             now = self._now()
@@ -291,6 +318,8 @@ class SchedulerStore:
             return updated
 
     def release_coordinator(self, lease: CoordinatorLease) -> bool:
+        """Delete the coordinator lease only if the caller still holds it, returning whether it did.
+        """
         with self.db.transaction():
             count = self.db.execute(
                 "DELETE FROM orchestration_scheduler_coordinator "
@@ -302,6 +331,7 @@ class SchedulerStore:
             return count == 1
 
     def _save_job(self, job: SchedulerJob) -> None:
+        """Write the job's current column values and payload back to its row."""
         data = _job_data(job)
         payload = _bounded_payload(job)
         self.db.execute(
@@ -318,6 +348,7 @@ class SchedulerStore:
         )
 
     def _save_record(self, record: Task | AgentRun) -> None:
+        """Write a task or agent run's status and payload back to its row."""
         table, key = (
             ("orchestration_tasks", "task_id")
             if isinstance(record, Task)
@@ -334,6 +365,9 @@ class SchedulerStore:
         )
 
     def _uncertain(self, org_id: str, task_id: str) -> bool:
+        """Report whether the task has an action that may have taken effect with an unconfirmed
+        outcome (dispatched, acknowledged or unknown).
+        """
         return bool(
             self.db.fetchone(
                 "SELECT 1 FROM orchestration_action_attempts WHERE org_id=? AND task_id=? "
@@ -372,6 +406,9 @@ class SchedulerStore:
         global_limit: int = 4,
         per_org_limit: int = 2,
     ) -> JobLease | None:
+        """Atomically claim the highest-priority eligible job, within the global and
+        per-organization limits, and create its run and lease.
+        """
         _IDENTIFIER.validate_python(worker_id, strict=True)
         seconds = _seconds(lease_seconds)
         if any(
@@ -411,6 +448,9 @@ class SchedulerStore:
             for row in rows:
                 job = self._decode(row)
                 task = self.records.get_task(job.org_id, job.task_id)
+                # Safety order: an unconfirmed action outcome is checked first, then any earlier
+                # dispatch, before the task's own status. A task with a possible side effect is held
+                # for reconciliation and never silently re-run.
                 if self._uncertain(job.org_id, job.task_id):
                     self._hold(job, task, now, "Action outcome requires reconciliation")
                     continue
@@ -479,6 +519,7 @@ class SchedulerStore:
 
     @staticmethod
     def _lease(job: SchedulerJob, task: Task, run: AgentRun) -> JobLease:
+        """Assemble the lease object a worker receives from a job, task and run."""
         return JobLease(
             org_id=job.org_id,
             incident_id=job.incident_id,
@@ -497,6 +538,9 @@ class SchedulerStore:
         )
 
     def _owned(self, lease: JobLease, now: datetime) -> SchedulerJob:
+        """Return the job only if the lease still matches its worker, run and token and neither the
+        job lease nor the coordinator lease has expired.
+        """
         job = self.get_job(lease.org_id, lease.task_id)
         if (
             job.status != "running"
@@ -509,6 +553,8 @@ class SchedulerStore:
             or job.lease_expires_at <= now
         ):
             raise SchedulerLeaseError("Job ownership is stale or expired")
+        # The job's own lease is verified first; the coordinator lease it was claimed under must
+        # also still be live, so a superseded scheduler cannot keep acting.
         coordinator = self.db.fetchone(
             "SELECT * FROM orchestration_scheduler_coordinator WHERE singleton=1"
         )
@@ -559,15 +605,23 @@ class SchedulerStore:
             )
 
     def is_cancel_requested(self, lease: JobLease) -> bool:
+        """Report whether the handler should stop: cancellation was requested, or the lease is no
+        longer valid.
+        """
         with self.db.transaction():
             try:
                 return self._owned(lease, self._now()).cancellation_requested
+            # Fail closed: a lost or unknown lease is reported as cancelled so the handler stops
+            # rather than continuing without ownership.
             except (SchedulerLeaseError, OrchestrationNotFoundError):
                 return True
 
     def _hold(
         self, job: SchedulerJob, task: Task, now: datetime, reason: str
     ) -> SchedulerJob:
+        """Park the task and job as waiting with a recovery reason, clearing the lease so nothing
+        replays automatically.
+        """
         self._save_record(
             Task.model_validate(
                 task.model_dump()
@@ -602,6 +656,9 @@ class SchedulerStore:
         retryable: bool = False,
         cancelled: bool = False,
     ) -> SchedulerJob:
+        """Record a run outcome and choose the job's next state (completed, cancelled, retry with
+        backoff, failed, or held when an action outcome is uncertain).
+        """
         task = self.records.get_task(job.org_id, job.task_id)
         run = self.records.get_agent_run(job.org_id, cast("str", job.run_id))
         uncertain = self._uncertain(job.org_id, job.task_id)
@@ -621,6 +678,8 @@ class SchedulerStore:
             }
         )
         self._save_record(run)
+        # Ambiguous outcome: when an action may have taken effect, the job is held for manual
+        # reconciliation instead of being retried or marked failed.
         if uncertain or unsafe_replay:
             updated = SchedulerJob.model_validate(job.model_dump() | {"error": error})
             return self._hold(
@@ -670,6 +729,9 @@ class SchedulerStore:
         return updated
 
     def complete(self, lease: JobLease, result: JsonValue) -> SchedulerJob:
+        """Finish an owned job successfully after checking the result fits the run record's size
+        limit.
+        """
         with self.db.transaction():
             now = self._now()
             job = self._owned(lease, now)
@@ -682,6 +744,9 @@ class SchedulerStore:
     def fail(
         self, lease: JobLease, error: str, *, retryable: bool = True
     ) -> SchedulerJob:
+        """Finish an owned job with an error, scheduling a retry if it is retryable and attempts
+        remain.
+        """
         if type(retryable) is not bool:
             raise ValueError("retryable must be a boolean")
         with self.db.transaction():
@@ -692,6 +757,7 @@ class SchedulerStore:
             return self._finish(job, now, error=error, retryable=retryable)
 
     def cancel(self, lease: JobLease) -> SchedulerJob:
+        """Finish an owned job as cancelled."""
         with self.db.transaction():
             now = self._now()
             return self._finish(self._owned(lease, now), now, cancelled=True)
@@ -718,6 +784,10 @@ class SchedulerStore:
             )
 
     def request_cancel(self, org_id: str, task_id: str) -> SchedulerJob:
+        """Flag a job for cancellation: a running job stops at its next checkpoint, while a queued
+        job is cancelled at once unless it is waiting or has an uncertain action, in which case it
+        is held for reconciliation.
+        """
         with self.db.transaction():
             job = self.get_job(org_id, task_id)
             if job.status in _TERMINAL:
@@ -755,6 +825,9 @@ class SchedulerStore:
             return job
 
     def recover_expired(self, owner_id: str) -> list[SchedulerJob]:
+        """Fence running jobs whose lease has expired and fail them as retryable (or hold them if an
+        action outcome is uncertain); only the live coordinator may call it.
+        """
         with self.db.transaction():
             now = self._now()
             self._require_coordinator(owner_id, now)
@@ -766,6 +839,8 @@ class SchedulerStore:
             recovered = []
             for row in rows:
                 job = self._decode(row)
+                # The expired holder is treated as possibly still running, so the old lease is
+                # fenced and the job gets a new attempt only through the normal retry path.
                 reason = "Worker lease expired; previous execution fenced"
                 job = SchedulerJob.model_validate(
                     job.model_dump() | {"recovery_reason": reason}

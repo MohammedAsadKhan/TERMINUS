@@ -1,6 +1,6 @@
 # File name: deploy.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Scheduler-loadable specialist handlers: ``ROLE=...specialists.deploy:ROLE``.
 
@@ -113,6 +113,9 @@ def build_deployment_deps(  # noqa: C901, PLR0915 - explicit composition root
     guard = threading.Lock()
 
     def read_service_for(org_id: str) -> InvestigationReadService | None:
+        """Return the cached read service for an existing organization, creating it from its
+        connectors, or None for an unknown organization.
+        """
         with guard:
             if org_id in services:
                 return services[org_id]
@@ -153,6 +156,9 @@ def build_deployment_deps(  # noqa: C901, PLR0915 - explicit composition root
         return stamp if stamp.tzinfo is not None else stamp.replace(tzinfo=UTC)
 
     def help_context_for(org_id: str, task_id: str) -> SharedHelpContext | None:
+        """Load the durable help contract for a delegated task as a SharedHelpContext, or None if
+        the task is not a help task.
+        """
         from terminus.orchestration.storage import OrchestrationNotFoundError
 
         try:
@@ -180,6 +186,9 @@ def build_deployment_deps(  # noqa: C901, PLR0915 - explicit composition root
         )
 
     def authentication_incident_for(org_id: str, incident_id: str) -> bool:
+        """Report whether the incident's alert rule belongs to an authentication group, treating
+        missing or malformed data as not authentication.
+        """
         row = db.fetchone(
             "SELECT raw_payload_json FROM incidents WHERE org_id=? AND ticket_id=?",
             (org_id, incident_id),
@@ -238,6 +247,7 @@ def build_deployment_deps(  # noqa: C901, PLR0915 - explicit composition root
         def live_client_for(
             connection: ModelConnectionView,
         ) -> ProductionModelTransport:
+            """Create the production model transport for a registered connection."""
             return ProductionModelTransport(connection, connections, actor)
 
         client_for = live_client_for
@@ -254,6 +264,7 @@ def build_deployment_deps(  # noqa: C901, PLR0915 - explicit composition root
 
 
 def _handlers() -> dict[str, JobHandler]:
+    """Build the role handlers once, on the first leased task, and cache them."""
     with _LOCK:
         cached = _STATE.get("handlers")
         if cached is None:
@@ -263,36 +274,45 @@ def _handlers() -> dict[str, JobHandler]:
 
 
 async def _run(role: str, ctx: JobContext) -> JsonValue:
+    """Dispatch a leased job to the handler for its role."""
     return await _handlers()[role](ctx)
 
 
 async def triage(ctx: JobContext) -> JsonValue:
+    """Scheduler handler for the triage role."""
     return await _run("triage", ctx)
 
 
 async def identity(ctx: JobContext) -> JsonValue:
+    """Scheduler handler for the identity role."""
     return await _run("identity", ctx)
 
 
 async def endpoint(ctx: JobContext) -> JsonValue:
+    """Scheduler handler for the endpoint role."""
     return await _run("endpoint", ctx)
 
 
 async def network(ctx: JobContext) -> JsonValue:
+    """Scheduler handler for the network role."""
     return await _run("network", ctx)
 
 
 async def response_planner(ctx: JobContext) -> JsonValue:
+    """Scheduler handler for the response planner role."""
     return await _run("response_planner", ctx)
 
 
 async def verification(ctx: JobContext) -> JsonValue:
+    """Scheduler handler for the verification role."""
     return await _run("verification", ctx)
 
 
 async def evidence_reporting(ctx: JobContext) -> JsonValue:
+    """Scheduler handler for the evidence reporting role."""
     return await _run("evidence_reporting", ctx)
 
 
 async def application_api(ctx: JobContext) -> JsonValue:
+    """Scheduler handler for the application API role."""
     return await _run("application_api", ctx)

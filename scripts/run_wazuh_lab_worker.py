@@ -1,6 +1,6 @@
 # File name: run_wazuh_lab_worker.py
 # Author: Team LARP
-# Date: 2026-11-09
+# Date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Prompt locally for lab credentials and launch a read-only specialist worker.
 
@@ -15,11 +15,18 @@ import sys
 
 
 def main() -> None:
+    """Prompt for lab passwords and run the read-only specialist worker in a child process.
+
+    Passwords are passed only through the child's environment, never as arguments.
+    Model calls are disabled and no response handler is registered.
+    """
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--database", required=True)
     parser.add_argument("--org", required=True)
     parser.add_argument("--actor", required=True)
     args = parser.parse_args()
+    # Fixed lab endpoints; the self-signed lab certificates are why TLS verification is
+    # off. The indexer address is a loopback SSH tunnel, so the tunnel must stay open.
     env = os.environ.copy()
     prefix = "TERMINUS_SPECIALIST_WAZUH_"
     env.update(
@@ -50,6 +57,7 @@ def main() -> None:
         args.database,
         "--coordination",
     ]
+    # Only the read-only triage, identity, and endpoint handlers are registered.
     for role in ("triage", "identity", "endpoint"):
         command.extend(
             ["--handler", f"{role}=terminus.orchestration.specialists.deploy:{role}"]

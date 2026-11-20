@@ -1,6 +1,6 @@
 # File name: client.py
 # Author: Team LARP
-# Revision date: 2026-11-12
+# Revision date: 2026-11-19 (comments revised)
 # Version: 0.1.0
 # Purpose: Send configured model requests and keep offline mode explicit.
 
@@ -18,12 +18,18 @@ from terminus.llm.base import JsonValue, LlmClient, LlmError
 
 
 class OpenAiCompatibleLlm(LlmClient):
+    """Client for an OpenAI-compatible chat completions endpoint, offering JSON replies and a
+    bounded tool conversation.
+    """
+
     def __init__(self, base_url: str, api_key: str, model: str) -> None:
+        """Store the endpoint URL (without a trailing slash), bearer API key and model name."""
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
         self.model = model
 
     async def respond_json(self, system: str, user: str) -> dict[str, JsonValue]:
+        """Request a JSON-object reply, raising LlmError for transport, parse or shape failures."""
         async with create_async_client() as client:
             try:
                 response = await client.post(
@@ -67,6 +73,8 @@ class OpenAiCompatibleLlm(LlmClient):
         used: list[str] = []
         async with create_async_client() as client:
             for round_index in range(max_rounds + 1):
+                # The final round sets tool_choice to none so the model must answer instead of
+                # requesting more tools.
                 payload: dict[str, Any] = {
                     "model": self.model,
                     "messages": messages,
@@ -90,6 +98,8 @@ class OpenAiCompatibleLlm(LlmClient):
                                 delay = 4.0
                             await asyncio.sleep(min(max(delay, 1.0), 20.0))
                             continue
+                        # Some providers reject tool use with a 400; retry without tool
+                        # definitions so the conversation can still produce an answer.
                         if response.status_code == 400 and attempt < 2:
                             try:
                                 error_code = response.json().get("error", {}).get("code")
@@ -141,14 +151,23 @@ class UnavailableLlm(LlmClient):
     """Fail visibly when no model was explicitly configured."""
 
     async def respond_json(self, system: str, user: str) -> dict[str, JsonValue]:
+        """Always raise LlmError so callers record an offline mode instead of a fabricated verdict.
+        """
         raise LlmError("Model unavailable: configure TERMINUS_LLM_API_KEY")
 
 
 class ScriptedLlm(LlmClient):
+    """Deterministic stand-in that returns a canned verdict chosen by keywords in the prompt; no
+    model is called.
+    """
+
     def __init__(self) -> None:
         pass
 
     async def respond_json(self, system: str, user: str) -> dict[str, JsonValue]:
+        """Return the canned verdict whose keywords appear in the prompt, or a generic
+        medium-severity one.
+        """
         user_upper = user.upper()
 
         if "LOG4J" in user_upper or "44228" in user_upper or "JNDI" in user_upper:
